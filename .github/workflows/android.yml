@@ -8,6 +8,8 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -90,3 +92,17 @@ jobs:
         with:
           name: p2pchat-release-apk
           path: android/app/build/outputs/apk/release/*.apk
+
+      - name: Publish latest release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: p2pchat (latest)
+          body: |
+            Последняя сборка из ветки ${{ github.ref_name }}.
+            Коммит: ${{ github.sha }}
+          make_latest: true
+          files: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/debug/app-debug.apk

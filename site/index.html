@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>p2pchat — чат без сервера</title>
+<meta name="description" content="p2pchat — децентрализованный чат между телефонами напрямую, без центрального сервера для сообщений.">
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#111a33; --card:#151f3d; --line:#26325a;
+    --fg:#e8edff; --muted:#9aa7c7; --accent:#5b8cff; --accent2:#43d6a0;
+    --warn:#ffcf6b; --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #16224a 0%, var(--bg) 55%) fixed;
+    color:var(--fg); line-height:1.6;
+  }
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1040px; margin:0 auto; padding:0 20px}
+  header.nav{
+    position:sticky; top:0; z-index:10; backdrop-filter:blur(10px);
+    background:rgba(11,16,32,.75); border-bottom:1px solid var(--line);
+  }
+  .nav .wrap{display:flex; align-items:center; justify-content:space-between; height:60px}
+  .brand{font-weight:700; letter-spacing:.3px}
+  .brand span{color:var(--accent)}
+  .nav nav a{margin-left:18px; color:var(--muted); font-size:14px}
+  .nav nav a:hover{color:var(--fg)}
+  .btn{
+    display:inline-block; padding:12px 20px; border-radius:12px; font-weight:600;
+    background:var(--accent); color:#06122e; text-decoration:none; border:1px solid transparent;
+  }
+  .btn:hover{filter:brightness(1.08); text-decoration:none}
+  .btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--line)}
+  .hero{padding:64px 0 32px; text-align:center}
+  .hero h1{font-size:clamp(28px,5vw,46px); margin:0 0 12px; line-height:1.15}
+  .hero p{color:var(--muted); font-size:clamp(15px,2.2vw,19px); max-width:720px; margin:0 auto 26px}
+  .cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+  .meta{margin-top:14px; color:var(--muted); font-size:13px}
+  section{padding:40px 0; border-top:1px solid var(--line)}
+  h2{font-size:clamp(22px,3.4vw,30px); margin:0 0 8px}
+  .sub{color:var(--muted); margin:0 0 26px}
+  .grid{display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .card{
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line); border-radius:var(--radius); padding:20px;
+  }
+  .card h3{margin:0 0 6px; font-size:17px}
+  .card p{margin:0; color:var(--muted); font-size:14.5px}
+  .steps{counter-reset:s; display:grid; gap:14px}
+  .step{
+    display:flex; gap:16px; align-items:flex-start; background:var(--card);
+    border:1px solid var(--line); border-radius:14px; padding:16px 18px;
+  }
+  .step .n{
+    flex:0 0 34px; height:34px; width:34px; border-radius:50%;
+    display:grid; place-items:center; font-weight:700; color:#06122e; background:var(--accent);
+  }
+  .step h3{margin:2px 0 4px; font-size:16px}
+  .step p{margin:0; color:var(--muted); font-size:14.5px}
+  .figure{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; overflow:auto}
+  .figure svg{display:block; width:100%; height:auto; min-width:560px}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-top:10px}
+  .legend i{display:inline-block; width:26px; height:0; border-top:3px solid var(--accent); vertical-align:middle; margin-right:6px}
+  .legend i.dir{border-top-color:var(--accent2)}
+  .legend i.dash{border-top-style:dashed; border-top-color:var(--warn)}
+  .note{border-left:3px solid var(--warn); background:rgba(255,207,107,.08); padding:12px 16px; border-radius:10px; color:var(--fg)}
+  code{background:#0a1230; border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:13px}
+  .faq dt{font-weight:600; margin-top:16px}
+  .faq dd{margin:4px 0 0; color:var(--muted)}
+  footer{border-top:1px solid var(--line); padding:28px 0; color:var(--muted); font-size:14px}
+  footer .wrap{display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  .lang{font-size:13px; color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <div class="brand">p2p<span>chat</span></div>
+    <nav>
+      <a href="#how">Как работает</a>
+      <a href="#start">Как начать</a>
+      <a href="#privacy">Приватность</a>
+      <a href="#faq">Вопросы</a>
+      <a href="https://github.com/dabuldakov/p2p-chat" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <h1>Чат между телефонами — напрямую</h1>
+  <p>p2pchat соединяет два устройства через интернет без центрального сервера для сообщений.
+     Сервер нужен только на несколько секунд — помочь телефонам найти друг друга.</p>
+  <div class="cta">
+    <a class="btn" href="https://github.com/dabuldakov/p2p-chat/releases/latest/download/app-release.apk">Скачать APK (Android)</a>
+    <a class="btn ghost" href="https://github.com/dabuldakov/p2p-chat/releases" target="_blank" rel="noopener">Все сборки</a>
+  </div>
+  <div class="meta">Последняя сборка публикуется автоматически · Android 8.0+ · открытый исходный код</div>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <h2>Как это работает</h2>
+    <p class="sub">Два телефона соединяются друг с другом напрямую. Посредник участвует только в «знакомстве».</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 860 340" role="img" aria-label="Схема: два телефона и сервер знакомства">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/>
+          </marker>
+          <marker id="arm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#ffcf6b"/>
+          </marker>
+          <marker id="arb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#5b8cff"/>
+          </marker>
+        </defs>
+
+        <!-- phones -->
+        <g>
+          <rect x="40" y="90" width="130" height="150" rx="16" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <rect x="58" y="112" width="94" height="106" rx="8" fill="#16224a"/>
+          <text x="105" y="270" fill="#e8edff" font-size="16" text-anchor="middle">Телефон A</text>
+        </g>
+        <g>
+          <rect x="690" y="90" width="130" height="150" rx="16" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <rect x="708" y="112" width="94" height="106" rx="8" fill="#16224a"/>
+          <text x="755" y="270" fill="#e8edff" font-size="16" text-anchor="middle">Телефон B</text>
+        </g>
+
+        <!-- direct p2p arrow -->
+        <line x1="176" y1="150" x2="684" y2="150" stroke="#43d6a0" stroke-width="3" marker-end="url(#ar)"/>
+        <line x1="684" y1="178" x2="176" y2="178" stroke="#43d6a0" stroke-width="3" marker-end="url(#ar)"/>
+        <text x="430" y="140" fill="#43d6a0" font-size="15" text-anchor="middle">сообщения идут напрямую</text>
+
+        <!-- signaling server -->
+        <rect x="345" y="20" width="170" height="60" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+        <text x="430" y="46" fill="#e8edff" font-size="15" text-anchor="middle">Сервер знакомства</text>
+        <text x="430" y="66" fill="#9aa7c7" font-size="12" text-anchor="middle">обмен адресами, пара секунд</text>
+        <line x1="375" y1="80" x2="150" y2="118" stroke="#5b8cff" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arb)"/>
+        <line x1="485" y1="80" x2="700" y2="118" stroke="#5b8cff" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arb)"/>
+        <text x="430" y="108" fill="#5b8cff" font-size="12" text-anchor="middle">только установка связи</text>
+
+        <!-- turn -->
+        <rect x="345" y="280" width="170" height="46" rx="12" fill="#0e1733" stroke="#ffcf6b" stroke-width="2"/>
+        <text x="430" y="300" fill="#e8edff" font-size="14" text-anchor="middle">Ретранслятор (TURN)</text>
+        <text x="430" y="317" fill="#9aa7c7" font-size="11" text-anchor="middle">запасной путь, если сеть мешает</text>
+        <line x1="150" y1="230" x2="380" y2="286" stroke="#ffcf6b" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arm)"/>
+        <line x1="700" y1="230" x2="480" y2="286" stroke="#ffcf6b" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arm)"/>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i class="dir"></i>прямое соединение (основной путь)</span>
+      <span><i></i>сервер знакомства (не видит сообщений)</span>
+      <span><i class="dash"></i>релей TURN (только при сложной сети)</span>
+    </div>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <h2>Как начать</h2>
+    <p class="sub">Нужны два Android-телефона и интернет. Регистрация не нужна.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div>
+        <h3>Скачайте и установите приложение</h3>
+        <p>Нажмите «Скачать APK» и установите на оба телефона. Если система предупредит —
+           разрешите установку из этого источника.</p>
+      </div></div>
+      <div class="step"><div class="n">2</div><div>
+        <h3>Обменяйтесь ключами</h3>
+        <p>В приложении показан ваш ключ. Передайте его любым способом (мессенджер, вслух, QR)
+           человеку, с которым хотите общаться, и введите его ключ у себя.</p>
+      </div></div>
+      <div class="step"><div class="n">3</div><div>
+        <h3>Нажмите «Connect»</h3>
+        <p>Телефоны найдут друг друга через сервер знакомства и установят прямое соединение.
+           Занимает пару секунд.</p>
+      </div></div>
+      <div class="step"><div class="n">4</div><div>
+        <h3>Общайтесь</h3>
+        <p>Пишите сообщения. Они идут напрямую между телефонами и зашифрованы.</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Путь сообщения</h2>
+    <p class="sub">Обычно напряжение уходит после нескольких шагов — дальше сервер не участвует.</p>
+    <div class="figure">
+      <svg viewBox="0 0 900 180" role="img" aria-label="Поток установки соединения">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#5b8cff"/>
+          </marker>
+        </defs>
+        <g font-size="13" text-anchor="middle">
+          <rect x="10" y="60" width="150" height="60" rx="12" fill="#16224a" stroke="#5b8cff"/>
+          <text x="85" y="85" fill="#e8edff">Оба онлайн</text>
+          <text x="85" y="104" fill="#9aa7c7">на сервере знакомства</text>
+
+          <rect x="190" y="60" width="150" height="60" rx="12" fill="#16224a" stroke="#5b8cff"/>
+          <text x="265" y="85" fill="#e8edff">Обмен ключами</text>
+          <text x="265" y="104" fill="#9aa7c7">и адресами</text>
+
+          <rect x="370" y="60" width="150" height="60" rx="12" fill="#16224a" stroke="#43d6a0"/>
+          <text x="445" y="85" fill="#e8edff">Прямое соединение</text>
+          <text x="445" y="104" fill="#9aa7c7">через STUN</text>
+
+          <rect x="550" y="60" width="150" height="60" rx="12" fill="#16224a" stroke="#ffcf6b"/>
+          <text x="625" y="85" fill="#e8edff">Если не вышло —</text>
+          <text x="625" y="104" fill="#9aa7c7">через TURN</text>
+
+          <rect x="730" y="60" width="160" height="60" rx="12" fill="#16224a" stroke="#43d6a0"/>
+          <text x="810" y="85" fill="#e8edff">Чат напрямую</text>
+          <text x="810" y="104" fill="#9aa7c7">сервер не участвует</text>
+        </g>
+        <g stroke="#5b8cff" stroke-width="2" marker-end="url(#ar2)" fill="none">
+          <line x1="160" y1="90" x2="188" y2="90"/>
+          <line x1="340" y1="90" x2="368" y2="90"/>
+          <line x1="520" y1="90" x2="548" y2="90"/>
+          <line x1="700" y1="90" x2="728" y2="90"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section id="privacy">
+  <div class="wrap">
+    <h2>Приватность и безопасность</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Сервер не читает переписку</h3>
+        <p>Через него проходит только техническая информация для соединения. Сообщения идут между телефонами.</p>
+      </div>
+      <div class="card">
+        <h3>Шифрование</h3>
+        <p>Сообщения зашифрованы; ключ группы есть только у её участников. Пересылаемые через сеть копии не читаются посторонними.</p>
+      </div>
+      <div class="card">
+        <h3>Без регистрации</h3>
+        <p>Ваш «аккаунт» — это ключ устройства. Ни телефона, ни почты, ни пароля.</p>
+      </div>
+      <div class="card">
+        <h3>Открытый код</h3>
+        <p>Исходники доступны — можно проверить, как всё работает, и собрать самому.</p>
+      </div>
+    </div>
+    <p class="note" style="margin-top:18px">
+      Это ранняя версия для технически любопытных. Signaling идёт без TLS (<code>ws://</code>),
+      а TURN-креды пока статические — для боевого использования нужен защищённый сервер.
+    </p>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2>Частые вопросы</h2>
+    <dl class="faq">
+      <dt>Нужен ли сервер?</dt>
+      <dd>Для самих сообщений — нет. Небольшой сервер нужен только чтобы телефоны нашли друг друга,
+          и ретранслятор — если оператор связи мешает прямому соединению.</dd>
+      <dt>Кто может прочитать мои сообщения?</dt>
+      <dd>Только участники чата, у которых есть групповой ключ.</dd>
+      <dt>Работает ли в мобильном интернете (LTE)?</dt>
+      <dd>Да. Операторы часто «прячут» устройства за общим адресом; тогда соединение идёт через ретранслятор TURN.</dd>
+      <dt>Можно ли в группы больше двух человек?</dt>
+      <dd>Ядро поддерживает группы; связь между участниками строится по принципу «каждый с соседями» и сообщения распространяются по сети.</dd>
+      <dt>Есть ли версия для iOS?</dt>
+      <dd>Пока только Android. Ядро кроссплатформенное, iOS — в планах.</dd>
+    </dl>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>p2pchat · децентрализованный чат</div>
+    <div>
+      <a href="https://github.com/dabuldakov/p2p-chat" target="_blank" rel="noopener">Исходный код</a> ·
+      <a href="https://github.com/dabuldakov/p2p-chat/releases/latest" target="_blank" rel="noopener">Последняя сборка</a> ·
+      <a href="https://github.com/dabuldakov/p2p-chat/actions" target="_blank" rel="noopener">Сборки CI</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
