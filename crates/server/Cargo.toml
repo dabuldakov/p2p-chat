@@ -1,0 +1,23 @@
+[package]
+name = "p2pchat-signal-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "p2pchat-signal-server"
+path = "src/main.rs"
+
+[dependencies]
+p2pchat-proto = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+prost = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+p2pchat-signaling = { workspace = true }

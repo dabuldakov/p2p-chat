@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package p2pchat.v1;
+
+// Опции только для генерации Java/Kotlin (Rust prost их игнорирует).
+option java_package = "com.p2pchat.proto";
+option java_outer_classname = "P2pchatProto";
+option java_multiple_files = true;
+
+// ---------------------------------------------------------------------------
+// Envelope — то, что реально летит по сети между узлами.
+// payload всегда зашифрован групповым sender-key (для group-трафика) или
+// попарным ключом (для прямых управляющих сообщений).
+// ---------------------------------------------------------------------------
+message Envelope {
+  bytes sender = 1;        // публичный ключ / peer_id отправителя
+  uint64 nonce = 2;        // защита от повторов
+  bytes payload = 3;       // зашифрованный Gossip (см. ниже)
+  bytes signature = 4;     // подпись отправителя над payload (Ed25519)
+  uint64 lamport = 5;      // логические часы отправителя
+}
+
+// ---------------------------------------------------------------------------
+// Чат
+// ---------------------------------------------------------------------------
+message ChatMessage {
+  bytes id = 1;            // SHA-256 от содержимого (контент-адресация)
+  bytes group_id = 2;      // идентификатор группы
+  bytes author = 3;        // peer_id автора
+  uint64 lamport = 4;      // логическое время (порядок CRDT)
+  uint64 wall_time = 5;    // реальное время (для отображения)
+  string text = 6;         // полезная нагрузка
+  repeated bytes parents = 7; // причинные родители (DAG, как в SSB)
+}
+
+// ---------------------------------------------------------------------------
+// Обнаружение узлов
+// ---------------------------------------------------------------------------
+enum Transport {
+  TRANSPORT_UNKNOWN = 0;
+  TRANSPORT_UDP = 1;
+  TRANSPORT_TCP = 2;
+  TRANSPORT_WEBRTC = 3;
+  TRANSPORT_TURN = 4;
+}
+
+message Endpoint {
+  string host = 1;
+  uint32 port = 2;
+  Transport transport = 3;
+}
+
+message PeerInfo {
+  bytes peer_id = 1;
+  repeated Endpoint endpoints = 2;
+  uint64 last_seen = 3;    // unix-время последней активности
+  bool is_relay = 4;       // узел с публичным IP / всегда онлайн
+  uint32 hops = 5;         // на каком расстоянии узнали
+}
+
+message PeerList {
+  repeated PeerInfo peers = 1;
+  uint64 version = 2;      // монотонная версия (LWW-merge)
+}
+
+// ---------------------------------------------------------------------------
+// Анти-энтропия: обмен недостающими сообщениями
+// ---------------------------------------------------------------------------
+message SyncRequest {
+  bytes group_id = 1;
+  repeated bytes have_heads = 2;  // головы DAG, которые у нас есть
+  uint64 lamport_watermark = 3;   // всё, что новее — пришли
+}
+
+message SyncResponse {
+  repeated ChatMessage messages = 1;
+  repeated PeerInfo peers = 2;
+  bool more = 3;           // есть ли ещё (постранично)
+}
+
+// Merkle-digest: сравнить корни деревьев, чтобы понять, нужен ли синк вообще.
+message SyncDigest {
+  bytes group_id = 1;
+  bytes root = 2;          // Merkle-корень над отсортированными id
+  uint64 count = 3;        // сколько сообщений в группе
+}
+
+// Полный список id группы — обмен для вычисления расхождений.
+message SyncIds {
+  bytes group_id = 1;
+  repeated bytes ids = 2;
+}
+
+// Запрос конкретных сообщений по id.
+message SyncFetch {
+  bytes group_id = 1;
+  repeated bytes ids = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Единый конверт полезной нагрузки (кладётся в Envelope.payload)
+// ---------------------------------------------------------------------------
+// Зашифрованное групповое сообщение. Внутри — сериализованный ChatMessage.
+message Encrypted {
+  bytes group_id = 1;
+  bytes nonce = 2;
+  bytes ciphertext = 3;
+}
+
+message Gossip {
+  oneof body {
+    ChatMessage message = 1;
+    PeerList peer_list = 2;
+    SyncRequest sync_request = 3;
+    SyncResponse sync_response = 4;
+    Presence presence = 5;
+    SyncDigest sync_digest = 6;
+    SyncIds sync_ids = 7;
+    SyncFetch sync_fetch = 8;
+    Encrypted encrypted = 9;
+  }
+}
+
+message Presence {
+  bytes peer_id = 1;
+  bool online = 2;
+  uint64 since = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Signaling — обмен через инфраструктурный сервер (WebSocket) для установки
+// WebRTC-соединения. Сам чат через него не идёт.
+// ---------------------------------------------------------------------------
+message SignalEnvelope {
+  bytes from = 1;          // публичный ключ отправителя
+  bytes to = 2;            // публичный ключ получателя (для маршрутизации)
+  oneof body {
+    Register register = 3;
+    Offer offer = 4;
+    Answer answer = 5;
+    IceCandidate ice = 6;
+  }
+}
+
+message Register {
+  bytes peer_id = 1;
+  repeated Endpoint endpoints = 2;  // куда до нас достучаться напрямую
+  bool is_relay = 3;
+}
+
+message Offer {
+  bytes sdp = 1;           // сериализованный SDP
+  string session_id = 2;
+}
+
+message Answer {
+  bytes sdp = 1;
+  string session_id = 2;
+}
+
+message IceCandidate {
+  string candidate = 1;
+  string sdp_mid = 2;
+  uint32 sdp_mline_index = 3;
+}

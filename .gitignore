@@ -1,0 +1,22 @@
+# Rust
+/target/
+**/target/
+
+# Gradle / Android
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+*.iml
+.cxx/
+
+# Нативные библиотеки, собранные под Android (генерируются)
+android/app/src/main/jniLibs/
+
+# Прочее
+.DS_Store
+*.log
+
+# IDE
+.idea/
+**/.idea/

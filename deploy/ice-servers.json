@@ -1,0 +1,19 @@
+{
+  "_comment": "Шаблон ICE-серверов. Секреты в репозиторий не коммитятся — реальные значения см. local.properties / GitHub Secrets.",
+  "iceServers": [
+    {
+      "urls": [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302"
+      ]
+    },
+    {
+      "urls": [
+        "turn:YOUR_PUBLIC_IP:3478?transport=udp",
+        "turn:YOUR_PUBLIC_IP:3478?transport=tcp"
+      ],
+      "username": "p2pchat",
+      "credential": "CHANGE_ME"
+    }
+  ]
+}

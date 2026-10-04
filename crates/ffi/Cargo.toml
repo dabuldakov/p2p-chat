@@ -1,0 +1,20 @@
+[package]
+name = "p2pchat-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+p2pchat-core = { workspace = true }
+p2pchat-crypto = { workspace = true }
+p2pchat-storage = { workspace = true }
+uniffi = { workspace = true, features = ["cli"] }
+prost = { workspace = true }
+thiserror = { workspace = true }

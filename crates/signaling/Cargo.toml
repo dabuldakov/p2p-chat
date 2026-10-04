@@ -1,0 +1,15 @@
+[package]
+name = "p2pchat-signaling"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+p2pchat-proto = { workspace = true }
+tokio = { workspace = true }
+async-trait = "0.1"
+thiserror = { workspace = true }
+tracing = { workspace = true }
+futures-util = { workspace = true }
+tokio-tungstenite = { workspace = true }
+prost = { workspace = true }

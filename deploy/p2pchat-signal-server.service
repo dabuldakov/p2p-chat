@@ -1,0 +1,26 @@
+[Unit]
+Description=p2pchat signaling server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/p2pchat-signal-server --listen 0.0.0.0:8080
+Restart=always
+RestartSec=3
+User=nobody
+Group=nogroup
+# Минимальные привилегии
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+# Логи в journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=p2pchat-signal
+
+[Install]
+WantedBy=multi-user.target
