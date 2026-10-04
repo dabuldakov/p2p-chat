@@ -1,0 +1,12 @@
+{
+    # email для уведомлений Let's Encrypt
+    email admin@p2p-chat.ru
+}
+
+# WSS-эндпоинт signaling.
+# Caddy сам получит и продлит сертификат Let's Encrypt, когда
+# signal.p2p-chat.ru (A-запись) будет указывать на этот сервер.
+# WebSocket-апгрейд Caddy проксирует автоматически.
+signal.p2p-chat.ru {
+    reverse_proxy 127.0.0.1:8080
+}
