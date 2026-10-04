@@ -26,10 +26,11 @@ source "$CRED"
   echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
   echo "KEY_PASSWORD=$KEY_PASSWORD"
   echo
-  echo "## Инфраструктура:"
-  echo "TURN_URL=turn:90.188.89.63:3478?transport=udp"
+  echo "## Инфраструктура (сервер 92.242.60.161):"
+  echo "SIGNAL_URL=ws://92.242.60.161:8080"
+  echo "TURN_URL=turn:92.242.60.161:3478?transport=udp"
   echo "TURN_USER=p2pchat"
-  echo "TURN_PASS=MiQaeeZJarlIRHq2VOYkGE"
+  echo "TURN_PASS=LacNywVkdr2vxem3dybr"
 } | tee "$OUT"
 
 echo
