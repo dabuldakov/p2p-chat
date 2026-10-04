@@ -16,13 +16,13 @@ use p2pchat_core::{GossipEngine, GroupId, Log};
 /// Ошибка на границе FFI (UniFFI сам превратит в Kotlin-исключение).
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum FfiError {
-    #[error("{message}")]
-    Core { message: String },
+    #[error("{reason}")]
+    Core { reason: String },
 }
 
 impl From<p2pchat_core::CoreError> for FfiError {
     fn from(e: p2pchat_core::CoreError) -> Self {
-        FfiError::Core { message: e.to_string() }
+        FfiError::Core { reason: e.to_string() }
     }
 }
 
@@ -62,7 +62,7 @@ impl ChatCore {
         } else {
             p2pchat_storage::Store::open(&db_path)
         }
-        .map_err(|e| FfiError::Core { message: e.to_string() })?;
+        .map_err(|e| FfiError::Core { reason: e.to_string() })?;
 
         let log = Log::with_store(store)?;
         let engine = GossipEngine::new(identity, log);
@@ -99,7 +99,7 @@ impl ChatCore {
         let key: [u8; 32] = key
             .as_slice()
             .try_into()
-            .map_err(|_| FfiError::Core { message: "key must be 32 bytes".into() })?;
+            .map_err(|_| FfiError::Core { reason: "key must be 32 bytes".into() })?;
         let mut engine = self.inner.lock().unwrap();
         engine.join_group(group_id, key);
         Ok(())

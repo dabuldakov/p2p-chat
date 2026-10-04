@@ -1690,10 +1690,10 @@ sealed class FfiException: kotlin.Exception() {
     
     class Core(
         
-        val `message`: kotlin.String
+        val `reason`: kotlin.String
         ) : FfiException() {
         override val message
-            get() = "message=${ `message` }"
+            get() = "reason=${ `reason` }"
     }
     
 
@@ -1724,7 +1724,7 @@ public object FfiConverterTypeFfiError : FfiConverterRustBuffer<FfiException> {
             is FfiException.Core -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`reason`)
             )
         }
     }
@@ -1733,7 +1733,7 @@ public object FfiConverterTypeFfiError : FfiConverterRustBuffer<FfiException> {
         when(value) {
             is FfiException.Core -> {
                 buf.putInt(1)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`reason`, buf)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }

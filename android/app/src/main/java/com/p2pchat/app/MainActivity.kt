@@ -67,7 +67,7 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             items(vm.messages) { m ->
-                Text("${m.author.take(4).toHex()}: ${m.text}")
+                Text("${m.author.toHex().take(8)}: ${m.text}")
             }
         }
 
