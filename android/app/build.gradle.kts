@@ -33,8 +33,7 @@ android {
         buildConfigField("String", "TURN_PASS", "\"${secret("TURN_PASS")}\"")
     }
 
-    // signaling-сообщения генерируются из общего proto/ (без дублирования).
-    sourceSets["main"].proto.srcDir("${project.rootDir}/../proto")
+    // signaling-сообщения генерируются из src/main/proto (симлинк на общий proto/).
 
     buildTypes {
         release {
