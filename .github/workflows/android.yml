@@ -54,17 +54,39 @@ jobs:
         with:
           gradle-version: "8.7"
 
-      - name: Build debug APK
+      - name: Decode release keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+            echo "have=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build APKs
         working-directory: android
         env:
           SIGNAL_URL: ${{ secrets.SIGNAL_URL }}
           TURN_URL: ${{ secrets.TURN_URL }}
           TURN_USER: ${{ secrets.TURN_USER }}
           TURN_PASS: ${{ secrets.TURN_PASS }}
-        run: gradle assembleDebug --no-daemon
+          KEYSTORE_FILE: ${{ steps.keystore.outputs.have == 'true' && format('{0}/android/app/release.keystore', github.workspace) || '' }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle assembleDebug assembleRelease --no-daemon
 
-      - name: Upload APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: p2pchat-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2pchat-release-apk
+          path: android/app/build/outputs/apk/release/*.apk

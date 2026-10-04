@@ -16,6 +16,10 @@ val localProps = Properties().apply {
 fun secret(key: String, default: String = ""): String =
     (localProps.getProperty(key) ?: System.getenv(key))?.takeIf { it.isNotBlank() } ?: default
 
+// Release-подпись: включается, только если в окружении есть keystore
+// (в CI — из GitHub Secrets, локально — из env). Иначе release без подписи.
+val keystorePath: String? = System.getenv("KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "com.p2pchat.app"
     compileSdk = 34
@@ -38,10 +42,24 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+    }
+
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
         }
     }
 
