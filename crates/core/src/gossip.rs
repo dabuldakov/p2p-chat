@@ -28,6 +28,10 @@ pub struct GossipEngine {
     peers: PeerTable,
     /// Групповые ключи: группа -> симметричный ключ шифрования payload.
     groups: std::collections::HashMap<GroupId, GroupKey>,
+    /// Состав каждой группы (CRDT). Из него считается топология оверлея.
+    membership: std::collections::HashMap<GroupId, crate::membership::Membership>,
+    /// Наше собственное событие входа в группу (для рассылки).
+    self_events: std::collections::HashMap<GroupId, crate::proto::MembershipEvent>,
     /// nonce уже обработанных конвертов (анти-реплей, дедуп лавины)
     seen: std::collections::HashSet<u64>,
 }
@@ -48,7 +52,7 @@ pub struct Outcome {
 impl GossipEngine {
     pub fn new(identity: p2pchat_crypto::Identity, log: Log) -> Self {
         let peers = PeerTable::new(identity.peer_id().to_vec());
-        Self { identity, log, peers, groups: Default::default(), seen: Default::default() }
+        Self { identity, log, peers, groups: Default::default(), membership: Default::default(), self_events: Default::default(), seen: Default::default() }
     }
 
     pub fn peer_id(&self) -> PeerId {
@@ -82,21 +86,95 @@ impl GossipEngine {
         self.seal_body_message(msg)
     }
 
-    /// Создать новую группу: генерирует ключ и возвращает его для раздачи.
+    /// Создать новую группу: генерирует ключ, помечает себя участником.
+    /// Возвращает ключ группы (его раздаём по инвайту).
     pub fn create_group(&mut self, group: GroupId) -> [u8; 32] {
         let key = GroupKey::generate();
         let bytes = key.export();
-        self.groups.insert(group, key);
+        self.groups.insert(group.clone(), key);
+        self.self_join(&group);
         bytes
     }
 
-    /// Вступить в группу, зная её ключ (получен по защищённому каналу).
+    /// Вступить в группу, зная её ключ.
     pub fn join_group(&mut self, group: GroupId, key: [u8; 32]) {
-        self.groups.insert(group, GroupKey::from_bytes(key));
+        self.groups.insert(group.clone(), GroupKey::from_bytes(key));
+        self.self_join(&group);
     }
 
     pub fn has_group_key(&self, group: &[u8]) -> bool {
         self.groups.contains_key(group)
+    }
+
+    /// Все группы, в которых мы состоим (по членству).
+    pub fn groups(&self) -> Vec<GroupId> {
+        self.membership
+            .iter()
+            .filter(|(_, m)| m.is_member(&self.peer_id()))
+            .map(|(g, _)| g.clone())
+            .collect()
+    }
+
+    /// Состоим ли мы в группе.
+    pub fn has_group(&self, group: &[u8]) -> bool {
+        self.membership
+            .get(group)
+            .map(|m| m.is_member(&self.peer_id()))
+            .unwrap_or(false)
+    }
+
+    /// Пометить себя участником (локально) и запомнить событие для рассылки.
+    fn self_join(&mut self, group: &[u8]) {
+        let lamport = self.log.lamport().max(1);
+        let ev = crate::membership::membership_event(
+            group,
+            &self.peer_id(),
+            &self.public_key(),
+            true,
+            lamport,
+            &self.peer_id(),
+        );
+        self.membership
+            .entry(group.to_vec())
+            .or_default()
+            .apply(&ev.clone());
+        self.self_events.insert(group.to_vec(), ev);
+    }
+
+    /// Конверт с нашим входом в группу — чтобы разослать его соседям.
+    pub fn join_envelope(&self, group: &[u8]) -> Result<Option<Envelope>, CoreError> {
+        match self.self_events.get(group) {
+            Some(ev) => Ok(Some(self.seal(Gossip {
+                body: Some(Body::Membership(ev.clone())),
+            })?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Инвайт-строка группы (ссылка/QR): `p2pchat://join?g=<hex>&k=<hex>`.
+    pub fn invite_for(&self, group: &[u8]) -> Option<String> {
+        let key = self.groups.get(group)?.export();
+        Some(format!("p2pchat://join?g={}&k={}", hex(group), hex(&key)))
+    }
+
+    /// Вступить по инвайт-строке.
+    pub fn join_from_invite(&mut self, invite: &str) -> Result<GroupId, CoreError> {
+        let (group, key) = parse_invite(invite)?;
+        self.join_group(group.clone(), key);
+        Ok(group)
+    }
+
+    /// Участники группы (отсортированы).
+    pub fn members(&self, group: &[u8]) -> Vec<crate::membership::Member> {
+        self.membership.get(group).map(|m| m.members()).unwrap_or_default()
+    }
+
+    /// Наши соседи в оверлее группы (кому пересылаем).
+    pub fn neighbors(&self, group: &[u8]) -> Vec<PeerId> {
+        self.membership
+            .get(group)
+            .map(|m| m.neighbors(&self.peer_id(), crate::membership::DEFAULT_FANOUT))
+            .unwrap_or_default()
     }
 
     /// Упаковать сообщение чата: зашифровать, если есть ключ группы.
@@ -166,6 +244,9 @@ impl GossipEngine {
             }
             Some(Body::Encrypted(enc)) => {
                 self.on_encrypted(enc, &mut out)?;
+            }
+            Some(Body::Membership(ev)) => {
+                self.on_membership(ev, &mut out)?;
             }
             Some(Body::Presence(p)) => {
                 self.on_presence(p);
@@ -317,6 +398,25 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         });
     }
 
+    /// Обработать событие членства: обновить состав и переслать дальше.
+    fn on_membership(
+        &mut self,
+        ev: crate::proto::MembershipEvent,
+        out: &mut Outcome,
+    ) -> Result<(), CoreError> {
+        let changed = self
+            .membership
+            .entry(ev.group_id.clone())
+            .or_default()
+            .apply(&ev);
+        if changed {
+            out.outgoing.push(self.seal(Gossip {
+                body: Some(Body::Membership(ev)),
+            })?);
+        }
+        Ok(())
+    }
+
     fn make_sync_response(&self, req: &SyncRequest) -> SyncResponse {
         let messages: Vec<ChatMessage> = self
             .log
@@ -360,4 +460,43 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         p2pchat_crypto::verify(&pk, &env.payload, &env.signature)?;
         Ok(Gossip::decode(env.payload.as_slice())?)
     }
+}
+
+fn hex(b: &[u8]) -> String {
+    b.iter().map(|x| format!("{:02x}", x)).collect()
+}
+
+fn unhex(s: &str) -> Result<Vec<u8>, CoreError> {
+    let s = s.trim();
+    if s.len() % 2 != 0 {
+        return Err(CoreError::BadEnvelope("hex length".into()));
+    }
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(|_| CoreError::BadEnvelope("hex".into())))
+        .collect()
+}
+
+/// Разобрать инвайт `p2pchat://join?g=<hex>&k=<hex>`.
+pub fn parse_invite(invite: &str) -> Result<(GroupId, [u8; 32]), CoreError> {
+    let query = invite
+        .split('?')
+        .nth(1)
+        .ok_or_else(|| CoreError::BadEnvelope("invite: no query".into()))?;
+    let (mut g, mut k) = (None, None);
+    for part in query.split('&') {
+        let mut it = part.splitn(2, '=');
+        match (it.next(), it.next()) {
+            (Some("g"), Some(v)) => g = Some(v.to_string()),
+            (Some("k"), Some(v)) => k = Some(v.to_string()),
+            _ => {}
+        }
+    }
+    let group = unhex(&g.ok_or_else(|| CoreError::BadEnvelope("invite: no group".into()))?)?;
+    let keyv = unhex(&k.ok_or_else(|| CoreError::BadEnvelope("invite: no key".into()))?)?;
+    let key: [u8; 32] = keyv
+        .as_slice()
+        .try_into()
+        .map_err(|_| CoreError::BadEnvelope("invite: bad key".into()))?;
+    Ok((group, key))
 }

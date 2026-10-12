@@ -45,6 +45,13 @@ pub struct FfiPeer {
     pub is_relay: bool,
 }
 
+/// Участник группы.
+#[derive(uniffi::Record)]
+pub struct FfiMember {
+    pub peer_id: Vec<u8>,
+    pub public_key: Vec<u8>,
+}
+
 /// Ядро чата, которым владеет Android-слой.
 #[derive(uniffi::Object)]
 pub struct ChatCore {
@@ -94,6 +101,24 @@ impl ChatCore {
         engine.create_group(group_id).to_vec()
     }
 
+    /// Создать группу и сразу вернуть инвайт-строку (ссылка/QR).
+    pub fn create_group_invite(&self, group_id: Vec<u8>) -> String {
+        let mut engine = self.inner.lock().unwrap();
+        engine.create_group(group_id.clone());
+        engine.invite_for(&group_id).unwrap_or_default()
+    }
+
+    /// Инвайт существующей группы.
+    pub fn group_invite(&self, group_id: Vec<u8>) -> Option<String> {
+        self.inner.lock().unwrap().invite_for(&group_id)
+    }
+
+    /// Вступить в группу по инвайт-строке. Возвращает id группы.
+    pub fn join_from_invite(&self, invite: String) -> Result<Vec<u8>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        Ok(engine.join_from_invite(&invite)?)
+    }
+
     /// Вступить в группу по ключу (получен по защищённому каналу).
     pub fn join_group(&self, group_id: Vec<u8>, key: Vec<u8>) -> Result<(), FfiError> {
         let key: [u8; 32] = key
@@ -103,6 +128,34 @@ impl ChatCore {
         let mut engine = self.inner.lock().unwrap();
         engine.join_group(group_id, key);
         Ok(())
+    }
+
+    /// Список групп, в которых мы состоим.
+    pub fn list_groups(&self) -> Vec<Vec<u8>> {
+        self.inner.lock().unwrap().groups()
+    }
+
+    /// Участники группы.
+    pub fn members(&self, group_id: Vec<u8>) -> Vec<FfiMember> {
+        self.inner
+            .lock()
+            .unwrap()
+            .members(&group_id)
+            .into_iter()
+            .map(|m| FfiMember { peer_id: m.peer_id, public_key: m.public_key })
+            .collect()
+    }
+
+    /// Соседи группы (кому пересылаем / с кем соединяемся).
+    pub fn neighbors(&self, group_id: Vec<u8>) -> Vec<Vec<u8>> {
+        self.inner.lock().unwrap().neighbors(&group_id)
+    }
+
+    /// Конверт с нашим входом в группу — разослать соседям.
+    pub fn join_envelope(&self, group_id: Vec<u8>) -> Result<Option<Vec<u8>>, FfiError> {
+        let engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine.join_envelope(&group_id)?.map(|e| e.encode_to_vec()))
     }
 
     /// Обработать входящий конверт. Возвращает конверты для пересылки.

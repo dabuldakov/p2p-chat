@@ -734,6 +734,20 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -761,10 +775,24 @@ internal interface UniffiLib : Library {
     ): Pointer
     fun uniffi_p2pchat_ffi_fn_method_chatcore_create_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_create_group_invite(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_group_invite(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_history(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_join_envelope(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_join_from_invite(`ptr`: Pointer,`invite`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_join_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_list_groups(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_members(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_neighbors(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_peer_id_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_peers(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
@@ -893,9 +921,23 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_group(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_group_invite(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_group_invite(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_history(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_group(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_list_groups(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_members(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_neighbors(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_peer_id_hex(
     ): Short
@@ -932,10 +974,31 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_group() != 18445.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_group_invite() != 59093.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_group_invite() != 22465.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_history() != 38726.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope() != 63874.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite() != 36924.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_group() != 25300.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_list_groups() != 45145.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_members() != 23214.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_neighbors() != 39539.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_peer_id_hex() != 59466.toShort()) {
@@ -1298,14 +1361,49 @@ public interface ChatCoreInterface {
     fun `createGroup`(`groupId`: kotlin.ByteArray): kotlin.ByteArray
     
     /**
+     * Создать группу и сразу вернуть инвайт-строку (ссылка/QR).
+     */
+    fun `createGroupInvite`(`groupId`: kotlin.ByteArray): kotlin.String
+    
+    /**
+     * Инвайт существующей группы.
+     */
+    fun `groupInvite`(`groupId`: kotlin.ByteArray): kotlin.String?
+    
+    /**
      * История группы в причинном порядке.
      */
     fun `history`(`groupId`: kotlin.ByteArray): List<FfiMessage>
     
     /**
+     * Конверт с нашим входом в группу — разослать соседям.
+     */
+    fun `joinEnvelope`(`groupId`: kotlin.ByteArray): kotlin.ByteArray?
+    
+    /**
+     * Вступить в группу по инвайт-строке. Возвращает id группы.
+     */
+    fun `joinFromInvite`(`invite`: kotlin.String): kotlin.ByteArray
+    
+    /**
      * Вступить в группу по ключу (получен по защищённому каналу).
      */
     fun `joinGroup`(`groupId`: kotlin.ByteArray, `key`: kotlin.ByteArray)
+    
+    /**
+     * Список групп, в которых мы состоим.
+     */
+    fun `listGroups`(): List<kotlin.ByteArray>
+    
+    /**
+     * Участники группы.
+     */
+    fun `members`(`groupId`: kotlin.ByteArray): List<FfiMember>
+    
+    /**
+     * Соседи группы (кому пересылаем / с кем соединяемся).
+     */
+    fun `neighbors`(`groupId`: kotlin.ByteArray): List<kotlin.ByteArray>
     
     /**
      * Наш peer_id (hex-строкой — удобно для UI и логов).
@@ -1447,6 +1545,36 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
+     * Создать группу и сразу вернуть инвайт-строку (ссылка/QR).
+     */override fun `createGroupInvite`(`groupId`: kotlin.ByteArray): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_create_group_invite(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Инвайт существующей группы.
+     */override fun `groupInvite`(`groupId`: kotlin.ByteArray): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_group_invite(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * История группы в причинном порядке.
      */override fun `history`(`groupId`: kotlin.ByteArray): List<FfiMessage> {
             return FfiConverterSequenceTypeFfiMessage.lift(
@@ -1454,6 +1582,38 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_history(
         it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Конверт с нашим входом в группу — разослать соседям.
+     */
+    @Throws(FfiException::class)override fun `joinEnvelope`(`groupId`: kotlin.ByteArray): kotlin.ByteArray? {
+            return FfiConverterOptionalByteArray.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_join_envelope(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Вступить в группу по инвайт-строке. Возвращает id группы.
+     */
+    @Throws(FfiException::class)override fun `joinFromInvite`(`invite`: kotlin.String): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_join_from_invite(
+        it, FfiConverterString.lower(`invite`),_status)
 }
     }
     )
@@ -1473,6 +1633,51 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 }
     }
     
+    
+
+    
+    /**
+     * Список групп, в которых мы состоим.
+     */override fun `listGroups`(): List<kotlin.ByteArray> {
+            return FfiConverterSequenceByteArray.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_list_groups(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Участники группы.
+     */override fun `members`(`groupId`: kotlin.ByteArray): List<FfiMember> {
+            return FfiConverterSequenceTypeFfiMember.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_members(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Соседи группы (кому пересылаем / с кем соединяемся).
+     */override fun `neighbors`(`groupId`: kotlin.ByteArray): List<kotlin.ByteArray> {
+            return FfiConverterSequenceByteArray.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_neighbors(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
     
 
     
@@ -1586,6 +1791,41 @@ public object FfiConverterTypeChatCore: FfiConverter<ChatCore, Pointer> {
         // The Rust code always expects pointers written as 8 bytes,
         // and will fail to compile if they don't fit.
         buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+
+/**
+ * Участник группы.
+ */
+data class FfiMember (
+    var `peerId`: kotlin.ByteArray, 
+    var `publicKey`: kotlin.ByteArray
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiMember: FfiConverterRustBuffer<FfiMember> {
+    override fun read(buf: ByteBuffer): FfiMember {
+        return FfiMember(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiMember) = (
+            FfiConverterByteArray.allocationSize(value.`peerId`) +
+            FfiConverterByteArray.allocationSize(value.`publicKey`)
+    )
+
+    override fun write(value: FfiMember, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`peerId`, buf)
+            FfiConverterByteArray.write(value.`publicKey`, buf)
     }
 }
 
@@ -1747,6 +1987,70 @@ public object FfiConverterTypeFfiError : FfiConverterRustBuffer<FfiException> {
 /**
  * @suppress
  */
+public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?> {
+    override fun read(buf: ByteBuffer): kotlin.String? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterString.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.String?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterString.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.String?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterString.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
+    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterByteArray.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterByteArray.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterByteArray.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceByteArray: FfiConverterRustBuffer<List<kotlin.ByteArray>> {
     override fun read(buf: ByteBuffer): List<kotlin.ByteArray> {
         val len = buf.getInt()
@@ -1765,6 +2069,34 @@ public object FfiConverterSequenceByteArray: FfiConverterRustBuffer<List<kotlin.
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterByteArray.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiMember: FfiConverterRustBuffer<List<FfiMember>> {
+    override fun read(buf: ByteBuffer): List<FfiMember> {
+        val len = buf.getInt()
+        return List<FfiMember>(len) {
+            FfiConverterTypeFfiMember.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiMember>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiMember.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiMember>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiMember.write(it, buf)
         }
     }
 }

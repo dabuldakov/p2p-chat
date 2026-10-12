@@ -6,6 +6,7 @@
 
 pub mod error;
 pub mod log;
+pub mod membership;
 pub mod merkle;
 pub mod peers;
 pub mod gossip;
@@ -16,6 +17,7 @@ pub use p2pchat_proto as proto;
 
 pub use error::CoreError;
 pub use log::Log;
+pub use membership::Membership;
 pub use peers::PeerTable;
 pub use gossip::GossipEngine;
 pub use clock::Lamport;

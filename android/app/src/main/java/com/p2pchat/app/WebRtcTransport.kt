@@ -13,58 +13,49 @@ import org.webrtc.RtpReceiver
 import org.webrtc.RtpTransceiver
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
-import uniffi.p2pchat_ffi.ChatCore
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Реальный WebRTC-транспорт на libwebrtc.
+ * Мультипировый WebRTC-транспорт.
  *
- * Управляет одним `RTCPeerConnection` с собеседником, открывает DataChannel
- * и гоняет через него конверты ядра. Signaling (`Offer`/`Answer`/`Ice`)
- * проходит через [SignalingClient].
+ * Держит по одному `RTCPeerConnection` на каждого собеседника (мультиплекс по
+ * каналу), поэтому работает и личка, и группы, где участник соединён с
+ * несколькими соседями.
  *
- * Чат-трафик после установления идёт напрямую (или через TURN при CGNAT).
- *
- * ВАЖНО: набор методов [PeerConnection.Observer] зависит от версии
- * webrtc-sdk. При смене зависимости сверьте сигнатуры.
+ * Транспорт сам ничего не знает про ядро — он лишь передаёт байты конвертов
+ * наружу через [onEnvelope] и рассылает входящие вызовом [broadcast].
  */
 class WebRtcTransport(
     context: Context,
-    private val core: ChatCore,
     private val signaling: SignalingClient,
+    private val onEnvelope: (ByteArray) -> Unit,
 ) : ChatTransport {
 
     companion object {
-        // Фолбэк, если не удалось получить временные TURN-креды (только STUN).
         private fun defaultIceServers(): List<PeerConnection.IceServer> =
             listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
         private const val DATA_CHANNEL_LABEL = "p2pchat"
     }
 
-    @Volatile
-    private var iceServers: List<PeerConnection.IceServer> = defaultIceServers()
-
-    /** Задать ICE-серверы (например, с временными TURN-кредами). */
-    fun setIceServers(servers: List<PeerConnection.IceServer>) {
-        if (servers.isNotEmpty()) iceServers = servers
+    private class Conn(val remoteKey: ByteArray) {
+        var pc: PeerConnection? = null
+        var dc: DataChannel? = null
+        val pendingCandidates = mutableListOf<IceCandidate>()
+        val pendingOutgoing = ArrayDeque<ByteArray>()
+        val flushing = AtomicBoolean(false)
     }
 
     private val factory: PeerConnectionFactory
+    private val conns = ConcurrentHashMap<String, Conn>()
 
     @Volatile
-    private var peerConnection: PeerConnection? = null
+    private var iceServers: List<PeerConnection.IceServer> = defaultIceServers()
 
-    @Volatile
-    private var dataChannel: DataChannel? = null
-
-    /** Публичный ключ собеседника — куда слать сигналы. */
-    @Volatile
-    private var remoteKey: ByteArray = ByteArray(0)
-
-    private val pendingCandidates = mutableListOf<IceCandidate>()
-    private val pendingOutgoing = ArrayDeque<ByteArray>()
-    private val flushing = AtomicBoolean(false)
+    fun setIceServers(servers: List<PeerConnection.IceServer>) {
+        if (servers.isNotEmpty()) iceServers = servers
+    }
 
     init {
         PeerConnectionFactory.initialize(
@@ -75,38 +66,45 @@ class WebRtcTransport(
         factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
     }
 
-    /** Инициировать соединение: создаём канал и шлём offer. */
-    fun connectTo(peerPublicKey: ByteArray) {
-        remoteKey = peerPublicKey
-        createPeerConnection()
-        val dc = peerConnection!!.createDataChannel(DATA_CHANNEL_LABEL, DataChannel.Init())
-        attachDataChannel(dc)
-        peerConnection!!.createOffer(offerAnswerObserver(), MediaConstraints())
+    /** Инициировать соединение с собеседником (по его публичному ключу). */
+    fun connect(remoteKey: ByteArray) {
+        val id = keyHex(remoteKey)
+        if (conns.containsKey(id)) return
+        val conn = Conn(remoteKey)
+        conn.pc = factory.createPeerConnection(iceServers, peerConnectionObserver(conn))
+            ?: error("не удалось создать PeerConnection")
+        conns[id] = conn
+        val dc = conn.pc!!.createDataChannel(DATA_CHANNEL_LABEL, DataChannel.Init())
+        attachDataChannel(conn, dc)
+        conn.pc!!.createOffer(sdpObserver(conn), MediaConstraints())
     }
 
-    /** Обработать входящий сигнал (offer/answer/ice). */
+    /** Обработать входящий сигнал (offer/answer/ice) от собеседника. */
     fun onSignal(env: SignalEnvelope) {
+        val from = env.from.toByteArray()
+        val id = keyHex(from)
         when (env.bodyCase) {
             SignalEnvelope.BodyCase.OFFER -> {
-                remoteKey = env.from.toByteArray()
-                if (peerConnection == null) createPeerConnection()
-                val desc = SessionDescription(
-                    SessionDescription.Type.OFFER, env.offer.sdp.toStringUtf8()
-                )
-                peerConnection!!.setRemoteDescription(setRemoteObserver(), desc)
-                peerConnection!!.createAnswer(offerAnswerObserver(), MediaConstraints())
+                val conn = conns.getOrPut(id) {
+                    val c = Conn(from)
+                    c.pc = factory.createPeerConnection(iceServers, peerConnectionObserver(c))
+                    c
+                }
+                val desc = SessionDescription(SessionDescription.Type.OFFER, env.offer.sdp.toStringUtf8())
+                conn.pc!!.setRemoteDescription(setRemoteObserver(conn), desc)
+                conn.pc!!.createAnswer(sdpObserver(conn), MediaConstraints())
             }
             SignalEnvelope.BodyCase.ANSWER -> {
-                val desc = SessionDescription(
-                    SessionDescription.Type.ANSWER, env.answer.sdp.toStringUtf8()
-                )
-                peerConnection!!.setRemoteDescription(setRemoteObserver(), desc)
+                val conn = conns[id] ?: return
+                val desc = SessionDescription(SessionDescription.Type.ANSWER, env.answer.sdp.toStringUtf8())
+                conn.pc!!.setRemoteDescription(setRemoteObserver(conn), desc)
             }
             SignalEnvelope.BodyCase.ICE -> {
+                val conn = conns[id] ?: return
                 val c = IceCandidate(env.ice.sdpMid, env.ice.sdpMlineIndex, env.ice.candidate)
-                val pc = peerConnection
+                val pc = conn.pc
                 if (pc != null && pc.remoteDescription != null) pc.addIceCandidate(c)
-                else pendingCandidates.add(c)
+                else conn.pendingCandidates.add(c)
             }
             else -> Unit
         }
@@ -115,44 +113,36 @@ class WebRtcTransport(
     // --- ChatTransport ---------------------------------------------------
 
     override fun broadcast(envelope: ByteArray) {
-        val dc = dataChannel
-        if (dc != null && dc.state() == DataChannel.State.OPEN) {
-            dc.send(DataChannel.Buffer(ByteBuffer.wrap(envelope), true))
-        } else {
-            pendingOutgoing.addLast(envelope)
-        }
+        conns.values.forEach { sendTo(it, envelope) }
     }
 
     override fun onIncoming(envelope: ByteArray) {
-        // Ядро применит входящий конверт и вернёт те, что надо переслать дальше.
-        val outgoing = core.receive(envelope)
-        outgoing.forEach { broadcast(it) }
+        onEnvelope(envelope)
     }
 
     fun close() {
-        dataChannel?.close()
-        peerConnection?.close()
-        dataChannel = null
-        peerConnection = null
+        conns.values.forEach { it.dc?.close(); it.pc?.close() }
+        conns.clear()
     }
 
     // --- Внутреннее ------------------------------------------------------
 
-    private fun createPeerConnection() {
-        val pc = factory.createPeerConnection(iceServers, peerConnectionObserver())
-            ?: error("не удалось создать PeerConnection")
-        peerConnection = pc
+    private fun sendTo(conn: Conn, envelope: ByteArray) {
+        val dc = conn.dc
+        if (dc != null && dc.state() == DataChannel.State.OPEN) {
+            dc.send(DataChannel.Buffer(ByteBuffer.wrap(envelope), true))
+        } else {
+            conn.pendingOutgoing.addLast(envelope)
+        }
     }
 
-    private fun attachDataChannel(dc: DataChannel) {
-        dataChannel = dc
+    private fun attachDataChannel(conn: Conn, dc: DataChannel) {
+        conn.dc = dc
         dc.registerObserver(object : DataChannel.Observer {
             override fun onBufferedAmountChange(previousAmount: Long) = Unit
-
             override fun onStateChange() {
-                if (dc.state() == DataChannel.State.OPEN) flushPending()
+                if (dc.state() == DataChannel.State.OPEN) flushPending(conn)
             }
-
             override fun onMessage(buffer: DataChannel.Buffer) {
                 val bytes = ByteArray(buffer.data.remaining())
                 buffer.data.get(bytes)
@@ -161,78 +151,68 @@ class WebRtcTransport(
         })
     }
 
-    private fun flushPending() {
-        if (!flushing.compareAndSet(false, true)) return
+    private fun flushPending(conn: Conn) {
+        if (!conn.flushing.compareAndSet(false, true)) return
         try {
-            val dc = dataChannel ?: return
+            val dc = conn.dc ?: return
             if (dc.state() != DataChannel.State.OPEN) return
-            while (pendingOutgoing.isNotEmpty()) {
-                val bytes = pendingOutgoing.removeFirst()
-                dc.send(DataChannel.Buffer(ByteBuffer.wrap(bytes), true))
+            while (conn.pendingOutgoing.isNotEmpty()) {
+                dc.send(DataChannel.Buffer(ByteBuffer.wrap(conn.pendingOutgoing.removeFirst()), true))
             }
         } finally {
-            flushing.set(false)
+            conn.flushing.set(false)
         }
     }
 
-    private fun flushCandidates() {
-        val pc = peerConnection ?: return
-        pendingCandidates.forEach { pc.addIceCandidate(it) }
-        pendingCandidates.clear()
+    private fun flushCandidates(conn: Conn) {
+        val pc = conn.pc ?: return
+        conn.pendingCandidates.forEach { pc.addIceCandidate(it) }
+        conn.pendingCandidates.clear()
     }
 
-    private fun offerAnswerObserver() = object : SdpObserver {
+    private fun sdpObserver(conn: Conn) = object : SdpObserver {
         override fun onCreateSuccess(sdp: SessionDescription) {
-            val pc = peerConnection ?: return
-            pc.setLocalDescription(object : SdpObserver {
-                override fun onCreateSuccess(sdp: SessionDescription) = Unit
-                override fun onSetSuccess() = Unit
-                override fun onCreateFailure(s: String?) = Unit
-                override fun onSetFailure(s: String?) = Unit
-            }, sdp)
-
+            val pc = conn.pc ?: return
+            pc.setLocalDescription(noopObserver(), sdp)
             when (sdp.type) {
-                SessionDescription.Type.OFFER ->
-                    signaling.sendOffer(remoteKey, sdp.description, sessionId())
-                SessionDescription.Type.ANSWER ->
-                    signaling.sendAnswer(remoteKey, sdp.description, sessionId())
+                SessionDescription.Type.OFFER -> signaling.sendOffer(conn.remoteKey, sdp.description, sessionId())
+                SessionDescription.Type.ANSWER -> signaling.sendAnswer(conn.remoteKey, sdp.description, sessionId())
                 else -> Unit
             }
         }
-
         override fun onSetSuccess() = Unit
         override fun onCreateFailure(s: String?) = Unit
         override fun onSetFailure(s: String?) = Unit
     }
 
-    private fun setRemoteObserver() = object : SdpObserver {
-        override fun onSetSuccess() = flushCandidates()
+    private fun setRemoteObserver(conn: Conn) = object : SdpObserver {
+        override fun onSetSuccess() = flushCandidates(conn)
         override fun onCreateSuccess(sdp: SessionDescription) = Unit
         override fun onCreateFailure(s: String?) = Unit
         override fun onSetFailure(s: String?) = Unit
     }
 
-    private fun peerConnectionObserver() = object : PeerConnection.Observer {
+    private fun noopObserver() = object : SdpObserver {
+        override fun onCreateSuccess(sdp: SessionDescription) = Unit
+        override fun onSetSuccess() = Unit
+        override fun onCreateFailure(s: String?) = Unit
+        override fun onSetFailure(s: String?) = Unit
+    }
+
+    private fun peerConnectionObserver(conn: Conn) = object : PeerConnection.Observer {
         override fun onSignalingChange(state: PeerConnection.SignalingState) = Unit
         override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) = Unit
         override fun onStandardizedIceConnectionChange(state: PeerConnection.IceConnectionState) = Unit
         override fun onConnectionChange(state: PeerConnection.PeerConnectionState) = Unit
         override fun onIceConnectionReceivingChange(receiving: Boolean) = Unit
         override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) = Unit
-
         override fun onIceCandidate(candidate: IceCandidate) {
-            signaling.sendIce(remoteKey, candidate.sdp, candidate.sdpMid, candidate.sdpMLineIndex)
+            signaling.sendIce(conn.remoteKey, candidate.sdp, candidate.sdpMid, candidate.sdpMLineIndex)
         }
-
         override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>) = Unit
         override fun onAddStream(stream: MediaStream) = Unit
         override fun onRemoveStream(stream: MediaStream) = Unit
-
-        override fun onDataChannel(dc: DataChannel) {
-            // Ответчик получает канал, созданный инициатором.
-            attachDataChannel(dc)
-        }
-
+        override fun onDataChannel(dc: DataChannel) = attachDataChannel(conn, dc)
         override fun onRenegotiationNeeded() = Unit
         override fun onAddTrack(receiver: RtpReceiver, mediaStreams: Array<out MediaStream>) = Unit
         override fun onRemoveTrack(receiver: RtpReceiver) = Unit
@@ -240,6 +220,7 @@ class WebRtcTransport(
         override fun onSelectedCandidatePairChanged(event: CandidatePairChangeEvent) = Unit
     }
 
-    private fun sessionId(): String =
-        "s" + System.currentTimeMillis().toString(16)
+    private fun sessionId(): String = "s" + System.currentTimeMillis().toString(16)
+
+    private fun keyHex(k: ByteArray): String = k.joinToString("") { "%02x".format(it) }
 }

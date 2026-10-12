@@ -118,7 +118,20 @@ message Gossip {
     SyncIds sync_ids = 7;
     SyncFetch sync_fetch = 8;
     Encrypted encrypted = 9;
+    MembershipEvent membership = 10;
   }
+}
+
+// Событие членства группы. Реплицируется по сети; состав группы —
+// это CRDT-множество: побеждает более позднее событие (по lamport).
+message MembershipEvent {
+  bytes group_id = 1;
+  bytes peer_id = 2;       // кто участник
+  bytes public_key = 3;    // его публичный ключ (нужен для соединения)
+  bool join = 4;           // true — вход, false — выход
+  uint64 lamport = 5;      // разрешение конфликтов
+  bytes author = 6;        // кто подписал событие
+  bytes id = 7;            // контент-хеш события
 }
 
 message Presence {

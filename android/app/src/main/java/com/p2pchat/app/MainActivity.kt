@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,7 +54,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ChatScreen(viewModel())
+                    Root(viewModel())
                 }
             }
         }
@@ -61,166 +63,177 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(vm: ChatViewModel = viewModel()) {
-    var input by remember { mutableStateOf("") }
-    var peerKey by remember { mutableStateOf("") }
+fun Root(vm: ChatViewModel = viewModel()) {
+    val g = vm.currentGroup
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text(if (g == null) "p2pchat" else String(g)) },
+            navigationIcon = {
+                if (g != null) {
+                    TextButton(onClick = { vm.backToList() }) { Text("←") }
+                }
+            },
+            actions = {
+                Text(
+                    "v" + BuildConfig.VERSION_NAME,
+                    modifier = Modifier.padding(end = 16.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+    }) { pad ->
+        Box(modifier = Modifier.fillMaxSize().padding(pad)) {
+            if (g == null) GroupsScreen(vm) else GroupScreen(vm)
+        }
+    }
+}
+
+// --- Список групп --------------------------------------------------------
+
+@Composable
+private fun GroupsScreen(vm: ChatViewModel) {
+    var newName by remember { mutableStateOf("") }
+    var inviteIn by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
+    val myQr = remember { generateQrBitmap(vm.publicKeyHex, 360) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("p2pchat") },
-                actions = {
-                    Text(
-                        "v" + BuildConfig.VERSION_NAME,
-                        modifier = Modifier.padding(end = 16.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-            )
-        }
-    ) { pad ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(pad)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            KeyCard(
-                peerId = vm.peerId,
-                keyHex = vm.publicKeyHex,
-                onCopy = {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Мой ключ", style = MaterialTheme.typography.titleMedium)
+                Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
+                    Image(myQr, "QR ключа", modifier = Modifier.size(160.dp).padding(8.dp))
+                }
+                OutlinedButton(onClick = {
                     clipboard.setText(AnnotatedString(vm.publicKeyHex))
                     Toast.makeText(ctx, "Ключ скопирован", Toast.LENGTH_SHORT).show()
-                },
-            )
+                }) { Text("Скопировать ключ") }
+            }
+        }
 
-            ConnectRow(
-                value = peerKey,
-                onValueChange = { peerKey = it },
-                status = vm.status,
-                onConnect = { vm.connectTo(peerKey) },
-            )
+        Card {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Создать группу", style = MaterialTheme.typography.titleSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("название") },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { vm.createGroup(newName); newName = "" }) { Text("Создать") }
+                }
+            }
+        }
 
-            Text("Сообщения", style = MaterialTheme.typography.titleSmall)
-            Messages(list = vm.messages)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+        Card {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Войти по инвайту", style = MaterialTheme.typography.titleSmall)
                 OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("сообщение…") },
-                    singleLine = true,
+                    value = inviteIn,
+                    onValueChange = { inviteIn = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("p2pchat://join?g=…&k=…") },
+                    maxLines = 3,
                 )
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = { vm.send(input); input = "" }) { Text("Отправить") }
+                Button(onClick = { vm.joinGroup(inviteIn.trim()); inviteIn = "" }) { Text("Войти") }
             }
-            Spacer(Modifier.size(8.dp))
         }
-    }
-}
 
-@Composable
-private fun KeyCard(peerId: String, keyHex: String, onCopy: () -> Unit) {
-    val qr = remember(keyHex) { generateQrBitmap(keyHex) }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text("Ваш ключ", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Покажите QR или передайте ключ собеседнику",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-
-            Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
-                Image(
-                    bitmap = qr,
-                    contentDescription = "QR-код вашего ключа",
-                    modifier = Modifier.size(220.dp).padding(12.dp),
-                )
-            }
-
-            Text(
-                keyHex,
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            OutlinedButton(onClick = onCopy, modifier = Modifier.fillMaxWidth()) {
-                Text("Скопировать ключ")
-            }
-
-            Text(
-                "id: ${peerId.take(16)}…",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ConnectRow(value: String, onValueChange: (String) -> Unit, status: String, onConnect: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Подключиться к собеседнику", style = MaterialTheme.typography.titleSmall)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("ключ собеседника (hex)") },
-                    singleLine = true,
-                )
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = onConnect) { Text("Connect") }
-            }
-            Text(status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun Messages(list: List<uniffi.p2pchat_ffi.FfiMessage>) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-    ) {
-        if (list.isEmpty()) {
-            Text(
-                "Пока нет сообщений",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Text("Мои группы", style = MaterialTheme.typography.titleSmall)
+        if (vm.groups.isEmpty()) {
+            Text("Пока нет групп", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                list.forEach { m ->
-                    Text("${m.authorShort()}: ${m.text}")
+            vm.groups.forEach { name ->
+                Card(modifier = Modifier.fillMaxWidth().clickable { vm.selectGroup(name.toByteArray()) }) {
+                    Text(name, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
     }
 }
 
-private fun uniffi.p2pchat_ffi.FfiMessage.authorShort(): String =
-    author.joinToString("") { "%02x".format(it) }.take(6)
+// --- Экран группы --------------------------------------------------------
+
+@Composable
+private fun GroupScreen(vm: ChatViewModel) {
+    var input by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
+    val ctx = LocalContext.current
+    val invite = vm.invite
+    val inviteQr = remember(invite) { invite?.let { generateQrBitmap(it, 480) } }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Пригласить в группу", style = MaterialTheme.typography.titleSmall)
+                if (inviteQr != null) {
+                    Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
+                        Image(inviteQr, "QR инвайта", modifier = Modifier.size(200.dp).padding(8.dp))
+                    }
+                }
+                if (invite != null) {
+                    OutlinedButton(onClick = {
+                        clipboard.setText(AnnotatedString(invite))
+                        Toast.makeText(ctx, "Инвайт скопирован", Toast.LENGTH_SHORT).show()
+                    }) { Text("Скопировать инвайт") }
+                }
+                Text("участников: ${vm.members.size}", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(vm.status, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        Box(
+            modifier = Modifier.fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                .padding(12.dp),
+        ) {
+            if (vm.messages.isEmpty()) {
+                Text("Пока нет сообщений", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    vm.messages.forEach { m ->
+                        Text("${m.author.toHexShort()}: ${m.text}")
+                    }
+                }
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("сообщение…") },
+                singleLine = true,
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = { vm.send(input); input = "" }) { Text("Отправить") }
+        }
+    }
+}
+
+private fun ByteArray.toHexShort(): String =
+    joinToString("") { "%02x".format(it) }.take(6)
