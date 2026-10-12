@@ -1,6 +1,8 @@
 package com.p2pchat.app
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.p2pchat.proto.SignalEnvelope
 import org.webrtc.CandidatePairChangeEvent
 import org.webrtc.DataChannel
@@ -18,25 +20,26 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Мультипировый WebRTC-транспорт.
+ * Мультипировый WebRTC-транспорт с авто-реконнектом.
  *
- * Держит по одному `RTCPeerConnection` на каждого собеседника (мультиплекс по
- * каналу), поэтому работает и личка, и группы, где участник соединён с
- * несколькими соседями.
- *
- * Транспорт сам ничего не знает про ядро — он лишь передаёт байты конвертов
- * наружу через [onEnvelope] и рассылает входящие вызовом [broadcast].
+ * По одному `RTCPeerConnection` на собеседника. Чтобы обе стороны не слали
+ * offer одновременно (glare), инициатор — тот, чей публичный ключ лексикографически
+ * меньше. Транспорт сам не знает про ядро: байты конвертов отдаёт через [onEnvelope],
+ * а входящие рассылает вызовом [broadcast]/[sendTargets].
  */
 class WebRtcTransport(
     context: Context,
+    private val myKey: ByteArray,
     private val signaling: SignalingClient,
     private val onEnvelope: (ByteArray) -> Unit,
+    private val onPeerChange: (Int) -> Unit = {},
 ) : ChatTransport {
 
     companion object {
         private fun defaultIceServers(): List<PeerConnection.IceServer> =
             listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
         private const val DATA_CHANNEL_LABEL = "p2pchat"
+        private const val RECONNECT_DELAY_MS = 3000L
     }
 
     private class Conn(val remoteKey: ByteArray) {
@@ -48,7 +51,9 @@ class WebRtcTransport(
     }
 
     private val factory: PeerConnectionFactory
+    private val handler = Handler(Looper.getMainLooper())
     private val conns = ConcurrentHashMap<String, Conn>()
+    private var closed = false
 
     @Volatile
     private var iceServers: List<PeerConnection.IceServer> = defaultIceServers()
@@ -66,30 +71,20 @@ class WebRtcTransport(
         factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
     }
 
-    /** Инициировать соединение с собеседником (по его публичному ключу). */
+    /** Инициировать соединение (только если мы «инициатор» этой пары). */
     fun connect(remoteKey: ByteArray) {
         val id = keyHex(remoteKey)
         if (conns.containsKey(id)) return
-        val conn = Conn(remoteKey)
-        conn.pc = factory.createPeerConnection(iceServers, peerConnectionObserver(conn))
-            ?: error("не удалось создать PeerConnection")
-        conns[id] = conn
-        val dc = conn.pc!!.createDataChannel(DATA_CHANNEL_LABEL, DataChannel.Init())
-        attachDataChannel(conn, dc)
-        conn.pc!!.createOffer(sdpObserver(conn), MediaConstraints())
+        if (!weInitiate(remoteKey)) return // ждём их offer
+        startOffer(remoteKey)
     }
 
-    /** Обработать входящий сигнал (offer/answer/ice) от собеседника. */
     fun onSignal(env: SignalEnvelope) {
         val from = env.from.toByteArray()
         val id = keyHex(from)
         when (env.bodyCase) {
             SignalEnvelope.BodyCase.OFFER -> {
-                val conn = conns.getOrPut(id) {
-                    val c = Conn(from)
-                    c.pc = factory.createPeerConnection(iceServers, peerConnectionObserver(c))
-                    c
-                }
+                val conn = conns.getOrPut(id) { newConn(from) }
                 val desc = SessionDescription(SessionDescription.Type.OFFER, env.offer.sdp.toStringUtf8())
                 conn.pc!!.setRemoteDescription(setRemoteObserver(conn), desc)
                 conn.pc!!.createAnswer(sdpObserver(conn), MediaConstraints())
@@ -116,10 +111,6 @@ class WebRtcTransport(
         conns.values.forEach { sendTo(it, envelope) }
     }
 
-    /**
-     * Отправить конверт адресатам (публичные ключи). Пустой список — всем.
-     * С недостающими соседями соединение устанавливается на месте.
-     */
     fun sendTargets(envelope: ByteArray, targets: List<ByteArray>) {
         if (targets.isEmpty()) {
             broadcast(envelope)
@@ -136,12 +127,49 @@ class WebRtcTransport(
         onEnvelope(envelope)
     }
 
+    fun connectedCount(): Int =
+        conns.values.count { it.dc?.state() == DataChannel.State.OPEN }
+
     fun close() {
+        closed = true
         conns.values.forEach { it.dc?.close(); it.pc?.close() }
         conns.clear()
+        onPeerChange(0)
     }
 
     // --- Внутреннее ------------------------------------------------------
+
+    private fun weInitiate(remoteKey: ByteArray): Boolean = keyHex(myKey) < keyHex(remoteKey)
+
+    private fun newConn(remoteKey: ByteArray): Conn {
+        val conn = Conn(remoteKey)
+        conn.pc = factory.createPeerConnection(iceServers, peerConnectionObserver(conn))
+            ?: error("не удалось создать PeerConnection")
+        return conn
+    }
+
+    private fun startOffer(remoteKey: ByteArray) {
+        val conn = newConn(remoteKey)
+        conns[keyHex(remoteKey)] = conn
+        val dc = conn.pc!!.createDataChannel(DATA_CHANNEL_LABEL, DataChannel.Init())
+        attachDataChannel(conn, dc)
+        conn.pc!!.createOffer(sdpObserver(conn), MediaConstraints())
+    }
+
+    private fun handleDisconnect(conn: Conn) {
+        val id = keyHex(conn.remoteKey)
+        if (conns[id] === conn) {
+            conn.dc?.close()
+            conn.pc?.close()
+            conns.remove(id)
+            onPeerChange(connectedCount())
+        }
+        if (!closed && weInitiate(conn.remoteKey)) {
+            handler.postDelayed({
+                if (!closed) startOffer(conn.remoteKey)
+            }, RECONNECT_DELAY_MS)
+        }
+    }
 
     private fun sendTo(conn: Conn, envelope: ByteArray) {
         val dc = conn.dc
@@ -158,6 +186,7 @@ class WebRtcTransport(
             override fun onBufferedAmountChange(previousAmount: Long) = Unit
             override fun onStateChange() {
                 if (dc.state() == DataChannel.State.OPEN) flushPending(conn)
+                onPeerChange(connectedCount())
             }
             override fun onMessage(buffer: DataChannel.Buffer) {
                 val bytes = ByteArray(buffer.data.remaining())
@@ -217,9 +246,23 @@ class WebRtcTransport(
 
     private fun peerConnectionObserver(conn: Conn) = object : PeerConnection.Observer {
         override fun onSignalingChange(state: PeerConnection.SignalingState) = Unit
-        override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) = Unit
+        override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
+            if (state == PeerConnection.IceConnectionState.FAILED ||
+                state == PeerConnection.IceConnectionState.DISCONNECTED ||
+                state == PeerConnection.IceConnectionState.CLOSED
+            ) {
+                handleDisconnect(conn)
+            }
+        }
         override fun onStandardizedIceConnectionChange(state: PeerConnection.IceConnectionState) = Unit
-        override fun onConnectionChange(state: PeerConnection.PeerConnectionState) = Unit
+        override fun onConnectionChange(state: PeerConnection.PeerConnectionState) {
+            if (state == PeerConnection.PeerConnectionState.FAILED ||
+                state == PeerConnection.PeerConnectionState.CLOSED
+            ) {
+                handleDisconnect(conn)
+            }
+            onPeerChange(connectedCount())
+        }
         override fun onIceConnectionReceivingChange(receiving: Boolean) = Unit
         override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) = Unit
         override fun onIceCandidate(candidate: IceCandidate) {

@@ -1,5 +1,7 @@
 package com.p2pchat.app
 
+import android.os.Handler
+import android.os.Looper
 import com.google.protobuf.ByteString
 import com.p2pchat.proto.Answer
 import com.p2pchat.proto.IceCandidate
@@ -21,6 +23,8 @@ import java.util.concurrent.TimeUnit
  * Клиент signaling поверх WebSocket. Общается с инфраструктурным сервером
  * (`p2pchat-signal-server`), который только маршрутизирует `Offer`/`Answer`/`Ice`.
  * Формат кадров — тот же `SignalEnvelope` (protobuf), что и в Rust.
+ *
+ * При обрыве соединения автоматически переподключается.
  */
 class SignalingClient(
     private val url: String,
@@ -30,12 +34,19 @@ class SignalingClient(
         .pingInterval(20, TimeUnit.SECONDS)
         .build()
 
+    private val handler = Handler(Looper.getMainLooper())
     private var ws: WebSocket? = null
+    private var closed = false
 
     private val _incoming = MutableSharedFlow<SignalEnvelope>(extraBufferCapacity = 128)
     val incoming = _incoming.asSharedFlow()
 
     fun connect() {
+        closed = false
+        open()
+    }
+
+    private fun open() {
         val request = Request.Builder().url(url).build()
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -48,9 +59,18 @@ class SignalingClient(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                // реконнект — забота вызывающего слоя
+                scheduleReconnect()
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                scheduleReconnect()
             }
         })
+    }
+
+    private fun scheduleReconnect() {
+        if (closed) return
+        handler.postDelayed({ if (!closed) open() }, 3000)
     }
 
     fun sendOffer(to: ByteArray, sdp: String, sessionId: String) {
@@ -86,6 +106,7 @@ class SignalingClient(
     }
 
     fun close() {
+        closed = true
         ws?.close(1000, "bye")
         ws = null
     }

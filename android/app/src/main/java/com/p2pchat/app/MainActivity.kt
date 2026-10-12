@@ -199,7 +199,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                 }
                 Text("участников: ${vm.members.size}", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(vm.status, style = MaterialTheme.typography.labelSmall,
+                Text("${vm.status} · соединено: ${vm.connected}", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

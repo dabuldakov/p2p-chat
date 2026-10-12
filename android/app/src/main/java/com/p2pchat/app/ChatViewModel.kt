@@ -30,8 +30,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val publicKeyHex: String = publicKey.toHex()
     val peerId: String = core.peerIdHex()
 
+    var connected by mutableStateOf(0)
+        private set
+
     private val signaling = SignalingClient(SIGNAL_URL, publicKey)
-    private val transport = WebRtcTransport(app, signaling) { env -> handleIncoming(env) }
+    private val transport = WebRtcTransport(app, publicKey, signaling, { env -> handleIncoming(env) }) { n ->
+        connected = n
+    }
 
     var groups by mutableStateOf<List<String>>(emptyList())
         private set
