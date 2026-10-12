@@ -748,6 +748,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -790,6 +792,8 @@ internal interface UniffiLib : Library {
     fun uniffi_p2pchat_ffi_fn_method_chatcore_list_groups(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_members(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_neighbor_keys(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_neighbors(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -937,6 +941,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_members(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_neighbor_keys(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_neighbors(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_peer_id_hex(
@@ -983,7 +989,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_history() != 38726.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope() != 63874.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope() != 63251.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite() != 36924.toShort()) {
@@ -998,7 +1004,10 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_members() != 23214.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_neighbors() != 39539.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_neighbor_keys() != 656.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_neighbors() != 17184.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_peer_id_hex() != 59466.toShort()) {
@@ -1007,13 +1016,13 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_peers() != 37739.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post() != 12070.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post() != 30042.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_public_key() != 17771.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_receive() != 48886.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_receive() != 36340.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_constructor_chatcore_new() != 17218.toShort()) {
@@ -1378,7 +1387,7 @@ public interface ChatCoreInterface {
     /**
      * Конверт с нашим входом в группу — разослать соседям.
      */
-    fun `joinEnvelope`(`groupId`: kotlin.ByteArray): kotlin.ByteArray?
+    fun `joinEnvelope`(`groupId`: kotlin.ByteArray): FfiOutgoing?
     
     /**
      * Вступить в группу по инвайт-строке. Возвращает id группы.
@@ -1401,7 +1410,12 @@ public interface ChatCoreInterface {
     fun `members`(`groupId`: kotlin.ByteArray): List<FfiMember>
     
     /**
-     * Соседи группы (кому пересылаем / с кем соединяемся).
+     * Публичные ключи соседей группы (кому соединяться/пересылать).
+     */
+    fun `neighborKeys`(`groupId`: kotlin.ByteArray): List<kotlin.ByteArray>
+    
+    /**
+     * Соседи группы (peer_id).
      */
     fun `neighbors`(`groupId`: kotlin.ByteArray): List<kotlin.ByteArray>
     
@@ -1416,10 +1430,9 @@ public interface ChatCoreInterface {
     fun `peers`(): List<FfiPeer>
     
     /**
-     * Отправить сообщение в группу. Возвращает готовый конверт (байты)
-     * для передачи в транспорт.
+     * Отправить сообщение в группу. Возвращает конверт с адресатами.
      */
-    fun `post`(`groupId`: kotlin.ByteArray, `text`: kotlin.String): kotlin.ByteArray
+    fun `post`(`groupId`: kotlin.ByteArray, `text`: kotlin.String): FfiOutgoing
     
     /**
      * Наш публичный ключ (его передаём собеседникам).
@@ -1427,9 +1440,9 @@ public interface ChatCoreInterface {
     fun `publicKey`(): kotlin.ByteArray
     
     /**
-     * Обработать входящий конверт. Возвращает конверты для пересылки.
+     * Обработать входящий конверт. Возвращает конверты для пересылки (с адресатами).
      */
-    fun `receive`(`envelope`: kotlin.ByteArray): List<kotlin.ByteArray>
+    fun `receive`(`envelope`: kotlin.ByteArray): List<FfiOutgoing>
     
     companion object
 }
@@ -1592,8 +1605,8 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     /**
      * Конверт с нашим входом в группу — разослать соседям.
      */
-    @Throws(FfiException::class)override fun `joinEnvelope`(`groupId`: kotlin.ByteArray): kotlin.ByteArray? {
-            return FfiConverterOptionalByteArray.lift(
+    @Throws(FfiException::class)override fun `joinEnvelope`(`groupId`: kotlin.ByteArray): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
     callWithPointer {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_join_envelope(
@@ -1667,7 +1680,22 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Соседи группы (кому пересылаем / с кем соединяемся).
+     * Публичные ключи соседей группы (кому соединяться/пересылать).
+     */override fun `neighborKeys`(`groupId`: kotlin.ByteArray): List<kotlin.ByteArray> {
+            return FfiConverterSequenceByteArray.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_neighbor_keys(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Соседи группы (peer_id).
      */override fun `neighbors`(`groupId`: kotlin.ByteArray): List<kotlin.ByteArray> {
             return FfiConverterSequenceByteArray.lift(
     callWithPointer {
@@ -1712,11 +1740,10 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Отправить сообщение в группу. Возвращает готовый конверт (байты)
-     * для передачи в транспорт.
+     * Отправить сообщение в группу. Возвращает конверт с адресатами.
      */
-    @Throws(FfiException::class)override fun `post`(`groupId`: kotlin.ByteArray, `text`: kotlin.String): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
+    @Throws(FfiException::class)override fun `post`(`groupId`: kotlin.ByteArray, `text`: kotlin.String): FfiOutgoing {
+            return FfiConverterTypeFfiOutgoing.lift(
     callWithPointer {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_post(
@@ -1744,10 +1771,10 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Обработать входящий конверт. Возвращает конверты для пересылки.
+     * Обработать входящий конверт. Возвращает конверты для пересылки (с адресатами).
      */
-    @Throws(FfiException::class)override fun `receive`(`envelope`: kotlin.ByteArray): List<kotlin.ByteArray> {
-            return FfiConverterSequenceByteArray.lift(
+    @Throws(FfiException::class)override fun `receive`(`envelope`: kotlin.ByteArray): List<FfiOutgoing> {
+            return FfiConverterSequenceTypeFfiOutgoing.lift(
     callWithPointer {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_receive(
@@ -1877,6 +1904,42 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
             FfiConverterString.write(value.`text`, buf)
             FfiConverterULong.write(value.`lamport`, buf)
             FfiConverterULong.write(value.`wallTime`, buf)
+    }
+}
+
+
+
+/**
+ * Конверт для отправки с адресатами (публичные ключи).
+ * Пустой `targets` — разослать всем подключённым.
+ */
+data class FfiOutgoing (
+    var `envelope`: kotlin.ByteArray, 
+    var `targets`: List<kotlin.ByteArray>
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiOutgoing: FfiConverterRustBuffer<FfiOutgoing> {
+    override fun read(buf: ByteBuffer): FfiOutgoing {
+        return FfiOutgoing(
+            FfiConverterByteArray.read(buf),
+            FfiConverterSequenceByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiOutgoing) = (
+            FfiConverterByteArray.allocationSize(value.`envelope`) +
+            FfiConverterSequenceByteArray.allocationSize(value.`targets`)
+    )
+
+    override fun write(value: FfiOutgoing, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`envelope`, buf)
+            FfiConverterSequenceByteArray.write(value.`targets`, buf)
     }
 }
 
@@ -2019,28 +2082,28 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
-public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
-    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+public object FfiConverterOptionalTypeFfiOutgoing: FfiConverterRustBuffer<FfiOutgoing?> {
+    override fun read(buf: ByteBuffer): FfiOutgoing? {
         if (buf.get().toInt() == 0) {
             return null
         }
-        return FfiConverterByteArray.read(buf)
+        return FfiConverterTypeFfiOutgoing.read(buf)
     }
 
-    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+    override fun allocationSize(value: FfiOutgoing?): ULong {
         if (value == null) {
             return 1UL
         } else {
-            return 1UL + FfiConverterByteArray.allocationSize(value)
+            return 1UL + FfiConverterTypeFfiOutgoing.allocationSize(value)
         }
     }
 
-    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+    override fun write(value: FfiOutgoing?, buf: ByteBuffer) {
         if (value == null) {
             buf.put(0)
         } else {
             buf.put(1)
-            FfiConverterByteArray.write(value, buf)
+            FfiConverterTypeFfiOutgoing.write(value, buf)
         }
     }
 }
@@ -2125,6 +2188,34 @@ public object FfiConverterSequenceTypeFfiMessage: FfiConverterRustBuffer<List<Ff
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeFfiMessage.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiOutgoing: FfiConverterRustBuffer<List<FfiOutgoing>> {
+    override fun read(buf: ByteBuffer): List<FfiOutgoing> {
+        val len = buf.getInt()
+        return List<FfiOutgoing>(len) {
+            FfiConverterTypeFfiOutgoing.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiOutgoing>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiOutgoing.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiOutgoing>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiOutgoing.write(it, buf)
         }
     }
 }

@@ -52,6 +52,14 @@ pub struct FfiMember {
     pub public_key: Vec<u8>,
 }
 
+/// Конверт для отправки с адресатами (публичные ключи).
+/// Пустой `targets` — разослать всем подключённым.
+#[derive(uniffi::Record)]
+pub struct FfiOutgoing {
+    pub envelope: Vec<u8>,
+    pub targets: Vec<Vec<u8>>,
+}
+
 /// Ядро чата, которым владеет Android-слой.
 #[derive(uniffi::Object)]
 pub struct ChatCore {
@@ -102,13 +110,12 @@ impl ChatCore {
         self.inner.lock().unwrap().public_key()
     }
 
-    /// Отправить сообщение в группу. Возвращает готовый конверт (байты)
-    /// для передачи в транспорт.
-    pub fn post(&self, group_id: Vec<u8>, text: String) -> Result<Vec<u8>, FfiError> {
+    /// Отправить сообщение в группу. Возвращает конверт с адресатами.
+    pub fn post(&self, group_id: Vec<u8>, text: String) -> Result<FfiOutgoing, FfiError> {
         let mut engine = self.inner.lock().unwrap();
-        let env = engine.post(group_id, text)?;
+        let o = engine.post(group_id, text)?;
         use prost::Message as _;
-        Ok(env.encode_to_vec())
+        Ok(FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
     }
 
     /// Создать группу: возвращает групповой ключ для раздачи участникам.
@@ -162,24 +169,35 @@ impl ChatCore {
             .collect()
     }
 
-    /// Соседи группы (кому пересылаем / с кем соединяемся).
+    /// Соседи группы (peer_id).
     pub fn neighbors(&self, group_id: Vec<u8>) -> Vec<Vec<u8>> {
         self.inner.lock().unwrap().neighbors(&group_id)
     }
 
-    /// Конверт с нашим входом в группу — разослать соседям.
-    pub fn join_envelope(&self, group_id: Vec<u8>) -> Result<Option<Vec<u8>>, FfiError> {
-        let engine = self.inner.lock().unwrap();
-        use prost::Message as _;
-        Ok(engine.join_envelope(&group_id)?.map(|e| e.encode_to_vec()))
+    /// Публичные ключи соседей группы (кому соединяться/пересылать).
+    pub fn neighbor_keys(&self, group_id: Vec<u8>) -> Vec<Vec<u8>> {
+        self.inner.lock().unwrap().neighbor_keys(&group_id)
     }
 
-    /// Обработать входящий конверт. Возвращает конверты для пересылки.
-    pub fn receive(&self, envelope: Vec<u8>) -> Result<Vec<Vec<u8>>, FfiError> {
+    /// Конверт с нашим входом в группу — разослать соседям.
+    pub fn join_envelope(&self, group_id: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
+        let engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .join_envelope(&group_id)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    /// Обработать входящий конверт. Возвращает конверты для пересылки (с адресатами).
+    pub fn receive(&self, envelope: Vec<u8>) -> Result<Vec<FfiOutgoing>, FfiError> {
         let mut engine = self.inner.lock().unwrap();
         let outcome = engine.handle(&envelope)?;
         use prost::Message as _;
-        Ok(outcome.outgoing.iter().map(|e| e.encode_to_vec()).collect())
+        Ok(outcome
+            .outgoing
+            .into_iter()
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+            .collect())
     }
 
     /// История группы в причинном порядке.

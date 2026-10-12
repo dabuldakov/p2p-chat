@@ -2,11 +2,12 @@
 
 use prost::Message as _;
 
+use p2pchat_core::gossip::Outgoing;
 use p2pchat_core::{GossipEngine, Log};
 use p2pchat_crypto::Identity;
 
-fn enc(env: &p2pchat_core::proto::Envelope) -> Vec<u8> {
-    env.encode_to_vec()
+fn enc(out: &Outgoing) -> Vec<u8> {
+    out.envelope.encode_to_vec()
 }
 
 #[test]

@@ -116,6 +116,22 @@ class WebRtcTransport(
         conns.values.forEach { sendTo(it, envelope) }
     }
 
+    /**
+     * Отправить конверт адресатам (публичные ключи). Пустой список — всем.
+     * С недостающими соседями соединение устанавливается на месте.
+     */
+    fun sendTargets(envelope: ByteArray, targets: List<ByteArray>) {
+        if (targets.isEmpty()) {
+            broadcast(envelope)
+            return
+        }
+        for (pk in targets) {
+            val id = keyHex(pk)
+            val conn = conns[id] ?: run { connect(pk); conns[id] }
+            if (conn != null) sendTo(conn, envelope)
+        }
+    }
+
     override fun onIncoming(envelope: ByteArray) {
         onEnvelope(envelope)
     }

@@ -124,8 +124,8 @@ async fn main() -> Result<()> {
             }
             let mut engine = node_stdin.engine.blocking_lock();
             match engine.post(group.clone(), line) {
-                Ok(env) => {
-                    let bytes = env.encode_to_vec();
+                Ok(out) => {
+                    let bytes = out.envelope.encode_to_vec();
                     let _ = node_stdin.outbound.send(bytes);
                 }
                 Err(e) => error!("post: {e}"),
@@ -182,7 +182,7 @@ async fn handle_conn(stream: TcpStream, node: Arc<Node>) -> Result<()> {
                             info!("<- {}: {}", hex(&m.author[..4.min(m.author.len())]), m.text);
                         }
                         for env in outcome.outgoing {
-                            let _ = node.outbound.send(env.encode_to_vec());
+                            let _ = node.outbound.send(env.envelope.encode_to_vec());
                         }
                     }
                     Err(e) => warn!("bad envelope: {e}"),

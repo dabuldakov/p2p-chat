@@ -36,6 +36,13 @@ pub struct GossipEngine {
     seen: std::collections::HashSet<u64>,
 }
 
+/// Что переслать и кому.
+/// `targets` — публичные ключи получателей; пусто → разослать всем подключённым.
+pub struct Outgoing {
+    pub envelope: Envelope,
+    pub targets: Vec<Vec<u8>>,
+}
+
 /// Что произошло при обработке конверта.
 #[derive(Default)]
 pub struct Outcome {
@@ -43,8 +50,8 @@ pub struct Outcome {
     pub new_messages: Vec<ChatMessage>,
     /// Обновлённые пиры.
     pub new_peers: Vec<PeerInfo>,
-    /// Что нужно переслать соседям / вернуть отправителю.
-    pub outgoing: Vec<Envelope>,
+    /// Что нужно переслать (с адресатами).
+    pub outgoing: Vec<Outgoing>,
     /// Группы, по которым не хватает родителей — надо запросить синк.
     pub needs_sync: Vec<GroupId>,
 }
@@ -79,11 +86,10 @@ impl GossipEngine {
         &mut self.peers
     }
 
-    /// Создать сообщение и упаковать его в конверт для рассылки.
-    /// Если для группы есть ключ — payload шифруется.
-    pub fn post(&mut self, group: GroupId, text: String) -> Result<Envelope, CoreError> {
+    /// Создать сообщение и упаковать его с адресатами (соседями группы).
+    pub fn post(&mut self, group: GroupId, text: String) -> Result<Outgoing, CoreError> {
         let msg = self.log.append_local(group, self.peer_id(), text)?;
-        self.seal_body_message(msg)
+        self.out_msg(msg)
     }
 
     /// Создать новую группу: генерирует ключ, помечает себя участником.
@@ -164,12 +170,15 @@ impl GossipEngine {
         Ok(())
     }
 
-    /// Конверт с нашим входом в группу — чтобы разослать его соседям.
-    pub fn join_envelope(&self, group: &[u8]) -> Result<Option<Envelope>, CoreError> {
+    /// Конверт с нашим входом в группу — чтобы разослать соседям.
+    pub fn join_envelope(&self, group: &[u8]) -> Result<Option<Outgoing>, CoreError> {
         match self.self_events.get(group) {
-            Some(ev) => Ok(Some(self.seal(Gossip {
-                body: Some(Body::Membership(ev.clone())),
-            })?)),
+            Some(ev) => {
+                let env = self.seal(Gossip {
+                    body: Some(Body::Membership(ev.clone())),
+                })?;
+                Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+            }
             None => Ok(None),
         }
     }
@@ -192,12 +201,39 @@ impl GossipEngine {
         self.membership.get(group).map(|m| m.members()).unwrap_or_default()
     }
 
-    /// Наши соседи в оверлее группы (кому пересылаем).
+    /// Наши соседи в оверлее группы (peer_id).
     pub fn neighbors(&self, group: &[u8]) -> Vec<PeerId> {
         self.membership
             .get(group)
             .map(|m| m.neighbors(&self.peer_id(), crate::membership::DEFAULT_FANOUT))
             .unwrap_or_default()
+    }
+
+    /// Публичные ключи соседей (кому пересылаем / с кем соединяемся).
+    pub fn neighbor_keys(&self, group: &[u8]) -> Vec<Vec<u8>> {
+        let Some(m) = self.membership.get(group) else {
+            return Vec::new();
+        };
+        m.neighbors(&self.peer_id(), crate::membership::DEFAULT_FANOUT)
+            .into_iter()
+            .filter_map(|p| m.public_key_of(&p))
+            .collect()
+    }
+
+    /// Сообщение чата + адресаты (соседи его группы).
+    fn out_msg(&self, msg: ChatMessage) -> Result<Outgoing, CoreError> {
+        let envelope = self.seal_body_message(msg.clone())?;
+        Ok(Outgoing { envelope, targets: self.neighbor_keys(&msg.group_id) })
+    }
+
+    /// Адресовать конкретному пиру (напр. ответ на синк).
+    fn out_to(&self, envelope: Envelope, target: Vec<u8>) -> Outgoing {
+        Outgoing { envelope, targets: vec![target] }
+    }
+
+    /// Рассылка всем подключённым.
+    fn out_all(&self, envelope: Envelope) -> Outgoing {
+        Outgoing { envelope, targets: Vec::new() }
     }
 
     /// Упаковать сообщение чата: зашифровать, если есть ключ группы.
@@ -216,10 +252,16 @@ impl GossipEngine {
         self.seal(Gossip { body: Some(body) })
     }
 
-    /// Разослать набор сообщений (каждое — своим конвертом, с шифрованием).
-    fn emit_messages(&self, msgs: Vec<ChatMessage>, out: &mut Outcome) -> Result<(), CoreError> {
+    /// Отправить набор сообщений конкретному пиру (ответ на синк).
+    fn emit_messages_to(
+        &self,
+        msgs: Vec<ChatMessage>,
+        target: Vec<u8>,
+        out: &mut Outcome,
+    ) -> Result<(), CoreError> {
         for m in msgs {
-            out.outgoing.push(self.seal_body_message(m)?);
+            let env = self.seal_body_message(m)?;
+            out.outgoing.push(self.out_to(env, target.clone()));
         }
         Ok(())
     }
@@ -227,6 +269,7 @@ impl GossipEngine {
     /// Обработать входящий конверт.
     pub fn handle(&mut self, bytes: &[u8]) -> Result<Outcome, CoreError> {
         let env = Envelope::decode(bytes)?;
+        let origin = env.sender.clone();
         let gossip = self.open(&env)?;
         let mut out = Outcome::default();
 
@@ -240,7 +283,7 @@ impl GossipEngine {
             }
             Some(Body::SyncRequest(req)) => {
                 let resp = self.make_sync_response(&req);
-                self.emit_messages(resp.messages, &mut out)?;
+                self.emit_messages_to(resp.messages, origin.clone(), &mut out)?;
             }
             Some(Body::SyncResponse(resp)) => {
                 for m in resp.messages {
@@ -252,10 +295,10 @@ impl GossipEngine {
                 });
             }
             Some(Body::SyncDigest(d)) => {
-                self.on_digest(d, &mut out)?;
+                self.on_digest(d, &origin, &mut out)?;
             }
             Some(Body::SyncIds(s)) => {
-                self.on_sync_ids(s, &mut out)?;
+                self.on_sync_ids(s, &origin, &mut out)?;
             }
             Some(Body::SyncFetch(f)) => {
                 let messages: Vec<ChatMessage> = f
@@ -263,7 +306,7 @@ impl GossipEngine {
                     .iter()
                     .filter_map(|id| self.log.get(id).cloned())
                     .collect();
-                self.emit_messages(messages, &mut out)?;
+                self.emit_messages_to(messages, origin.clone(), &mut out)?;
             }
             Some(Body::Encrypted(enc)) => {
                 self.on_encrypted(enc, &mut out)?;
@@ -280,8 +323,7 @@ impl GossipEngine {
         // после применения — распространяем новое дальше
         let forward: Vec<ChatMessage> = out.new_messages.clone();
         for m in forward {
-            let env = self.seal_body_message(m)?;
-            out.outgoing.push(env);
+            out.outgoing.push(self.out_msg(m)?);
         }
 
         // если не хватает родителей — инициируем Merkle-синк по группе
@@ -289,7 +331,7 @@ impl GossipEngine {
             if !self.log.missing_parents(&g).is_empty() && !out.needs_sync.contains(&g) {
                 out.needs_sync.push(g.clone());
                 let env = self.sync_digest(&g)?;
-                out.outgoing.push(env);
+                out.outgoing.push(self.out_all(env));
             }
         }
 
@@ -307,43 +349,45 @@ impl GossipEngine {
         self.seal(Gossip { body: Some(Body::SyncDigest(d)) })
     }
 
-    fn on_digest(&mut self, d: SyncDigest, out: &mut Outcome) -> Result<(), CoreError> {
+    fn on_digest(&mut self, d: SyncDigest, origin: &[u8], out: &mut Outcome) -> Result<(), CoreError> {
         let local = MerkleTree::build(self.log.ids_for_group(&d.group_id));
         let remote_root: [u8; 32] = d.root.as_slice().try_into().unwrap_or([0u8; 32]);
         if local.root() == remote_root && local.len() as u64 == d.count {
             return Ok(());
         }
-        // расходимся — шлём свой список id
+        // расходимся — отвечаем отправителю своим списком id
         let ids = self.log.ids_for_group(&d.group_id);
-        out.outgoing.push(self.seal(Gossip {
+        let env = self.seal(Gossip {
             body: Some(Body::SyncIds(SyncIds { group_id: d.group_id, ids })),
-        })?);
+        })?;
+        out.outgoing.push(self.out_to(env, origin.to_vec()));
         Ok(())
     }
 
-    fn on_sync_ids(&mut self, s: SyncIds, out: &mut Outcome) -> Result<(), CoreError> {
+    fn on_sync_ids(&mut self, s: SyncIds, origin: &[u8], out: &mut Outcome) -> Result<(), CoreError> {
         let local = MerkleTree::build(self.log.ids_for_group(&s.group_id));
         let remote = MerkleTree::build(s.ids);
 
-        // отдаём то, чего нет у собеседника
+        // отдаём то, чего нет у собеседника (ему)
         let to_send = local.missing_from(&remote);
         if !to_send.is_empty() {
             let messages: Vec<ChatMessage> = to_send
                 .iter()
                 .filter_map(|id| self.log.get(id).cloned())
                 .collect();
-            self.emit_messages(messages, out)?;
+            self.emit_messages_to(messages, origin.to_vec(), out)?;
         }
 
-        // просим то, чего нет у нас
+        // просим то, чего нет у нас (у него)
         let to_fetch = remote.missing_from(&local);
         if !to_fetch.is_empty() {
-            out.outgoing.push(self.seal(Gossip {
+            let env = self.seal(Gossip {
                 body: Some(Body::SyncFetch(SyncFetch {
                     group_id: s.group_id,
                     ids: to_fetch,
                 })),
-            })?);
+            })?;
+            out.outgoing.push(self.out_to(env, origin.to_vec()));
         }
         Ok(())
     }
@@ -434,9 +478,11 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             .apply(&ev);
         if changed {
             let _ = self.log.store_membership(&ev);
-            out.outgoing.push(self.seal(Gossip {
+            let group = ev.group_id.clone();
+            let env = self.seal(Gossip {
                 body: Some(Body::Membership(ev)),
-            })?);
+            })?;
+            out.outgoing.push(Outgoing { envelope: env, targets: self.neighbor_keys(&group) });
         }
         Ok(())
     }

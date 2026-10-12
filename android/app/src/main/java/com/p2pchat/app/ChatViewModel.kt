@@ -15,7 +15,7 @@ import uniffi.p2pchat_ffi.FfiMessage
 
 /**
  * Состояние чата: ядро (Rust), signaling и WebRTC-транспорт.
- * Работает с несколькими группами; текущая группа выбирается в UI.
+ * Работает с несколькими группами; соединения строятся со соседями по всем группам.
  */
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -27,7 +27,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val core: ChatCore = ChatCore(app.filesDir.absolutePath + "/chat.db")
 
     val publicKey: ByteArray = core.publicKey()
-    val publicKeyHex: String = publicKey.joinToString("") { "%02x".format(it) }
+    val publicKeyHex: String = publicKey.toHex()
     val peerId: String = core.peerIdHex()
 
     private val signaling = SignalingClient(SIGNAL_URL, publicKey)
@@ -54,31 +54,30 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     init {
         signaling.connect()
         viewModelScope.launch {
-            signaling.incoming.collect { env ->
-                transport.onSignal(env)
-                refresh()
-            }
+            signaling.incoming.collect { env -> transport.onSignal(env) }
         }
+        refresh()
+        connectAll()
     }
 
     // --- Группы ----------------------------------------------------------
 
-    /** Создать группу с именем; возвращает инвайт (для показа/QR). */
     fun createGroup(name: String) {
         val g = name.ifBlank { "chat" }.toByteArray()
         invite = core.createGroupInvite(g)
-        core.joinEnvelope(g)?.let { transport.broadcast(it) }
+        core.joinEnvelope(g)?.let { transport.sendTargets(it.envelope, it.targets) }
         refresh()
         selectGroup(g)
+        connectAll()
     }
 
-    /** Вступить в группу по инвайт-строке. */
     fun joinGroup(inviteStr: String) {
         runCatching { core.joinFromInvite(inviteStr) }
             .onSuccess { g ->
-                core.joinEnvelope(g)?.let { transport.broadcast(it) }
+                core.joinEnvelope(g)?.let { transport.sendTargets(it.envelope, it.targets) }
                 refresh()
                 selectGroup(g)
+                connectAll()
             }
             .onFailure { status = "плохой инвайт" }
     }
@@ -86,8 +85,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun selectGroup(g: ByteArray) {
         currentGroup = g
         invite = core.groupInvite(g)
-        status = "connecting…"
-        connectNeighbors(g)
         refresh()
     }
 
@@ -95,14 +92,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         currentGroup = null
     }
 
-    /** Подключиться к соседям текущей группы. */
-    private fun connectNeighbors(g: ByteArray) {
+    /** Соединиться с соседями по всем группам (объединение). */
+    private fun connectAll() {
         viewModelScope.launch {
             val ice = withContext(Dispatchers.IO) { TurnCredentials.fetch(TURN_CREDS_URL) }
             if (ice != null) transport.setIceServers(ice)
-            val neighbors = core.neighbors(g)
-            neighbors.forEach { pk -> runCatching { transport.connect(pk) } }
-            status = "соседей: ${neighbors.size}"
+            val keys = core.listGroups()
+                .flatMap { core.neighborKeys(it) }
+                .distinctBy { it.toHex() }
+            keys.forEach { pk -> runCatching { transport.connect(pk) } }
+            status = "соседей: ${keys.size}"
         }
     }
 
@@ -111,14 +110,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun send(text: String) {
         val g = currentGroup ?: return
         if (text.isBlank()) return
-        val envelope = core.post(g, text)
-        transport.broadcast(envelope)
+        val out = core.post(g, text)
+        transport.sendTargets(out.envelope, out.targets)
         refresh()
     }
 
     private fun handleIncoming(envelope: ByteArray) {
-        val outgoing = core.receive(envelope)
-        outgoing.forEach { transport.broadcast(it) }
+        core.receive(envelope).forEach { out ->
+            transport.sendTargets(out.envelope, out.targets)
+        }
         refresh()
     }
 
@@ -136,6 +136,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         super.onCleared()
     }
 }
+
+internal fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
 /** hex-строка → байты (null, если некорректна). */
 internal fun hexToBytes(hex: String): ByteArray? {
