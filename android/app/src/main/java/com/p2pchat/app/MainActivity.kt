@@ -68,7 +68,19 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
     val ctx = LocalContext.current
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("p2pchat") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("p2pchat") },
+                actions = {
+                    Text(
+                        "v" + BuildConfig.VERSION_NAME,
+                        modifier = Modifier.padding(end = 16.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+            )
+        }
     ) { pad ->
         Column(
             modifier = Modifier
