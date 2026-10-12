@@ -24,7 +24,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val TURN_CREDS_URL = BuildConfig.TURN_CREDS_URL
     }
 
-    private val core: ChatCore = ChatCore(":memory:")
+    private val core: ChatCore = ChatCore(app.filesDir.absolutePath + "/chat.db")
 
     val publicKey: ByteArray = core.publicKey()
     val publicKeyHex: String = publicKey.joinToString("") { "%02x".format(it) }

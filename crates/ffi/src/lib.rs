@@ -63,7 +63,6 @@ impl ChatCore {
     /// Создать ядро. `db_path` — файл SQLite (или ":memory:").
     #[uniffi::constructor]
     pub fn new(db_path: String) -> Result<Arc<Self>, FfiError> {
-        let identity = p2pchat_crypto::Identity::generate();
         let store = if db_path == ":memory:" {
             p2pchat_storage::Store::open_in_memory()
         } else {
@@ -71,8 +70,25 @@ impl ChatCore {
         }
         .map_err(|e| FfiError::Core { reason: e.to_string() })?;
 
+        // Личность: загружаем сохранённую или создаём и сохраняем.
+        let identity = match store
+            .get_meta("identity")
+            .map_err(|e| FfiError::Core { reason: e.to_string() })?
+        {
+            Some(bytes) => p2pchat_crypto::Identity::from_secret_bytes(&bytes)
+                .map_err(|e| FfiError::Core { reason: e.to_string() })?,
+            None => {
+                let id = p2pchat_crypto::Identity::generate();
+                store
+                    .set_meta("identity", &id.secret_bytes())
+                    .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+                id
+            }
+        };
+
         let log = Log::with_store(store)?;
-        let engine = GossipEngine::new(identity, log);
+        let mut engine = GossipEngine::new(identity, log);
+        engine.load_state()?;
         Ok(Arc::new(Self { inner: Mutex::new(engine) }))
     }
 

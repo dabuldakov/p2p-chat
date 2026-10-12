@@ -81,6 +81,21 @@ impl Store {
                 key   TEXT PRIMARY KEY,
                 value BLOB NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS group_keys (
+                group_id BLOB PRIMARY KEY,
+                key      BLOB NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS membership (
+                group_id   BLOB NOT NULL,
+                peer_id    BLOB NOT NULL,
+                public_key BLOB NOT NULL,
+                joined     INTEGER NOT NULL,
+                lamport    INTEGER NOT NULL,
+                event_id   BLOB NOT NULL,
+                PRIMARY KEY (group_id, peer_id)
+            );
             "#,
         )?;
         Ok(())
@@ -137,6 +152,28 @@ impl Store {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// Все сообщения (для загрузки лога при старте).
+    pub fn all_messages(&self) -> Result<Vec<StoredMessage>, StorageError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, group_id, author, lamport, wall_time, text, parents
+             FROM messages ORDER BY lamport ASC, id ASC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            let parents: Vec<Vec<u8>> =
+                serde_json::from_slice(&r.get::<_, Vec<u8>>(6)?).unwrap_or_default();
+            Ok(StoredMessage {
+                id: r.get(0)?,
+                group_id: r.get(1)?,
+                author: r.get(2)?,
+                lamport: r.get::<_, i64>(3)? as u64,
+                wall_time: r.get::<_, i64>(4)? as u64,
+                text: r.get(5)?,
+                parents,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     pub fn upsert_peer(&self, p: &StoredPeer) -> Result<(), StorageError> {
         self.conn.execute(
             "INSERT INTO peers (peer_id, endpoints, last_seen, is_relay, hops)
@@ -164,6 +201,64 @@ impl Store {
             params![key, value],
         )?;
         Ok(())
+    }
+
+    pub fn set_group_key(&self, group_id: &[u8], key: &[u8]) -> Result<(), StorageError> {
+        self.conn.execute(
+            "INSERT INTO group_keys (group_id, key) VALUES (?1, ?2)
+             ON CONFLICT(group_id) DO UPDATE SET key = excluded.key",
+            params![group_id, key],
+        )?;
+        Ok(())
+    }
+
+    pub fn all_group_keys(&self) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
+        let mut stmt = self.conn.prepare("SELECT group_id, key FROM group_keys")?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn upsert_membership(
+        &self,
+        group_id: &[u8],
+        peer_id: &[u8],
+        public_key: &[u8],
+        joined: bool,
+        lamport: u64,
+        event_id: &[u8],
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            "INSERT INTO membership (group_id, peer_id, public_key, joined, lamport, event_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(group_id, peer_id) DO UPDATE SET
+                public_key = excluded.public_key,
+                joined     = excluded.joined,
+                lamport    = excluded.lamport,
+                event_id   = excluded.event_id",
+            params![group_id, peer_id, public_key, joined as i64, lamport as i64, event_id],
+        )?;
+        Ok(())
+    }
+
+    /// Все строки состава: (group_id, peer_id, public_key, joined, lamport, event_id).
+    pub fn all_membership(
+        &self,
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>, Vec<u8>, bool, u64, Vec<u8>)>, StorageError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT group_id, peer_id, public_key, joined, lamport, event_id FROM membership",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get::<_, i64>(3)? != 0,
+                r.get::<_, i64>(4)? as u64,
+                r.get(5)?,
+            ))
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 }
 

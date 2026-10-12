@@ -92,6 +92,7 @@ impl GossipEngine {
         let key = GroupKey::generate();
         let bytes = key.export();
         self.groups.insert(group.clone(), key);
+        let _ = self.log.store_group_key(&group, &bytes);
         self.self_join(&group);
         bytes
     }
@@ -99,6 +100,7 @@ impl GossipEngine {
     /// Вступить в группу, зная её ключ.
     pub fn join_group(&mut self, group: GroupId, key: [u8; 32]) {
         self.groups.insert(group.clone(), GroupKey::from_bytes(key));
+        let _ = self.log.store_group_key(&group, &key);
         self.self_join(&group);
     }
 
@@ -125,7 +127,7 @@ impl GossipEngine {
 
     /// Пометить себя участником (локально) и запомнить событие для рассылки.
     fn self_join(&mut self, group: &[u8]) {
-        let lamport = self.log.lamport().max(1);
+        let lamport = self.log.tick();
         let ev = crate::membership::membership_event(
             group,
             &self.peer_id(),
@@ -138,7 +140,28 @@ impl GossipEngine {
             .entry(group.to_vec())
             .or_default()
             .apply(&ev.clone());
-        self.self_events.insert(group.to_vec(), ev);
+        self.self_events.insert(group.to_vec(), ev.clone());
+        let _ = self.log.store_membership(&ev);
+    }
+
+    /// Восстановить группы и состав из хранилища (при старте).
+    pub fn load_state(&mut self) -> Result<(), CoreError> {
+        for (g, k) in self.log.load_group_keys()? {
+            if let Ok(kb) = <[u8; 32]>::try_from(k.as_slice()) {
+                self.groups.insert(g, GroupKey::from_bytes(kb));
+            }
+        }
+        for ev in self.log.load_membership()? {
+            self.membership
+                .entry(ev.group_id.clone())
+                .or_default()
+                .apply(&ev);
+        }
+        // заново объявить себя во всех группах, где мы состоим
+        for g in self.groups() {
+            self.self_join(&g);
+        }
+        Ok(())
     }
 
     /// Конверт с нашим входом в группу — чтобы разослать его соседям.
@@ -410,6 +433,7 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             .or_default()
             .apply(&ev);
         if changed {
+            let _ = self.log.store_membership(&ev);
             out.outgoing.push(self.seal(Gossip {
                 body: Some(Body::Membership(ev)),
             })?);

@@ -39,14 +39,27 @@ impl Log {
     /// Лог с персистентностью.
     pub fn with_store(store: Store) -> Result<Self, CoreError> {
         let mut log = Self::new();
-        // восстановление состояния из БД
+        // восстановление логических часов
         let watermark = store
             .get_meta("lamport")?
             .and_then(|b| b.try_into().ok())
             .map(u64::from_le_bytes)
             .unwrap_or(0);
         log.clock.advance_to(watermark);
+        // восстановление сообщений
+        let stored = store.all_messages()?;
         log.store = Some(store);
+        for m in stored {
+            log.insert(ChatMessage {
+                id: m.id,
+                group_id: m.group_id,
+                author: m.author,
+                lamport: m.lamport,
+                wall_time: m.wall_time,
+                text: m.text,
+                parents: m.parents,
+            });
+        }
         Ok(log)
     }
 
@@ -137,6 +150,54 @@ impl Log {
 
     pub fn get(&self, id: &[u8]) -> Option<&ChatMessage> {
         self.messages.get(id)
+    }
+
+    /// Увеличить логические часы (для событий вне чата, напр. членства).
+    pub fn tick(&mut self) -> u64 {
+        self.clock.tick()
+    }
+
+    /// Сохранить ключ группы.
+    pub fn store_group_key(&self, group: &[u8], key: &[u8]) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.set_group_key(group, key)?;
+            s.set_meta("lamport", &self.clock.value().to_le_bytes())?;
+        }
+        Ok(())
+    }
+
+    pub fn load_group_keys(&self) -> Result<Vec<(Vec<u8>, Vec<u8>)>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s.all_group_keys()?,
+            None => Vec::new(),
+        })
+    }
+
+    /// Сохранить (разрешённое) событие членства.
+    pub fn store_membership(&self, ev: &crate::proto::MembershipEvent) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.upsert_membership(&ev.group_id, &ev.peer_id, &ev.public_key, ev.join, ev.lamport, &ev.id)?;
+        }
+        Ok(())
+    }
+
+    pub fn load_membership(&self) -> Result<Vec<crate::proto::MembershipEvent>, CoreError> {
+        let rows = match &self.store {
+            Some(s) => s.all_membership()?,
+            None => return Ok(Vec::new()),
+        };
+        Ok(rows
+            .into_iter()
+            .map(|(group_id, peer_id, public_key, join, lamport, id)| crate::proto::MembershipEvent {
+                group_id,
+                peer_id,
+                public_key,
+                join,
+                lamport,
+                author: Vec::new(),
+                id,
+            })
+            .collect())
     }
 
     /// Все id сообщений группы (для Merkle-синка).
