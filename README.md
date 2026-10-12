@@ -1,0 +1,130 @@
+# p2pchat
+
+Децентрализованный чат между Android-устройствами. Сообщения идут **напрямую**
+между телефонами (WebRTC), без центрального сервера для переписки. Небольшая
+инфраструктура нужна только чтобы устройства нашли друг друга и, при сложной
+сети оператора, для ретрансляции шифрованного трафика.
+
+- Сайт: https://dabuldakov.github.io/p2p-chat/
+- Сборки: https://github.com/dabuldakov/p2p-chat/releases
+- Файл приложения: `p2p-chat-<версия>.apk`
+
+## Как это работает
+
+```
+        сервер знакомства (signaling)          ретранслятор (TURN)
+        только установка связи                 только если сеть мешает
+              \        /                              \
+               \      /                                \
+            [Телефон A] ===== напрямую (WebRTC) ===== [Телефон B]
+                     шифрованные сообщения, ключ только у участников
+```
+
+1. Устройства обмениваются адресами через signaling (WebSocket).
+2. ICE/STUN (и TURN при необходимости) находят путь между ними.
+3. Открывается WebRTC DataChannel — чат идёт напрямую.
+4. Сообщения шифруются групповым ключом; подписываются ключом устройства.
+
+Сервер **не читает и не хранит** сообщения. TURN-креды выдаются приложению
+временно (TURN REST API) и живут час.
+
+## Структура репозитория
+
+```
+proto/p2pchat.proto        # протокол (Envelope, ChatMessage, PeerList, Sync*, Signal*)
+VERSION                    # текущая версия приложения (например 1.0.1)
+
+crates/
+  proto/                   # сгенерированный protobuf (общий для всех)
+  crypto/                  # Ed25519-личность, GroupKey, HKDF
+  storage/                 # SQLite append-only лог
+  core/                    # Lamport, CRDT-лог, Merkle-синк, PeerTable, GossipEngine
+  transport/               # trait Transport, Memory, WebRTC-оркестрация
+  signaling/               # trait Signaling, in-memory hub, WsSignaling
+  server/                  # WebSocket signaling + TURN REST API (бинарь)
+  node/                    # headless-узел (TCP-gossip)
+  ffi/                     # UniFFI → Kotlin (биндинги) + uniffi-bindgen
+
+android/                   # приложение (Kotlin, Jetpack Compose, WebRTC)
+docs/                      # статический сайт (GitHub Pages)
+deploy/                    # Dockerfile, coturn/Caddy конфиги, скрипты деплоя
+.github/workflows/         # CI: сборка APK + публикация релиза
+```
+
+## Сборка
+
+### Rust
+
+```bash
+cargo build --release
+cargo test                      # 16+ тестов: CRDT, Merkle, шифрование, signaling
+cargo run -p p2pchat-signal-server --example remote_check -- ws://host:port
+```
+
+### Android
+
+Нужны Android SDK и NDK.
+
+```bash
+# 1) нативная библиотека ядра под ABI
+rustup target add aarch64-linux-android x86_64-linux-android
+./android/build-rust-android.sh          # требует ANDROID_NDK_HOME
+
+# 2) сборка APK (в CI то же делает GitHub Actions)
+cd android && gradle assembleRelease
+```
+
+Конфиг сборки берётся из `android/local.properties` (не коммитится) или env:
+
+| Ключ | Значение |
+|---|---|
+| `SIGNAL_URL` | `wss://signal.example.com` (или `ws://ip:port`) |
+| `TURN_CREDS_URL` | эндпоинт временных TURN-кред, напр. `https://signal.example.com/turn-credentials` |
+
+## Серверы
+
+### Signaling + TURN REST API
+
+Один бинарь `p2pchat-signal-server`. WebSocket — на `--listen` (по умолчанию 8080),
+HTTP-эндпоинт кред — на отдельном порту (по умолчанию 8091).
+
+Переменные окружения:
+
+| Переменная | Назначение |
+|---|---|
+| `TURN_SECRET` | общий секрет с coturn (включает эндпоинт кред) |
+| `TURN_PUBLIC_HOST` | публичный адрес TURN, напр. `1.2.3.4` |
+| `TURN_TTL` | срок жизни кред, сек (по умолчанию 3600) |
+| `CREDS_LISTEN` | адрес HTTP-эндпоинта (по умолчанию `0.0.0.0:8091`) |
+
+Эндпоинт `GET /turn-credentials` возвращает:
+```json
+{"username":"<unix-expiry>","credential":"<base64 hmac-sha1>",
+ "ttl":3600,"uris":["turn:host:3478?transport=udp"]}
+```
+
+### coturn (STUN/TURN)
+
+Ключевое — `use-auth-secret` + `static-auth-secret=<тот же TURN_SECRET>`.
+См. `deploy/turnserver.conf`. При 1:1 NAT обязательны `external-ip` и
+`listening-ip`/`relay-ip`.
+
+### TLS
+
+`deploy/Caddyfile` — пример: Caddy сам получает сертификат Let's Encrypt и
+проксирует `/turn-credentials` на HTTP-эндпоинт, остальное — на WebSocket.
+
+## CI и подпись
+
+Workflow `.github/workflows/android.yml`:
+- собирает Rust-ядро под Android (cargo-ndk) и APK;
+- подписывает release ключом из секрета `KEYSTORE_BASE64`;
+- переименовывает APK в `p2p-chat-<версия>.apk` и публикует релиз `latest`.
+
+Секреты (Settings → Secrets and variables → Actions):
+- `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` — подпись;
+- `SIGNAL_URL`, `TURN_CREDS_URL` — инфраструктура (если не заданы, берутся значения по умолчанию из кода).
+
+## Лицензия
+
+MIT.

@@ -36,16 +36,9 @@ class WebRtcTransport(
 ) : ChatTransport {
 
     companion object {
-        // Статический фолбэк, если не удалось получить временные креды.
-        private fun defaultIceServers(): List<PeerConnection.IceServer> = buildList {
-            add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
-            if (BuildConfig.TURN_URL.isNotEmpty()) {
-                val b = PeerConnection.IceServer.builder(BuildConfig.TURN_URL)
-                if (BuildConfig.TURN_USER.isNotEmpty()) b.setUsername(BuildConfig.TURN_USER)
-                if (BuildConfig.TURN_PASS.isNotEmpty()) b.setPassword(BuildConfig.TURN_PASS)
-                add(b.createIceServer())
-            }
-        }
+        // Фолбэк, если не удалось получить временные TURN-креды (только STUN).
+        private fun defaultIceServers(): List<PeerConnection.IceServer> =
+            listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
         private const val DATA_CHANNEL_LABEL = "p2pchat"
     }
 

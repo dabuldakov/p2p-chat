@@ -72,14 +72,18 @@ jobs:
         working-directory: android
         env:
           SIGNAL_URL: ${{ secrets.SIGNAL_URL }}
-          TURN_URL: ${{ secrets.TURN_URL }}
-          TURN_USER: ${{ secrets.TURN_USER }}
-          TURN_PASS: ${{ secrets.TURN_PASS }}
+          TURN_CREDS_URL: ${{ secrets.TURN_CREDS_URL }}
           KEYSTORE_FILE: ${{ steps.keystore.outputs.have == 'true' && format('{0}/android/app/release.keystore', github.workspace) || '' }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle assembleDebug assembleRelease --no-daemon
+
+      - name: Rename APKs with version
+        run: |
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          mv android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/p2p-chat-${VERSION}.apk"
+          mv android/app/build/outputs/apk/debug/app-debug.apk "android/app/build/outputs/apk/debug/p2p-chat-${VERSION}-debug.apk"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -109,5 +113,5 @@ jobs:
             Коммит: ${{ github.sha }}
           make_latest: true
           files: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/release/p2p-chat-*.apk
+            android/app/build/outputs/apk/debug/p2p-chat-*-debug.apk

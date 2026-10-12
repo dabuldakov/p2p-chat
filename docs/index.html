@@ -49,6 +49,9 @@
   }
   .badge b{color:var(--fg); font-weight:600}
   .dot{width:7px; height:7px; border-radius:50%; background:var(--accent2); display:inline-block}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  .chip{padding:5px 11px; border-radius:999px; font-size:12.5px; color:var(--muted); background:rgba(91,140,255,.10); border:1px solid var(--line)}
+  h3.blk{font-size:18px; margin:26px 0 10px}
   section{padding:40px 0; border-top:1px solid var(--line)}
   h2{font-size:clamp(22px,3.4vw,30px); margin:0 0 8px}
   .sub{color:var(--muted); margin:0 0 26px}
@@ -96,6 +99,7 @@
       <a href="#how">Как работает</a>
       <a href="#start">Как начать</a>
       <a href="#group">Группы</a>
+      <a href="#details">Подробности</a>
       <a href="#privacy">Приватность</a>
       <a href="#faq">Вопросы</a>
       <a href="https://github.com/dabuldakov/p2p-chat" target="_blank" rel="noopener">GitHub</a>
@@ -109,10 +113,10 @@
   <p>p2pchat соединяет два устройства через интернет без центрального сервера для сообщений.
      Сервер нужен только на несколько секунд — помочь телефонам найти друг друга.</p>
   <div class="cta">
-    <a class="btn" href="https://github.com/dabuldakov/p2p-chat/releases/latest/download/app-release.apk">Скачать APK (Android)</a>
+    <a class="btn" id="download" href="https://github.com/dabuldakov/p2p-chat/releases/latest">Скачать APK (Android)</a>
     <a class="btn ghost" href="https://github.com/dabuldakov/p2p-chat/releases" target="_blank" rel="noopener">Все сборки</a>
   </div>
-  <div class="meta">Последняя сборка публикуется автоматически · Android 8.0+ · открытый исходный код</div>
+  <div class="meta" id="dl-meta">Последняя сборка публикуется автоматически · Android 8.0+ · открытый исходный код</div>
   <div class="badge" id="ver" title="Версия последней сборки">
     <span class="dot"></span>
     <span id="ver-text">версия: загрузка…</span>
@@ -192,8 +196,8 @@
       </div></div>
       <div class="step"><div class="n">2</div><div>
         <h3>Обменяйтесь ключами</h3>
-        <p>В приложении показан ваш ключ. Передайте его любым способом (мессенджер, вслух, QR)
-           человеку, с которым хотите общаться, и введите его ключ у себя.</p>
+        <p>В приложении на экране ваш ключ и QR-код. Собеседник может отсканировать QR
+           или вставить скопированный ключ. Кнопка «Скопировать ключ» — в один тап.</p>
       </div></div>
       <div class="step"><div class="n">3</div><div>
         <h3>Нажмите «Connect»</h3>
@@ -377,10 +381,96 @@
       </div>
     </div>
     <p class="note" style="margin-top:18px">
-      Это ранняя версия для технически любопытных. Signaling идёт по защищённому
-      <code>wss://</code> (Let's Encrypt), но TURN-креды пока статические — для боевого
-      использования их стоит сделать временными.
+      Связь устанавливается по защищённому <code>wss://</code> (TLS, сертификат Let's Encrypt).
+      TURN-креды выдаются приложению во время работы (TURN REST API) и живут всего час —
+      постоянных паролей в приложении нет.
     </p>
+  </div>
+</section>
+
+<section id="details">
+  <div class="wrap">
+    <h2>Подробности и примеры</h2>
+    <p class="sub">Как это устроено под капотом и как этим пользоваться в жизни.</p>
+
+    <h3 class="blk">Что происходит при отправке сообщения</h3>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div>
+        <h3>Сообщение шифруется</h3>
+        <p>Текст зашифровывается групповым ключом (ChaCha20&nbsp;+&nbsp;Poly1305). Ключ есть
+           только у участников чата.</p>
+      </div></div>
+      <div class="step"><div class="n">2</div><div>
+        <h3>Подписывается</h3>
+        <p>У каждого устройства свой ключ подписи (Ed25519) — получатель точно знает, кто автор,
+           и в сети никто не подделает сообщение.</p>
+      </div></div>
+      <div class="step"><div class="n">3</div><div>
+        <h3>Уходит напрямую</h3>
+        <p>Через открытый WebRTC-канал данные идут прямо собеседнику. В группе — расходится
+           по сети «как слух» (gossip), каждый пересылает соседям.</p>
+      </div></div>
+      <div class="step"><div class="n">4</div><div>
+        <h3>Складывается в общий лог</h3>
+        <p>У всех участников получается одинаковый порядок сообщений (CRDT), даже если кто-то
+           был офлайн и догнал позже.</p>
+      </div></div>
+    </div>
+
+    <h3 class="blk">Пример: подключить собеседника</h3>
+    <div class="grid">
+      <div class="card">
+        <h3>Через QR-код</h3>
+        <p>Откройте приложение — на экране ваш ключ и QR. Собеседник нажимает «Подключиться»
+           и сканирует код. Оба оказываются в одном чате.</p>
+      </div>
+      <div class="card">
+        <h3>Вручную</h3>
+        <p>Нажмите «Скопировать ключ» и передайте его любым способом (мессенджер, вслух).
+           Второй человек вставляет ключ и жмёт Connect.</p>
+      </div>
+      <div class="card">
+        <h3>Группа</h3>
+        <p>Один создаёт группу и получает групповой ключ для раздачи. Остальные вступают по нему —
+           дальше сообщения расходятся по всей группе.</p>
+      </div>
+    </div>
+
+    <h3 class="blk">Куда идут данные</h3>
+    <div class="grid">
+      <div class="card">
+        <h3>Сообщения</h3>
+        <p>Напрямую между телефонами. Ни на одном сервере не хранятся.</p>
+      </div>
+      <div class="card">
+        <h3>Сервер знакомства</h3>
+        <p>Видит только «кто с кем соединяется» секунду при установке связи. Переписку не читает.</p>
+      </div>
+      <div class="card">
+        <h3>TURN</h3>
+        <p>Ретранслятор только если оператор мешает прямому соединению. Через него идёт шифртекст.</p>
+      </div>
+      <div class="card">
+        <h3>Ключи</h3>
+        <p>Приватные ключи устройства не покидают телефон. Наружу уходят только открытые.</p>
+      </div>
+    </div>
+
+    <h3 class="blk">Технологии</h3>
+    <div class="chips">
+      <span class="chip">Rust-ядро</span>
+      <span class="chip">Kotlin / Jetpack Compose</span>
+      <span class="chip">UniFFI</span>
+      <span class="chip">WebRTC DataChannel</span>
+      <span class="chip">WebSocket signaling</span>
+      <span class="chip">coturn (STUN/TURN)</span>
+      <span class="chip">CRDT-лог</span>
+      <span class="chip">gossip</span>
+      <span class="chip">Ed25519</span>
+      <span class="chip">ChaCha20-Poly1305</span>
+      <span class="chip">Merkle-синк</span>
+      <span class="chip">protobuf</span>
+    </div>
   </div>
 </section>
 
@@ -425,6 +515,19 @@
     });
     if (!res.ok) throw new Error(res.status);
     const d = await res.json();
+
+    // ссылка на версионированный APK (p2p-chat-<версия>.apk)
+    const dl = document.getElementById('download');
+    const assets = d.assets || [];
+    const rel = assets.find(a => /^p2p-chat-.*\.apk$/.test(a.name) && !/-debug\.apk$/.test(a.name))
+             || assets.find(a => /\.apk$/.test(a.name) && !/-debug\.apk$/.test(a.name));
+    if (dl && rel) {
+      dl.href = rel.browser_download_url;
+      const mb = (rel.size / 1048576).toFixed(0);
+      const meta = document.getElementById('dl-meta');
+      if (meta) meta.textContent = rel.name + ' · ' + mb + ' МБ · Android 8.0+ · открытый исходный код';
+    }
+
     const hay = (d.name || '') + ' ' + (d.body || '');
     const vm = hay.match(/\b(\d+\.\d+\.\d+)\b/);
     const version = vm ? vm[1]

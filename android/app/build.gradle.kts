@@ -41,11 +41,8 @@ android {
         versionName = appVersion
 
         buildConfigField("String", "SIGNAL_URL", "\"${secret("SIGNAL_URL", "wss://90.188.89.63.sslip.io:9443")}\"")
-        // Эндпоинт временных TURN-кред (TURN REST API). Пустой — использовать статические ниже.
+        // Эндпоинт временных TURN-кред (TURN REST API).
         buildConfigField("String", "TURN_CREDS_URL", "\"${secret("TURN_CREDS_URL", "https://90.188.89.63.sslip.io:9443/turn-credentials")}\"")
-        buildConfigField("String", "TURN_URL", "\"${secret("TURN_URL")}\"")
-        buildConfigField("String", "TURN_USER", "\"${secret("TURN_USER")}\"")
-        buildConfigField("String", "TURN_PASS", "\"${secret("TURN_PASS")}\"")
     }
 
     // signaling-сообщения генерируются из src/main/proto (симлинк на общий proto/).

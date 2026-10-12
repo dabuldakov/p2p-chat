@@ -26,13 +26,14 @@ source "$CRED"
   echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
   echo "KEY_PASSWORD=$KEY_PASSWORD"
   echo
-  echo "## Инфраструктура (сервер 92.242.60.161):"
+  echo "## Инфраструктура (нужны только эти):"
   echo "SIGNAL_URL=wss://90.188.89.63.sslip.io:9443"
-  echo "TURN_URL=turn:90.188.89.63:3478?transport=udp"
-  echo "TURN_USER=p2pchat"
-  echo "TURN_PASS=NKaFTUADp0jFIIzKVeJR"
+  echo "TURN_CREDS_URL=https://90.188.89.63.sslip.io:9443/turn-credentials"
+  echo
+  echo "## Статические TURN-креды больше НЕ нужны — TURN выдаёт временные"
+  echo "## через TURN REST API (TURN_CREDS_URL)."
 } | tee "$OUT"
 
 echo
 echo "==> Сохранено в $OUT"
-echo "==> Пароли TURN/keystore были показаны выше — не коммить этот файл (он в .gitignore)."
+echo "==> Пароли keystore показаны выше — не коммить этот файл (он в .gitignore)."

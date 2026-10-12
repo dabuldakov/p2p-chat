@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 # Деплой coturn (STUN/TURN) на VPS через Docker (host network).
+# Использует TURN REST API: общий секрет вместо статического пользователя.
 #
-#   HOST=dmitry_buldakov@90.188.89.63 SSH_PORT=2222 TURN_PASS=... \
-#     PUBLIC_IP=90.188.89.63 LAN_IP=192.168.1.8 ./deploy-turn.sh
+#   HOST=user@host SSH_PORT=2222 TURN_SECRET=... PUBLIC_IP=1.2.3.4 LAN_IP=10.0.0.5 ./deploy-turn.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-HOST="${HOST:-dmitry_buldakov@90.188.89.63}"
-SSH_PORT="${SSH_PORT:-2222}"
+HOST="${HOST:-}"
+SSH_PORT="${SSH_PORT:-22}"
 KEY="${KEY:-$HOME/.ssh/deploy_ci_ed25519}"
-PUBLIC_IP="${PUBLIC_IP:-90.188.89.63}"
-LAN_IP="${LAN_IP:-192.168.1.8}"
-TURN_USER="${TURN_USER:-p2pchat}"
-TURN_PASS="${TURN_PASS:?Задайте TURN_PASS}"
+PUBLIC_IP="${PUBLIC_IP:?Задайте PUBLIC_IP}"
+LAN_IP="${LAN_IP:-$PUBLIC_IP}"
+TURN_SECRET="${TURN_SECRET:?Задайте TURN_SECRET (общий с signaling)}"
+[ -n "$HOST" ] || { echo "Задайте HOST=user@host"; exit 1; }
 
 SSH=(ssh -i "$KEY" -p "$SSH_PORT" -o BatchMode=yes -o ConnectTimeout=20)
 
@@ -21,9 +20,9 @@ relay-ip=${LAN_IP}
 external-ip=${PUBLIC_IP}/${LAN_IP}
 listening-port=3478
 fingerprint
-lt-cred-mech
+use-auth-secret
+static-auth-secret=${TURN_SECRET}
 realm=p2pchat
-user=${TURN_USER}:${TURN_PASS}
 min-port=49152
 max-port=65535
 no-multicast-peers
@@ -42,4 +41,4 @@ docker run -d --name p2pchat-turn --restart unless-stopped --network host \
 sleep 2
 docker ps --filter name=p2pchat-turn --format '{{.Names}} {{.Status}}'"
 
-echo "==> Готово. TURN: turn:${PUBLIC_IP}:3478 (user=${TURN_USER})"
+echo "==> Готово. TURN: turn:${PUBLIC_IP}:3478 (временные креды через TURN REST API)"
