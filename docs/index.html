@@ -520,8 +520,10 @@
     // ссылка на версионированный APK (p2p-chat-<версия>.apk)
     const dl = document.getElementById('download');
     const assets = d.assets || [];
-    const rel = assets.find(a => /^p2p-chat-.*\.apk$/.test(a.name) && !/-debug\.apk$/.test(a.name))
-             || assets.find(a => /\.apk$/.test(a.name) && !/-debug\.apk$/.test(a.name));
+    const apks = assets
+      .filter(a => /\.apk$/.test(a.name) && !/-debug\.apk$/.test(a.name))
+      .sort((x, y) => new Date(y.created_at || 0) - new Date(x.created_at || 0));
+    const rel = apks[0];
     if (dl && rel) {
       dl.href = rel.browser_download_url;
       const mb = (rel.size / 1048576).toFixed(0);
