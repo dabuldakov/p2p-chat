@@ -34,9 +34,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     private val signaling = SignalingClient(SIGNAL_URL, publicKey)
-    private val transport = WebRtcTransport(app, publicKey, signaling, { env -> handleIncoming(env) }) { n ->
-        connected = n
-    }
+    private val transport = WebRtcTransport(
+        app,
+        publicKey,
+        signaling,
+        { env -> handleIncoming(env) },
+        onPeerChange = { n -> connected = n },
+        onPeerConnected = { key -> onPeerConnected(key) },
+    )
 
     var groups by mutableStateOf<List<String>>(emptyList())
         private set
@@ -63,6 +68,33 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
         refresh()
         connectAll()
+        // периодический анти-энтропийный догон (офлайн-сообщения)
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000)
+                syncAll()
+            }
+        }
+    }
+
+    /** Догнать пропущенное с соседями по всем группам. */
+    private fun syncAll() {
+        for (g in core.listGroups()) {
+            for (key in core.neighborKeys(g)) {
+                runCatching { core.syncDigestTo(g, key) }.getOrNull()?.let {
+                    transport.sendTargets(it.envelope, it.targets)
+                }
+            }
+        }
+    }
+
+    /** Пир подключился — синхронизируем общие группы. */
+    private fun onPeerConnected(peerKey: ByteArray) {
+        for (g in core.groupsWith(peerKey)) {
+            runCatching { core.syncDigestTo(g, peerKey) }.getOrNull()?.let {
+                transport.sendTargets(it.envelope, it.targets)
+            }
+        }
     }
 
     // --- Группы ----------------------------------------------------------

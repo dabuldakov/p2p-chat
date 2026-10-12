@@ -349,6 +349,24 @@ impl GossipEngine {
         self.seal(Gossip { body: Some(Body::SyncDigest(d)) })
     }
 
+    /// Digest группы, адресованный конкретному пиру (для офлайн-догона).
+    pub fn sync_digest_to(&self, group: &[u8], target: &[u8]) -> Result<Outgoing, CoreError> {
+        let env = self.sync_digest(group)?;
+        Ok(self.out_to(env, target.to_vec()))
+    }
+
+    /// Группы, где мы состоим и есть участник с таким публичным ключом.
+    pub fn groups_with(&self, public_key: &[u8]) -> Vec<GroupId> {
+        self.membership
+            .iter()
+            .filter(|(_, m)| {
+                m.is_member(&self.peer_id())
+                    && m.members().iter().any(|x| x.public_key == public_key)
+            })
+            .map(|(g, _)| g.clone())
+            .collect()
+    }
+
     fn on_digest(&mut self, d: SyncDigest, origin: &[u8], out: &mut Outcome) -> Result<(), CoreError> {
         let local = MerkleTree::build(self.log.ids_for_group(&d.group_id));
         let remote_root: [u8; 32] = d.root.as_slice().try_into().unwrap_or([0u8; 32]);

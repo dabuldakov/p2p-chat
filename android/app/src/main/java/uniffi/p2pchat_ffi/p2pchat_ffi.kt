@@ -750,6 +750,10 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -781,6 +785,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_group_invite(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_groups_with(`ptr`: Pointer,`publicKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_history(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_join_envelope(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -806,6 +812,8 @@ internal interface UniffiLib : Library {
     fun uniffi_p2pchat_ffi_fn_method_chatcore_public_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_receive(`ptr`: Pointer,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_sync_digest_to(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`targetKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_func_default_group_id(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -929,6 +937,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_group_invite(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_groups_with(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_history(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope(
@@ -954,6 +964,8 @@ internal interface UniffiLib : Library {
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_public_key(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_receive(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_constructor_chatcore_new(
     ): Short
@@ -984,6 +996,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_group_invite() != 22465.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_groups_with() != 29021.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_history() != 38726.toShort()) {
@@ -1023,6 +1038,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_receive() != 36340.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to() != 49268.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_constructor_chatcore_new() != 17218.toShort()) {
@@ -1380,6 +1398,11 @@ public interface ChatCoreInterface {
     fun `groupInvite`(`groupId`: kotlin.ByteArray): kotlin.String?
     
     /**
+     * Группы, где мы состоим и есть участник с таким публичным ключом.
+     */
+    fun `groupsWith`(`publicKey`: kotlin.ByteArray): List<kotlin.ByteArray>
+    
+    /**
      * История группы в причинном порядке.
      */
     fun `history`(`groupId`: kotlin.ByteArray): List<FfiMessage>
@@ -1443,6 +1466,11 @@ public interface ChatCoreInterface {
      * Обработать входящий конверт. Возвращает конверты для пересылки (с адресатами).
      */
     fun `receive`(`envelope`: kotlin.ByteArray): List<FfiOutgoing>
+    
+    /**
+     * Merkle-digest группы, адресованный конкретному пиру (офлайн-догон).
+     */
+    fun `syncDigestTo`(`groupId`: kotlin.ByteArray, `targetKey`: kotlin.ByteArray): FfiOutgoing
     
     companion object
 }
@@ -1580,6 +1608,21 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_group_invite(
         it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Группы, где мы состоим и есть участник с таким публичным ключом.
+     */override fun `groupsWith`(`publicKey`: kotlin.ByteArray): List<kotlin.ByteArray> {
+            return FfiConverterSequenceByteArray.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_groups_with(
+        it, FfiConverterByteArray.lower(`publicKey`),_status)
 }
     }
     )
@@ -1779,6 +1822,22 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_receive(
         it, FfiConverterByteArray.lower(`envelope`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Merkle-digest группы, адресованный конкретному пиру (офлайн-догон).
+     */
+    @Throws(FfiException::class)override fun `syncDigestTo`(`groupId`: kotlin.ByteArray, `targetKey`: kotlin.ByteArray): FfiOutgoing {
+            return FfiConverterTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_sync_digest_to(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`targetKey`),_status)
 }
     }
     )

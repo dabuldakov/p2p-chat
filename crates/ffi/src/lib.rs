@@ -179,6 +179,19 @@ impl ChatCore {
         self.inner.lock().unwrap().neighbor_keys(&group_id)
     }
 
+    /// Группы, где мы состоим и есть участник с таким публичным ключом.
+    pub fn groups_with(&self, public_key: Vec<u8>) -> Vec<Vec<u8>> {
+        self.inner.lock().unwrap().groups_with(&public_key)
+    }
+
+    /// Merkle-digest группы, адресованный конкретному пиру (офлайн-догон).
+    pub fn sync_digest_to(&self, group_id: Vec<u8>, target_key: Vec<u8>) -> Result<FfiOutgoing, FfiError> {
+        let engine = self.inner.lock().unwrap();
+        let o = engine.sync_digest_to(&group_id, &target_key)?;
+        use prost::Message as _;
+        Ok(FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+    }
+
     /// Конверт с нашим входом в группу — разослать соседям.
     pub fn join_envelope(&self, group_id: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
         let engine = self.inner.lock().unwrap();

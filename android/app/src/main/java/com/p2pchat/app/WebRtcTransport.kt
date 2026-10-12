@@ -33,6 +33,7 @@ class WebRtcTransport(
     private val signaling: SignalingClient,
     private val onEnvelope: (ByteArray) -> Unit,
     private val onPeerChange: (Int) -> Unit = {},
+    private val onPeerConnected: (ByteArray) -> Unit = {},
 ) : ChatTransport {
 
     companion object {
@@ -45,6 +46,7 @@ class WebRtcTransport(
     private class Conn(val remoteKey: ByteArray) {
         var pc: PeerConnection? = null
         var dc: DataChannel? = null
+        var notified = false
         val pendingCandidates = mutableListOf<IceCandidate>()
         val pendingOutgoing = ArrayDeque<ByteArray>()
         val flushing = AtomicBoolean(false)
@@ -185,7 +187,13 @@ class WebRtcTransport(
         dc.registerObserver(object : DataChannel.Observer {
             override fun onBufferedAmountChange(previousAmount: Long) = Unit
             override fun onStateChange() {
-                if (dc.state() == DataChannel.State.OPEN) flushPending(conn)
+                if (dc.state() == DataChannel.State.OPEN) {
+                    flushPending(conn)
+                    if (!conn.notified) {
+                        conn.notified = true
+                        onPeerConnected(conn.remoteKey)
+                    }
+                }
                 onPeerChange(connectedCount())
             }
             override fun onMessage(buffer: DataChannel.Buffer) {
