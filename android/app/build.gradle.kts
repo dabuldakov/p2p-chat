@@ -113,6 +113,9 @@ dependencies {
     // protobuf-lite для сигнальных сообщений.
     implementation("com.google.protobuf:protobuf-javalite:3.25.3")
 
+    // Генерация QR-кода ключа.
+    implementation("com.google.zxing:core:3.5.3")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
 

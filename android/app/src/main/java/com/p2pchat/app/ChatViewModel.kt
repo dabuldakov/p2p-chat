@@ -26,6 +26,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /** Наш публичный ключ — им обмениваемся с собеседником. */
     val publicKey: ByteArray = core.publicKey()
 
+    /** Тот же ключ в hex — для показа, копирования и QR. */
+    val publicKeyHex: String = publicKey.joinToString("") { "%02x".format(it) }
+
     private val signaling = SignalingClient(SIGNAL_URL, publicKey)
     private val transport = WebRtcTransport(app, core, signaling)
 

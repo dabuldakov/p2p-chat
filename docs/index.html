@@ -41,6 +41,13 @@
   .hero p{color:var(--muted); font-size:clamp(15px,2.2vw,19px); max-width:720px; margin:0 auto 26px}
   .cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
   .meta{margin-top:14px; color:var(--muted); font-size:13px}
+  .badge{
+    display:inline-flex; align-items:center; gap:8px; margin-top:16px;
+    padding:6px 12px; border-radius:999px; font-size:13px; color:var(--muted);
+    background:rgba(91,140,255,.10); border:1px solid var(--line);
+  }
+  .badge b{color:var(--fg); font-weight:600}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--accent2); display:inline-block}
   section{padding:40px 0; border-top:1px solid var(--line)}
   h2{font-size:clamp(22px,3.4vw,30px); margin:0 0 8px}
   .sub{color:var(--muted); margin:0 0 26px}
@@ -48,7 +55,9 @@
   .card{
     background:linear-gradient(180deg,var(--card),var(--bg2));
     border:1px solid var(--line); border-radius:var(--radius); padding:20px;
+    transition:transform .15s ease, border-color .15s ease;
   }
+  .card:hover{transform:translateY(-2px); border-color:#3a4c86}
   .card h3{margin:0 0 6px; font-size:17px}
   .card p{margin:0; color:var(--muted); font-size:14.5px}
   .steps{counter-reset:s; display:grid; gap:14px}
@@ -103,6 +112,11 @@
     <a class="btn ghost" href="https://github.com/dabuldakov/p2p-chat/releases" target="_blank" rel="noopener">Все сборки</a>
   </div>
   <div class="meta">Последняя сборка публикуется автоматически · Android 8.0+ · открытый исходный код</div>
+  <div class="badge" id="ver" title="Версия последней сборки">
+    <span class="dot"></span>
+    <span id="ver-text">версия: загрузка…</span>
+    <a id="ver-link" href="https://github.com/dabuldakov/p2p-chat/releases/latest" target="_blank" rel="noopener" style="display:none">что нового</a>
+  </div>
 </div>
 
 <section id="how">
@@ -398,6 +412,37 @@
     </div>
   </div>
 </footer>
+
+<script>
+(async () => {
+  const text = document.getElementById('ver-text');
+  if (!text) return;
+  try {
+    const res = await fetch('https://api.github.com/repos/dabuldakov/p2p-chat/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github+json' }
+    });
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    const body = d.body || '';
+    const m = body.match(/\b[0-9a-f]{7,40}\b/);
+    const sha = m ? m[0].slice(0, 7) : '';
+    const date = d.published_at
+      ? new Date(d.published_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '';
+    const parts = [];
+    if (d.tag_name && d.tag_name !== 'latest') parts.push(d.tag_name);
+    if (sha) parts.push('сборка ' + sha);
+    if (date) parts.push(date);
+    text.innerHTML = 'версия: <b>' + (parts.join(' · ') || 'latest') + '</b>';
+    document.getElementById('ver').title = 'Обновлено ' + (d.published_at || '');
+    const link = document.getElementById('ver-link');
+    link.href = d.html_url || link.href;
+    link.style.display = '';
+  } catch (e) {
+    text.textContent = 'версия: н/д';
+  }
+})();
+</script>
 
 </body>
 </html>
