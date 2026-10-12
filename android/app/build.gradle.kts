@@ -31,7 +31,7 @@ android {
         versionCode = 1
         versionName = "0.1"
 
-        buildConfigField("String", "SIGNAL_URL", "\"${secret("SIGNAL_URL", "ws://92.242.60.161:8080")}\"")
+        buildConfigField("String", "SIGNAL_URL", "\"${secret("SIGNAL_URL", "ws://90.188.89.63:8090")}\"")
         buildConfigField("String", "TURN_URL", "\"${secret("TURN_URL")}\"")
         buildConfigField("String", "TURN_USER", "\"${secret("TURN_USER")}\"")
         buildConfigField("String", "TURN_PASS", "\"${secret("TURN_PASS")}\"")
