@@ -1,5 +1,7 @@
 //! Логика signaling-сервера (вынесена в lib для тестов).
 
+pub mod turn;
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 

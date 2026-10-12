@@ -6,7 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import uniffi.p2pchat_ffi.ChatCore
 import uniffi.p2pchat_ffi.FfiMessage
 
@@ -63,7 +65,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         status = "connecting…"
-        transport.connectTo(key)
+        viewModelScope.launch {
+            // Берём временные TURN-креды; при неудаче останутся статические.
+            val ice = withContext(Dispatchers.IO) {
+                TurnCredentials.fetch(BuildConfig.TURN_CREDS_URL)
+            }
+            if (ice != null) transport.setIceServers(ice)
+            transport.connectTo(key)
+        }
     }
 
     fun createGroup(): ByteArray = core.createGroup(group)

@@ -18,6 +18,9 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 clap = { version = "4", features = ["derive"] }
+hmac = { workspace = true }
+sha1 = { workspace = true }
+base64 = { workspace = true }
 
 [dev-dependencies]
 p2pchat-signaling = { workspace = true }

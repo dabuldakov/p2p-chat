@@ -61,3 +61,8 @@ uniffi = "0.28"
 # websockets (signaling)
 tokio-tungstenite = "0.24"
 futures-util = "0.3"
+
+# TURN REST API (временные креды)
+hmac = "0.12"
+sha1 = "0.10"
+base64 = "0.22"

@@ -36,10 +36,8 @@ class WebRtcTransport(
 ) : ChatTransport {
 
     companion object {
-        // STUN бесплатный; TURN обязателен для симметричного NAT (мобильные операторы).
-        // Параметры TURN приходят из BuildConfig (local.properties / CI secrets),
-        // в репозитории секретов нет.
-        private val ICE_SERVERS: List<PeerConnection.IceServer> = buildList {
+        // Статический фолбэк, если не удалось получить временные креды.
+        private fun defaultIceServers(): List<PeerConnection.IceServer> = buildList {
             add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
             if (BuildConfig.TURN_URL.isNotEmpty()) {
                 val b = PeerConnection.IceServer.builder(BuildConfig.TURN_URL)
@@ -49,6 +47,14 @@ class WebRtcTransport(
             }
         }
         private const val DATA_CHANNEL_LABEL = "p2pchat"
+    }
+
+    @Volatile
+    private var iceServers: List<PeerConnection.IceServer> = defaultIceServers()
+
+    /** Задать ICE-серверы (например, с временными TURN-кредами). */
+    fun setIceServers(servers: List<PeerConnection.IceServer>) {
+        if (servers.isNotEmpty()) iceServers = servers
     }
 
     private val factory: PeerConnectionFactory
@@ -140,7 +146,7 @@ class WebRtcTransport(
     // --- Внутреннее ------------------------------------------------------
 
     private fun createPeerConnection() {
-        val pc = factory.createPeerConnection(ICE_SERVERS, peerConnectionObserver())
+        val pc = factory.createPeerConnection(iceServers, peerConnectionObserver())
             ?: error("не удалось создать PeerConnection")
         peerConnection = pc
     }
