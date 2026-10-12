@@ -376,8 +376,9 @@
       </div>
     </div>
     <p class="note" style="margin-top:18px">
-      Это ранняя версия для технически любопытных. Signaling идёт без TLS (<code>ws://</code>),
-      а TURN-креды пока статические — для боевого использования нужен защищённый сервер.
+      Это ранняя версия для технически любопытных. Signaling идёт по защищённому
+      <code>wss://</code> (Let's Encrypt), но TURN-креды пока статические — для боевого
+      использования их стоит сделать временными.
     </p>
   </div>
 </section>
@@ -423,9 +424,12 @@
     });
     if (!res.ok) throw new Error(res.status);
     const d = await res.json();
-    const body = d.body || '';
-    const m = body.match(/\b[0-9a-f]{7,40}\b/);
-    const sha = m ? m[0] : '';
+    const hay = (d.name || '') + ' ' + (d.body || '');
+    const vm = hay.match(/\b(\d+\.\d+\.\d+)\b/);
+    const version = vm ? vm[1]
+      : (d.tag_name && d.tag_name !== 'latest' ? d.tag_name.replace(/^v/, '') : '');
+    const sm = (d.body || '').match(/\b[0-9a-f]{7,40}\b/);
+    const sha = sm ? sm[0] : '';
 
     let date = '';
     if (sha) {
@@ -441,12 +445,10 @@
       } catch (_) { /* дата необязательна */ }
     }
 
-    const parts = [];
-    if (d.tag_name && d.tag_name !== 'latest') parts.push(d.tag_name);
-    if (sha) parts.push('сборка ' + sha.slice(0, 7));
+    const parts = [version ? ('v' + version) : 'latest'];
     if (date) parts.push(date);
-    text.innerHTML = 'версия: <b>' + (parts.join(' · ') || 'latest') + '</b>';
-    document.getElementById('ver').title = 'Обновлено ' + (date || '');
+    text.innerHTML = 'версия: <b>' + parts.join(' · ') + '</b>';
+    document.getElementById('ver').title = 'Сборка от ' + (date || '');
     const link = document.getElementById('ver-link');
     link.href = d.html_url || link.href;
     link.style.display = '';

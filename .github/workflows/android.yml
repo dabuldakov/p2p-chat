@@ -93,14 +93,19 @@ jobs:
           name: p2pchat-release-apk
           path: android/app/build/outputs/apk/release/*.apk
 
+      - name: Read version
+        id: ver
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
       - name: Publish latest release
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: p2pchat (latest)
+          name: p2pchat ${{ steps.ver.outputs.version }}
           body: |
-            Последняя сборка из ветки ${{ github.ref_name }}.
+            Версия: ${{ steps.ver.outputs.version }}
+            Ветка: ${{ github.ref_name }}
             Коммит: ${{ github.sha }}
           make_latest: true
           files: |

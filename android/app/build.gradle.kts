@@ -20,6 +20,15 @@ fun secret(key: String, default: String = ""): String =
 // (в CI — из GitHub Secrets, локально — из env). Иначе release без подписи.
 val keystorePath: String? = System.getenv("KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
 
+// Версия приложения — из файла VERSION в корне репозитория.
+val appVersion: String = rootProject.file("../VERSION")
+    .takeIf { it.exists() }?.readText()?.trim()?.takeIf { it.isNotEmpty() } ?: "0.1"
+val appVersionCode: Int = appVersion.split(".").let { p ->
+    (p.getOrNull(0)?.toIntOrNull() ?: 1) * 10000 +
+        (p.getOrNull(1)?.toIntOrNull() ?: 0) * 100 +
+        (p.getOrNull(2)?.toIntOrNull() ?: 0)
+}
+
 android {
     namespace = "com.p2pchat.app"
     compileSdk = 34
@@ -28,10 +37,10 @@ android {
         applicationId = "com.p2pchat.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = appVersionCode
+        versionName = appVersion
 
-        buildConfigField("String", "SIGNAL_URL", "\"${secret("SIGNAL_URL", "ws://90.188.89.63:8090")}\"")
+        buildConfigField("String", "SIGNAL_URL", "\"${secret("SIGNAL_URL", "wss://90.188.89.63.sslip.io:9443")}\"")
         buildConfigField("String", "TURN_URL", "\"${secret("TURN_URL")}\"")
         buildConfigField("String", "TURN_USER", "\"${secret("TURN_USER")}\"")
         buildConfigField("String", "TURN_PASS", "\"${secret("TURN_PASS")}\"")

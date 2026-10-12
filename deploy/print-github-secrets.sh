@@ -27,7 +27,7 @@ source "$CRED"
   echo "KEY_PASSWORD=$KEY_PASSWORD"
   echo
   echo "## Инфраструктура (сервер 92.242.60.161):"
-  echo "SIGNAL_URL=ws://90.188.89.63:8090"
+  echo "SIGNAL_URL=wss://90.188.89.63.sslip.io:9443"
   echo "TURN_URL=turn:90.188.89.63:3478?transport=udp"
   echo "TURN_USER=p2pchat"
   echo "TURN_PASS=NKaFTUADp0jFIIzKVeJR"
