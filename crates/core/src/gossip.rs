@@ -183,17 +183,30 @@ impl GossipEngine {
         }
     }
 
-    /// Инвайт-строка группы (ссылка/QR): `p2pchat://join?g=<hex>&k=<hex>`.
+    /// Инвайт-строка группы (ссылка/QR): `p2pchat://join?g=<hex>&k=<hex>&h=<hex-host>`.
+    /// `h` — публичный ключ приглашающего, чтобы входящий знал, к кому подключаться.
     pub fn invite_for(&self, group: &[u8]) -> Option<String> {
         let key = self.groups.get(group)?.export();
-        Some(format!("p2pchat://join?g={}&k={}", hex(group), hex(&key)))
+        Some(format!(
+            "p2pchat://join?g={}&k={}&h={}",
+            hex(group),
+            hex(&key),
+            hex(&self.public_key())
+        ))
     }
 
-    /// Вступить по инвайт-строке.
+    /// Вступить по инвайт-строке (возвращает id группы).
     pub fn join_from_invite(&mut self, invite: &str) -> Result<GroupId, CoreError> {
         let (group, key) = parse_invite(invite)?;
         self.join_group(group.clone(), key);
         Ok(group)
+    }
+
+    /// Вступить по инвайту, вернуть группу и ключ хозяина (для bootstrap-соединения).
+    pub fn join_from_invite_full(&mut self, invite: &str) -> Result<(GroupId, Vec<u8>), CoreError> {
+        let (group, key, host) = parse_invite_full(invite)?;
+        self.join_group(group.clone(), key);
+        Ok((group, host))
     }
 
     /// Участники группы (отсортированы).
@@ -312,7 +325,7 @@ impl GossipEngine {
                 self.on_encrypted(enc, &mut out)?;
             }
             Some(Body::Membership(ev)) => {
-                self.on_membership(ev, &mut out)?;
+                self.on_membership(ev, &origin, &mut out)?;
             }
             Some(Body::Presence(p)) => {
                 self.on_presence(p);
@@ -487,20 +500,29 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
     fn on_membership(
         &mut self,
         ev: crate::proto::MembershipEvent,
+        origin: &[u8],
         out: &mut Outcome,
     ) -> Result<(), CoreError> {
+        let group = ev.group_id.clone();
+        let from_other = ev.peer_id != self.peer_id();
         let changed = self
             .membership
-            .entry(ev.group_id.clone())
+            .entry(group.clone())
             .or_default()
             .apply(&ev);
         if changed {
             let _ = self.log.store_membership(&ev);
-            let group = ev.group_id.clone();
             let env = self.seal(Gossip {
                 body: Some(Body::Membership(ev)),
             })?;
             out.outgoing.push(Outgoing { envelope: env, targets: self.neighbor_keys(&group) });
+        }
+        // Взаимное знакомство: если узнали о другом участнике — представимся ему.
+        if from_other && self.membership.get(&group).map(|m| m.is_member(&self.peer_id())).unwrap_or(false) {
+            if let Some(self_ev) = self.self_events.get(&group).cloned() {
+                let env = self.seal(Gossip { body: Some(Body::Membership(self_ev)) })?;
+                out.outgoing.push(self.out_to(env, origin.to_vec()));
+            }
         }
         Ok(())
     }
@@ -565,18 +587,19 @@ fn unhex(s: &str) -> Result<Vec<u8>, CoreError> {
         .collect()
 }
 
-/// Разобрать инвайт `p2pchat://join?g=<hex>&k=<hex>`.
-pub fn parse_invite(invite: &str) -> Result<(GroupId, [u8; 32]), CoreError> {
+/// Разобрать инвайт `p2pchat://join?g=<hex>&k=<hex>&h=<hex>`.
+pub fn parse_invite_full(invite: &str) -> Result<(GroupId, [u8; 32], Vec<u8>), CoreError> {
     let query = invite
         .split('?')
         .nth(1)
         .ok_or_else(|| CoreError::BadEnvelope("invite: no query".into()))?;
-    let (mut g, mut k) = (None, None);
+    let (mut g, mut k, mut h) = (None, None, None);
     for part in query.split('&') {
         let mut it = part.splitn(2, '=');
         match (it.next(), it.next()) {
             (Some("g"), Some(v)) => g = Some(v.to_string()),
             (Some("k"), Some(v)) => k = Some(v.to_string()),
+            (Some("h"), Some(v)) => h = Some(v.to_string()),
             _ => {}
         }
     }
@@ -586,5 +609,15 @@ pub fn parse_invite(invite: &str) -> Result<(GroupId, [u8; 32]), CoreError> {
         .as_slice()
         .try_into()
         .map_err(|_| CoreError::BadEnvelope("invite: bad key".into()))?;
-    Ok((group, key))
+    let host = match h {
+        Some(v) => unhex(&v)?,
+        None => Vec::new(),
+    };
+    Ok((group, key, host))
+}
+
+/// Разобрать инвайт (без ключа хозяина).
+pub fn parse_invite(invite: &str) -> Result<(GroupId, [u8; 32]), CoreError> {
+    let (g, k, _) = parse_invite_full(invite)?;
+    Ok((g, k))
 }

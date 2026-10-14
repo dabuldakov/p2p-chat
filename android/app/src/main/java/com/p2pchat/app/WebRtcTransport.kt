@@ -81,6 +81,13 @@ class WebRtcTransport(
         startOffer(remoteKey)
     }
 
+    /** Подключиться принудительно (bootstrap): игнорируем правило glare. */
+    fun connectForce(remoteKey: ByteArray) {
+        val id = keyHex(remoteKey)
+        if (conns.containsKey(id)) return
+        startOffer(remoteKey)
+    }
+
     fun onSignal(env: SignalEnvelope) {
         val from = env.from.toByteArray()
         val id = keyHex(from)

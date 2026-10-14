@@ -110,8 +110,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun joinGroup(inviteStr: String) {
         runCatching { core.joinFromInvite(inviteStr) }
-            .onSuccess { g ->
+            .onSuccess { join ->
+                val g = join.groupId
+                val host = join.hostKey
+                if (host.isNotEmpty()) {
+                    runCatching { transport.connectForce(host) }
+                }
+                // представимся в группе
                 core.joinEnvelope(g)?.let { transport.sendTargets(it.envelope, it.targets) }
+                // попросим историю у хозяина
+                if (host.isNotEmpty()) {
+                    runCatching { core.syncDigestTo(g, host) }.getOrNull()?.let {
+                        transport.sendTargets(it.envelope, it.targets)
+                    }
+                }
                 refresh()
                 selectGroup(g)
                 connectAll()

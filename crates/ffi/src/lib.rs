@@ -60,6 +60,14 @@ pub struct FfiOutgoing {
     pub targets: Vec<Vec<u8>>,
 }
 
+/// Результат вступления по инвайту: id группы и публичный ключ приглашающего
+/// (к нему подключаемся для bootstrap).
+#[derive(uniffi::Record)]
+pub struct FfiJoin {
+    pub group_id: Vec<u8>,
+    pub host_key: Vec<u8>,
+}
+
 /// Ядро чата, которым владеет Android-слой.
 #[derive(uniffi::Object)]
 pub struct ChatCore {
@@ -136,10 +144,11 @@ impl ChatCore {
         self.inner.lock().unwrap().invite_for(&group_id)
     }
 
-    /// Вступить в группу по инвайт-строке. Возвращает id группы.
-    pub fn join_from_invite(&self, invite: String) -> Result<Vec<u8>, FfiError> {
+    /// Вступить в группу по инвайт-строке. Возвращает id группы и ключ хозяина.
+    pub fn join_from_invite(&self, invite: String) -> Result<FfiJoin, FfiError> {
         let mut engine = self.inner.lock().unwrap();
-        Ok(engine.join_from_invite(&invite)?)
+        let (group_id, host_key) = engine.join_from_invite_full(&invite)?;
+        Ok(FfiJoin { group_id, host_key })
     }
 
     /// Вступить в группу по ключу (получен по защищённому каналу).

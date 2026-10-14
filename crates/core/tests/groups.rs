@@ -56,3 +56,35 @@ fn invite_roundtrip() {
     assert_eq!(gid, g);
     assert_eq!(k, key);
 }
+
+#[test]
+fn bootstrap_mutual_discovery() {
+    let mut a = GossipEngine::new(Identity::generate(), Log::new());
+    let mut b = GossipEngine::new(Identity::generate(), Log::new());
+    let g = b"team".to_vec();
+
+    let _key = a.create_group(g.clone());
+    let invite = a.invite_for(&g).unwrap();
+
+    // B вступает по инвайту и узнаёт ключ хозяина
+    let (gid, host) = b.join_from_invite_full(&invite).unwrap();
+    assert_eq!(gid, g);
+    assert_eq!(host, a.public_key(), "инвайт содержит ключ хозяина");
+
+    // B отправляет свой вход, A его принимает
+    let eb = b.join_envelope(&g).unwrap().unwrap();
+    let oa = a.handle(&enc(&eb)).unwrap();
+
+    // A узнал B (2 участника) и ответил своим входом именно B
+    assert_eq!(a.members(&g).len(), 2);
+    let to_b = oa.outgoing.iter().any(|o| o.targets.contains(&b.public_key()));
+    assert!(to_b, "A должен ответить своему новому соседу");
+
+    // B применяет ответ A -> теперь и B видит A
+    for o in oa.outgoing.iter() {
+        b.handle(&enc(o)).unwrap();
+    }
+    assert_eq!(b.members(&g).len(), 2);
+    assert!(b.members(&g).iter().any(|m| m.peer_id == a.peer_id()));
+    assert!(a.members(&g).iter().any(|m| m.peer_id == b.peer_id()));
+}

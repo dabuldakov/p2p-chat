@@ -1007,7 +1007,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope() != 63251.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite() != 36924.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite() != 5750.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_group() != 25300.toShort()) {
@@ -1413,9 +1413,9 @@ public interface ChatCoreInterface {
     fun `joinEnvelope`(`groupId`: kotlin.ByteArray): FfiOutgoing?
     
     /**
-     * Вступить в группу по инвайт-строке. Возвращает id группы.
+     * Вступить в группу по инвайт-строке. Возвращает id группы и ключ хозяина.
      */
-    fun `joinFromInvite`(`invite`: kotlin.String): kotlin.ByteArray
+    fun `joinFromInvite`(`invite`: kotlin.String): FfiJoin
     
     /**
      * Вступить в группу по ключу (получен по защищённому каналу).
@@ -1662,10 +1662,10 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Вступить в группу по инвайт-строке. Возвращает id группы.
+     * Вступить в группу по инвайт-строке. Возвращает id группы и ключ хозяина.
      */
-    @Throws(FfiException::class)override fun `joinFromInvite`(`invite`: kotlin.String): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
+    @Throws(FfiException::class)override fun `joinFromInvite`(`invite`: kotlin.String): FfiJoin {
+            return FfiConverterTypeFfiJoin.lift(
     callWithPointer {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_join_from_invite(
@@ -1877,6 +1877,42 @@ public object FfiConverterTypeChatCore: FfiConverter<ChatCore, Pointer> {
         // The Rust code always expects pointers written as 8 bytes,
         // and will fail to compile if they don't fit.
         buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+
+/**
+ * Результат вступления по инвайту: id группы и публичный ключ приглашающего
+ * (к нему подключаемся для bootstrap).
+ */
+data class FfiJoin (
+    var `groupId`: kotlin.ByteArray, 
+    var `hostKey`: kotlin.ByteArray
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiJoin: FfiConverterRustBuffer<FfiJoin> {
+    override fun read(buf: ByteBuffer): FfiJoin {
+        return FfiJoin(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiJoin) = (
+            FfiConverterByteArray.allocationSize(value.`groupId`) +
+            FfiConverterByteArray.allocationSize(value.`hostKey`)
+    )
+
+    override fun write(value: FfiJoin, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`groupId`, buf)
+            FfiConverterByteArray.write(value.`hostKey`, buf)
     }
 }
 
