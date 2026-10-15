@@ -13,3 +13,7 @@ tracing = { workspace = true }
 futures-util = { workspace = true }
 tokio-tungstenite = { workspace = true }
 prost = { workspace = true }
+
+[dev-dependencies]
+tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+rustls = "0.23"

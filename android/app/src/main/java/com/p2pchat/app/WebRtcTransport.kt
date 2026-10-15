@@ -85,10 +85,10 @@ class WebRtcTransport(
         if (existing != null) {
             if (existing.dc?.state() == DataChannel.State.OPEN) return
             if (System.currentTimeMillis() - existing.createdAt < RETRY_MS) return
-            // соединение «зависло» — пересоздаём
-            existing.dc?.close()
-            existing.pc?.close()
+            // соединение «зависло» — пересоздаём (закрытие откладываем на main)
+            existing.dead = true
             conns.remove(id)
+            handler.post { runCatching { existing.pc?.close() } }
         }
         android.util.Log.i("p2pchat", "connect -> offer ${id.take(8)}")
         startOffer(remoteKey)
@@ -103,7 +103,11 @@ class WebRtcTransport(
         android.util.Log.d("p2pchat", "signal ${env.bodyCase} from ${id.take(8)}")
         when (env.bodyCase) {
             SignalEnvelope.BodyCase.OFFER -> {
-                val conn = conns.getOrPut(id) { newConn(from) }
+                var conn = conns[id]
+                if (conn == null || conn.dead) {
+                    conn = newConn(from)
+                    conns[id] = conn
+                }
                 // perfect negotiation: при коллизии offer «невежливая» сторона игнорирует входящий
                 if (conn.makingOffer && !isPolite(from)) {
                     android.util.Log.i("p2pchat", "glare: ignore offer ${id.take(8)}")
@@ -187,11 +191,14 @@ class WebRtcTransport(
         conn.dead = true
         val id = keyHex(conn.remoteKey)
         android.util.Log.w("p2pchat", "disconnect ${id.take(8)}")
-        if (conns[id] === conn) {
-            conn.dc?.close()
-            conn.pc?.close()
-            conns.remove(id)
-            onPeerChange(connectedCount())
+        // ВАЖНО: нельзя закрывать PeerConnection синхронно внутри native-callback
+        // (реентрантность → SIGSEGV в libjingle). Откладываем на main-очередь.
+        handler.post {
+            if (conns[id] === conn) {
+                conns.remove(id)
+                runCatching { conn.pc?.close() }
+                onPeerChange(connectedCount())
+            }
         }
         if (!closed && !isPolite(conn.remoteKey)) {
             handler.postDelayed({
