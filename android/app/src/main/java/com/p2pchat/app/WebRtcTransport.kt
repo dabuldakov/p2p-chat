@@ -82,10 +82,11 @@ class WebRtcTransport(
     fun connect(remoteKey: ByteArray) {
         val id = keyHex(remoteKey)
         val existing = conns[id]
+        if (existing?.dc?.state() == DataChannel.State.OPEN) return
+        // инициатор — только сторона с меньшим ключом; вторая ждёт offer
+        if (!weInitiate(remoteKey)) return
         if (existing != null) {
-            if (existing.dc?.state() == DataChannel.State.OPEN) return
             if (System.currentTimeMillis() - existing.createdAt < RETRY_MS) return
-            // соединение «зависло» — пересоздаём (закрытие откладываем на main)
             existing.dead = true
             conns.remove(id)
             handler.post { runCatching { existing.pc?.close() } }
@@ -94,8 +95,19 @@ class WebRtcTransport(
         startOffer(remoteKey)
     }
 
-    /** «Вежливая» сторона при коллизии offer уступает (perfect negotiation). */
-    private fun isPolite(remoteKey: ByteArray): Boolean = keyHex(myKey) > keyHex(remoteKey)
+    /** Принудительное подключение (bootstrap-хост): игнорируем правило инициатора. */
+    fun connectForce(remoteKey: ByteArray) {
+        val id = keyHex(remoteKey)
+        conns.remove(id)?.let {
+            it.dead = true
+            handler.post { runCatching { it.pc?.close() } }
+        }
+        android.util.Log.i("p2pchat", "connectForce -> offer ${id.take(8)}")
+        startOffer(remoteKey)
+    }
+
+    /** Мы инициатор пары, если наш ключ лексикографически меньше. */
+    private fun weInitiate(remoteKey: ByteArray): Boolean = keyHex(myKey) < keyHex(remoteKey)
 
     fun onSignal(env: SignalEnvelope) {
         val from = env.from.toByteArray()
@@ -107,11 +119,6 @@ class WebRtcTransport(
                 if (conn == null || conn.dead) {
                     conn = newConn(from)
                     conns[id] = conn
-                }
-                // perfect negotiation: при коллизии offer «невежливая» сторона игнорирует входящий
-                if (conn.makingOffer && !isPolite(from)) {
-                    android.util.Log.i("p2pchat", "glare: ignore offer ${id.take(8)}")
-                    return
                 }
                 val desc = SessionDescription(SessionDescription.Type.OFFER, env.offer.sdp.toStringUtf8())
                 conn.pc!!.setRemoteDescription(setRemoteObserver(conn), desc)
@@ -200,7 +207,7 @@ class WebRtcTransport(
                 onPeerChange(connectedCount())
             }
         }
-        if (!closed && !isPolite(conn.remoteKey)) {
+        if (!closed && weInitiate(conn.remoteKey)) {
             handler.postDelayed({
                 if (!closed) startOffer(conn.remoteKey)
             }, RECONNECT_DELAY_MS)
