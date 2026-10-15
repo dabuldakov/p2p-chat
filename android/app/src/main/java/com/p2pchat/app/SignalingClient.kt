@@ -50,19 +50,25 @@ class SignalingClient(
         val request = Request.Builder().url(url).build()
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                android.util.Log.i("p2pchat", "ws open: $url")
                 webSocket.send(registerEnvelope().toByteArray().toByteString())
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
                 runCatching { SignalEnvelope.parseFrom(bytes.toByteArray()) }
-                    .onSuccess { _incoming.tryEmit(it) }
+                    .onSuccess { env ->
+                        android.util.Log.d("p2pchat", "ws msg ${env.bodyCase}")
+                        _incoming.tryEmit(env)
+                    }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                android.util.Log.w("p2pchat", "ws failure: $t")
                 scheduleReconnect()
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                android.util.Log.w("p2pchat", "ws closed $code $reason")
                 scheduleReconnect()
             }
         })

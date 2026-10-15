@@ -78,6 +78,7 @@ class WebRtcTransport(
         val id = keyHex(remoteKey)
         if (conns.containsKey(id)) return
         if (!weInitiate(remoteKey)) return // ждём их offer
+        android.util.Log.i("p2pchat", "connect initiate ${id.take(8)}")
         startOffer(remoteKey)
     }
 
@@ -91,6 +92,7 @@ class WebRtcTransport(
     fun onSignal(env: SignalEnvelope) {
         val from = env.from.toByteArray()
         val id = keyHex(from)
+        android.util.Log.d("p2pchat", "signal ${env.bodyCase} from ${id.take(8)}")
         when (env.bodyCase) {
             SignalEnvelope.BodyCase.OFFER -> {
                 val conn = conns.getOrPut(id) { newConn(from) }
@@ -167,6 +169,7 @@ class WebRtcTransport(
 
     private fun handleDisconnect(conn: Conn) {
         val id = keyHex(conn.remoteKey)
+        android.util.Log.w("p2pchat", "disconnect ${id.take(8)}")
         if (conns[id] === conn) {
             conn.dc?.close()
             conn.pc?.close()
@@ -182,6 +185,7 @@ class WebRtcTransport(
 
     private fun sendTo(conn: Conn, envelope: ByteArray) {
         val dc = conn.dc
+        android.util.Log.d("p2pchat", "send ${envelope.size}b dc=${dc?.state()} -> ${keyHex(conn.remoteKey).take(8)}")
         if (dc != null && dc.state() == DataChannel.State.OPEN) {
             dc.send(DataChannel.Buffer(ByteBuffer.wrap(envelope), true))
         } else {
@@ -198,6 +202,7 @@ class WebRtcTransport(
                     flushPending(conn)
                     if (!conn.notified) {
                         conn.notified = true
+                        android.util.Log.i("p2pchat", "dc OPEN ${keyHex(conn.remoteKey).take(8)}")
                         onPeerConnected(conn.remoteKey)
                     }
                 }
@@ -206,6 +211,7 @@ class WebRtcTransport(
             override fun onMessage(buffer: DataChannel.Buffer) {
                 val bytes = ByteArray(buffer.data.remaining())
                 buffer.data.get(bytes)
+                android.util.Log.i("p2pchat", "dc recv ${bytes.size}b")
                 onIncoming(bytes)
             }
         })

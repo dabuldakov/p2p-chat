@@ -271,12 +271,15 @@ object ChatRuntime {
         val g = currentGroup ?: return
         if (text.isBlank()) return
         val out = core.post(g, text)
+        android.util.Log.i("p2pchat", "send '${text.take(24)}' targets=${out.targets.size}")
         transport.sendTargets(out.envelope, out.targets)
         refresh()
     }
 
     private fun handleIncoming(envelope: ByteArray) {
-        core.receive(envelope).forEach { out ->
+        val outs = core.receive(envelope)
+        android.util.Log.i("p2pchat", "incoming env -> out=${outs.size}")
+        outs.forEach { out ->
             transport.sendTargets(out.envelope, out.targets)
         }
         refresh()
