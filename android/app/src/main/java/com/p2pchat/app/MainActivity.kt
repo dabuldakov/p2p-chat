@@ -47,6 +47,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -318,6 +319,28 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Держать связь в фоне", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Сообщения приходят при закрытом приложении (постоянное уведомление). " +
+                            "Влияет на батарею.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = vm.backgroundEnabled,
+                    onCheckedChange = { vm.setBackgroundEnabled(it) },
+                )
             }
         }
 

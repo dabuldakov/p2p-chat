@@ -9,6 +9,7 @@
 
     <application
         android:allowBackup="true"
+        android:name=".P2pApplication"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="p2pchat"
@@ -37,5 +38,9 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".ChatService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>
