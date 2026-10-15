@@ -10,6 +10,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,8 +61,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
@@ -172,6 +177,13 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(name, style = MaterialTheme.typography.bodyLarge)
+                            Spacer(Modifier.weight(1f))
+                            val u = vm.unread[name] ?: 0uL
+                            if (u > 0uL) {
+                                Badge(containerColor = MaterialTheme.colorScheme.error) {
+                                    Text(u.toString())
+                                }
+                            }
                         }
                     }
                 }
@@ -470,7 +482,7 @@ private fun GroupScreen(vm: ChatViewModel) {
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     vm.messages.forEach { m ->
-                        Text("${m.author.toHexShort()}: ${m.text}")
+                        MessageLine(m.author.toHexShort(), m.text)
                     }
                 }
             }
@@ -492,3 +504,36 @@ private fun GroupScreen(vm: ChatViewModel) {
 
 private fun ByteArray.toHexShort(): String =
     joinToString("") { "%02x".format(it) }.take(6)
+
+private const val URL_TAG = "url"
+
+/** Строка сообщения «автор: текст» со кликабельными ссылками http(s)://… */
+@Composable
+private fun MessageLine(prefix: String, text: String) {
+    val ctx = LocalContext.current
+    val annotated = remember(prefix, text) { messageAnnotated(prefix, text) }
+    ClickableText(
+        text = annotated,
+        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+    ) { offset ->
+        annotated.getStringAnnotations(URL_TAG, offset, offset).firstOrNull()?.let { ann ->
+            runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ann.item))) }
+        }
+    }
+}
+
+private fun messageAnnotated(prefix: String, text: String): AnnotatedString = buildAnnotatedString {
+    append("$prefix: ")
+    val urlRegex = Regex("""https?://\S+""")
+    var last = 0
+    for (m in urlRegex.findAll(text)) {
+        append(text.substring(last, m.range.first))
+        pushStringAnnotation(URL_TAG, m.value)
+        withStyle(SpanStyle(color = Color(0xFF5B8CFF), textDecoration = TextDecoration.Underline)) {
+            append(m.value)
+        }
+        pop()
+        last = m.range.last + 1
+    }
+    append(text.substring(last))
+}

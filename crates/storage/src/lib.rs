@@ -387,6 +387,15 @@ impl Store {
         Ok(())
     }
 
+    /// Отметка «прочитано до» для группы (id последнего прочитанного сообщения).
+    pub fn set_read(&self, group_id: &[u8], last_id: &[u8]) -> Result<(), StorageError> {
+        self.set_meta(&format!("read:{}", hex(group_id)), last_id)
+    }
+
+    pub fn get_read(&self, group_id: &[u8]) -> Result<Option<Vec<u8>>, StorageError> {
+        self.get_meta(&format!("read:{}", hex(group_id)))
+    }
+
     pub fn set_group_key(&self, group_id: &[u8], key: &[u8]) -> Result<(), StorageError> {
         self.conn.execute(
             "INSERT INTO group_keys (group_id, key) VALUES (?1, ?2)
@@ -444,12 +453,22 @@ impl Store {
     }
 }
 
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
+}
+
 fn unix_now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

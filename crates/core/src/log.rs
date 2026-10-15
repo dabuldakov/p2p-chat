@@ -168,6 +168,21 @@ impl Log {
         Ok(())
     }
 
+    /// Отметка «прочитано до» (id последнего прочитанного сообщения группы).
+    pub fn set_read(&self, group: &[u8], id: &[u8]) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.set_read(group, id)?;
+        }
+        Ok(())
+    }
+
+    pub fn read_marker(&self, group: &[u8]) -> Result<Option<Vec<u8>>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s.get_read(group)?,
+            None => None,
+        })
+    }
+
     pub fn load_group_keys(&self) -> Result<Vec<p2pchat_storage::GroupKeyRow>, CoreError> {
         Ok(match &self.store {
             Some(s) => s.all_group_keys()?,

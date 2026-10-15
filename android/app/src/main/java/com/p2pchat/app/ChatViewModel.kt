@@ -47,6 +47,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var groups by mutableStateOf<List<String>>(emptyList())
         private set
 
+    /** Непрочитанные по группам (имя группы → число). */
+    var unread by mutableStateOf<Map<String, ULong>>(emptyMap())
+        private set
+
     var currentGroup by mutableStateOf<ByteArray?>(null)
         private set
 
@@ -230,7 +234,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         currentGroup?.let { g ->
             members = core.members(g)
             reloadLatest(g)
+            // открытая группа считается прочитанной
+            runCatching { core.markRead(g) }
         }
+        unread = core.listGroups().associate { String(it) to core.unreadCount(it) }
     }
 
     /** Загрузить последнюю страницу истории. */

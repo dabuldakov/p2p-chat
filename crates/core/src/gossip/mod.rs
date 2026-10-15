@@ -381,6 +381,26 @@ impl GossipEngine {
             .collect()
     }
 
+    /// Отметить группу прочитанной (до последнего сообщения).
+    pub fn mark_read(&mut self, group: &[u8]) -> Result<(), CoreError> {
+        if let Some(last) = self.log.ordered(group).last() {
+            self.log.set_read(group, &last.id)?;
+        }
+        Ok(())
+    }
+
+    /// Число непрочитанных сообщений в группе.
+    pub fn unread_count(&self, group: &[u8]) -> Result<u64, CoreError> {
+        let ordered = self.log.ordered(group);
+        let Some(marker) = self.log.read_marker(group)? else {
+            return Ok(ordered.len() as u64);
+        };
+        match ordered.iter().position(|m| m.id == marker) {
+            Some(idx) => Ok((ordered.len() - idx - 1) as u64),
+            None => Ok(ordered.len() as u64),
+        }
+    }
+
     /// Разослать свою таблицу пиров.
     pub fn announce_peers(&mut self) -> Result<Envelope, CoreError> {
         let list = self.peers.snapshot();

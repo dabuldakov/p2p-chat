@@ -163,6 +163,17 @@ impl ChatCore {
         self.inner.lock().unwrap().groups()
     }
 
+    /// Отметить группу прочитанной (до последнего сообщения).
+    pub fn mark_read(&self, group_id: Vec<u8>) -> Result<(), FfiError> {
+        self.inner.lock().unwrap().mark_read(&group_id)?;
+        Ok(())
+    }
+
+    /// Число непрочитанных сообщений в группе.
+    pub fn unread_count(&self, group_id: Vec<u8>) -> Result<u64, FfiError> {
+        Ok(self.inner.lock().unwrap().unread_count(&group_id)?)
+    }
+
     /// Участники группы.
     pub fn members(&self, group_id: Vec<u8>) -> Vec<FfiMember> {
         self.inner
