@@ -154,6 +154,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Приложение вернулось на передний план — догоняем пропущенное. */
+    fun onForeground() {
+        refresh()
+        connectAll()
+        syncAll()
+    }
+
     // --- Сообщения -------------------------------------------------------
 
     fun send(text: String) {
