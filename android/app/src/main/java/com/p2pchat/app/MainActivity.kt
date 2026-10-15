@@ -367,6 +367,28 @@ private fun SettingsScreen(vm: ChatViewModel) {
             }
         }
 
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Логи отладки", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Подробные логи соединений в logcat (тег p2pchat). " +
+                            "Нужны только для диагностики.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = vm.debugLogsEnabled,
+                    onCheckedChange = { vm.setDebugLogs(it) },
+                )
+            }
+        }
+
         Text("Профиль", style = MaterialTheme.typography.titleMedium)
         Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
             Image(qr, "QR идентификатора", modifier = Modifier.size(240.dp).padding(12.dp))

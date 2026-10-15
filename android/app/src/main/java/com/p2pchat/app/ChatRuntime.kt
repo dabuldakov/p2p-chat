@@ -85,18 +85,24 @@ object ChatRuntime {
     var backgroundEnabled by mutableStateOf(false)
         private set
 
+    /** Режим отладки (подробные логи). */
+    var debugLogs by mutableStateOf(false)
+        private set
+
     /** Инициализация (идемпотентна). Вызывается из Application и ViewModel. */
     @Synchronized
     fun init(context: Application) {
         if (initialized) return
         initialized = true
         app = context
+        Logs.init(app)
+        debugLogs = Logs.enabled
 
         core = ChatCore(context.filesDir.absolutePath + "/chat.db")
         publicKey = core.publicKey()
         publicKeyHex = publicKey.toHex()
         peerId = core.peerIdHex()
-        android.util.Log.i("p2pchat", "mykey $publicKeyHex peer=$peerId")
+        Logs.i("mykey $publicKeyHex peer=$peerId")
 
         signaling = SignalingClient(SIGNAL_URL, publicKey)
         transport = WebRtcTransport(
@@ -132,6 +138,12 @@ object ChatRuntime {
         backgroundEnabled = enabled
         app.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY_BG, enabled).apply()
         if (enabled) ChatService.start(app) else ChatService.stop(app)
+    }
+
+    /** Режим отладки: подробные логи в logcat (тег p2pchat). */
+    fun setDebugLogs(enabled: Boolean) {
+        Logs.setEnabled(app, enabled)
+        debugLogs = enabled
     }
 
     private fun checkForUpdate() {
@@ -256,9 +268,9 @@ object ChatRuntime {
             val keys = core.listGroups()
                 .flatMap { core.neighborKeys(it) }
                 .distinctBy { it.toHex() }
-            android.util.Log.i("p2pchat", "connectAll: groups=${core.listGroups().size} neighbors=${keys.size}")
+            Logs.d("connectAll: groups=${core.listGroups().size} neighbors=${keys.size}")
             keys.forEach { pk ->
-                android.util.Log.i("p2pchat", "neighbor ${pk.toHex()}")
+                Logs.d("neighbor ${pk.toHex()}")
                 runCatching { transport.connect(pk) }
             }
             status = "соседей: ${keys.size}"
@@ -277,14 +289,14 @@ object ChatRuntime {
         val g = currentGroup ?: return
         if (text.isBlank()) return
         val out = core.post(g, text)
-        android.util.Log.i("p2pchat", "send '${text.take(24)}' targets=${out.targets.size}")
+        Logs.d("send '${text.take(24)}' targets=${out.targets.size}")
         transport.sendTargets(out.envelope, out.targets)
         refresh()
     }
 
     private fun handleIncoming(envelope: ByteArray) {
         val outs = core.receive(envelope)
-        android.util.Log.i("p2pchat", "incoming env -> out=${outs.size}")
+        Logs.d("incoming env -> out=${outs.size}")
         outs.forEach { out ->
             transport.sendTargets(out.envelope, out.targets)
         }

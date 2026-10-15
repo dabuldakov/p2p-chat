@@ -32,6 +32,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val update get() = ChatRuntime.update
     val sharedDraft get() = ChatRuntime.sharedDraft
     val backgroundEnabled get() = ChatRuntime.backgroundEnabled
+    val debugLogsEnabled get() = ChatRuntime.debugLogs
     val nicknames get() = ChatRuntime.nicknames
     val myNickname get() = ChatRuntime.myNickname
 
@@ -49,6 +50,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh() = ChatRuntime.refresh()
     fun checkNow(onDone: (Boolean) -> Unit) = ChatRuntime.checkNow(onDone)
     fun setBackground(enabled: Boolean) = ChatRuntime.setBackground(enabled)
+    fun setDebugLogs(enabled: Boolean) = ChatRuntime.setDebugLogs(enabled)
     fun setNickname(name: String) = ChatRuntime.setNickname(name)
 }
 

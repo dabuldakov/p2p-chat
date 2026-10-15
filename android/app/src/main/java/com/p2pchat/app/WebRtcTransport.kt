@@ -92,7 +92,7 @@ class WebRtcTransport(
             conns.remove(id)
             handler.post { runCatching { existing.pc?.close() } }
         }
-        android.util.Log.i("p2pchat", "connect -> offer ${id.take(8)}")
+        Logs.d("connect -> offer ${id.take(8)}")
         startOffer(remoteKey)
     }
 
@@ -103,7 +103,7 @@ class WebRtcTransport(
             it.dead = true
             handler.post { runCatching { it.pc?.close() } }
         }
-        android.util.Log.i("p2pchat", "connectForce -> offer ${id.take(8)}")
+        Logs.d("connectForce -> offer ${id.take(8)}")
         startOffer(remoteKey)
     }
 
@@ -114,7 +114,7 @@ class WebRtcTransport(
     fun onSignal(env: SignalEnvelope) {
         val from = env.from.toByteArray()
         val id = keyHex(from)
-        android.util.Log.d("p2pchat", "signal ${env.bodyCase} from ${id.take(8)}")
+        Logs.d("signal ${env.bodyCase} from ${id.take(8)}")
         when (env.bodyCase) {
             SignalEnvelope.BodyCase.OFFER -> {
                 var conn = conns[id]
@@ -195,7 +195,7 @@ class WebRtcTransport(
         if (conn.dead) return
         conn.dead = true
         val id = keyHex(conn.remoteKey)
-        android.util.Log.w("p2pchat", "disconnect ${id.take(8)}")
+        Logs.w("disconnect ${id.take(8)}")
         // ВАЖНО: нельзя закрывать PeerConnection синхронно внутри native-callback
         // (реентрантность → SIGSEGV в libjingle). Откладываем на main-очередь.
         handler.post {
@@ -214,7 +214,7 @@ class WebRtcTransport(
 
     private fun sendTo(conn: Conn, envelope: ByteArray) {
         val dc = conn.dc
-        android.util.Log.d("p2pchat", "send ${envelope.size}b dc=${dc?.state()} -> ${keyHex(conn.remoteKey).take(8)}")
+        Logs.d("send ${envelope.size}b dc=${dc?.state()} -> ${keyHex(conn.remoteKey).take(8)}")
         if (dc != null && dc.state() == DataChannel.State.OPEN) {
             dc.send(DataChannel.Buffer(ByteBuffer.wrap(envelope), true))
         } else {
@@ -231,7 +231,7 @@ class WebRtcTransport(
                     flushPending(conn)
                     if (!conn.notified) {
                         conn.notified = true
-                        android.util.Log.i("p2pchat", "dc OPEN ${keyHex(conn.remoteKey).take(8)}")
+                        Logs.i("dc OPEN ${keyHex(conn.remoteKey).take(8)}")
                         onPeerConnected(conn.remoteKey)
                     }
                 }
@@ -240,7 +240,7 @@ class WebRtcTransport(
             override fun onMessage(buffer: DataChannel.Buffer) {
                 val bytes = ByteArray(buffer.data.remaining())
                 buffer.data.get(bytes)
-                android.util.Log.i("p2pchat", "dc recv ${bytes.size}b")
+                Logs.d("dc recv ${bytes.size}b")
                 onIncoming(bytes)
             }
         })
@@ -269,7 +269,7 @@ class WebRtcTransport(
         override fun onCreateSuccess(sdp: SessionDescription) {
             val pc = conn.pc ?: return
             pc.setLocalDescription(noopObserver(), sdp)
-            android.util.Log.i("p2pchat", "local ${sdp.type} created -> signal")
+            Logs.d("local ${sdp.type} created -> signal")
             when (sdp.type) {
                 SessionDescription.Type.OFFER -> signaling.sendOffer(conn.remoteKey, sdp.description, sessionId())
                 SessionDescription.Type.ANSWER -> signaling.sendAnswer(conn.remoteKey, sdp.description, sessionId())
