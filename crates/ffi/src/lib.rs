@@ -77,6 +77,8 @@ pub struct ChatCore {
 #[uniffi::export]
 impl ChatCore {
     /// Создать ядро. `db_path` — файл SQLite (или ":memory:").
+    /// Личность хранится отдельным файлом рядом с БД (`identity.key`),
+    /// чтобы эксперименты со схемой БД не сбрасывали аккаунт.
     #[uniffi::constructor]
     pub fn new(db_path: String) -> Result<Arc<Self>, FfiError> {
         let store = if db_path == ":memory:" {
@@ -86,21 +88,8 @@ impl ChatCore {
         }
         .map_err(|e| FfiError::Core { reason: e.to_string() })?;
 
-        // Личность: загружаем сохранённую или создаём и сохраняем.
-        let identity = match store
-            .get_meta("identity")
-            .map_err(|e| FfiError::Core { reason: e.to_string() })?
-        {
-            Some(bytes) => p2pchat_crypto::Identity::from_secret_bytes(&bytes)
-                .map_err(|e| FfiError::Core { reason: e.to_string() })?,
-            None => {
-                let id = p2pchat_crypto::Identity::generate();
-                store
-                    .set_meta("identity", &id.secret_bytes())
-                    .map_err(|e| FfiError::Core { reason: e.to_string() })?;
-                id
-            }
-        };
+        let identity_path = identity_path_for(&db_path);
+        let identity = load_or_create_identity(identity_path.as_deref(), &store)?;
 
         let log = Log::with_store(store)?;
         let mut engine = GossipEngine::new(identity, log);
@@ -255,6 +244,64 @@ impl ChatCore {
     }
 }
 
+use std::path::{Path, PathBuf};
+
+/// Путь к файлу личности рядом с БД (None для in-memory).
+fn identity_path_for(db_path: &str) -> Option<PathBuf> {
+    if db_path == ":memory:" {
+        return None;
+    }
+    let dir = Path::new(db_path).parent().filter(|d| !d.as_os_str().is_empty());
+    Some(match dir {
+        Some(d) => d.join("identity.key"),
+        None => PathBuf::from("identity.key"),
+    })
+}
+
+/// Загрузить личность из отдельного файла; при отсутствии — разово перенести
+/// из старой БД (`meta.identity`) или создать новую.
+fn load_or_create_identity(
+    path: Option<&Path>,
+    store: &p2pchat_storage::Store,
+) -> Result<p2pchat_crypto::Identity, FfiError> {
+    // 1) отдельный файл
+    if let Some(p) = path {
+        if let Ok(bytes) = std::fs::read(p) {
+            if let Ok(id) = p2pchat_crypto::Identity::from_secret_bytes(&bytes) {
+                return Ok(id);
+            }
+        }
+    }
+    // 2) миграция из БД (старые установки)
+    if let Some(bytes) = store.get_meta("identity").map_err(io_err)? {
+        let id = p2pchat_crypto::Identity::from_secret_bytes(&bytes)
+            .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        if let Some(p) = path {
+            write_atomic(p, &id.secret_bytes()).map_err(io_err)?;
+        }
+        return Ok(id);
+    }
+    // 3) новая личность
+    let id = p2pchat_crypto::Identity::generate();
+    match path {
+        Some(p) => write_atomic(p, &id.secret_bytes()).map_err(io_err)?,
+        None => store.set_meta("identity", &id.secret_bytes()).map_err(io_err)?,
+    }
+    Ok(id)
+}
+
+/// Атомарная запись файла (temp + rename).
+fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let tmp = path.with_extension("key.tmp");
+    std::fs::write(&tmp, bytes)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+fn io_err<E: std::fmt::Display>(e: E) -> FfiError {
+    FfiError::Core { reason: e.to_string() }
+}
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
@@ -262,4 +309,32 @@ fn hex(bytes: &[u8]) -> String {
 #[uniffi::export]
 pub fn default_group_id() -> GroupId {
     b"general".to_vec()
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn identity_lives_in_separate_file_and_survives_db_reopen() {
+        let dir = std::env::temp_dir().join(format!("p2pchat-ffi-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("chat.db");
+        let db = db.to_str().unwrap();
+        let path = identity_path_for(db).unwrap();
+
+        let id1 = {
+            let store = p2pchat_storage::Store::open(db).unwrap();
+            load_or_create_identity(Some(&path), &store).unwrap()
+        };
+        assert!(path.exists(), "файл личности создан");
+
+        // переоткрываем БД — личность берётся из файла и совпадает
+        let id2 = {
+            let store = p2pchat_storage::Store::open(db).unwrap();
+            load_or_create_identity(Some(&path), &store).unwrap()
+        };
+        assert_eq!(id1.secret_bytes(), id2.secret_bytes());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
