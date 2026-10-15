@@ -254,7 +254,11 @@ object ChatRuntime {
             val keys = core.listGroups()
                 .flatMap { core.neighborKeys(it) }
                 .distinctBy { it.toHex() }
-            keys.forEach { pk -> runCatching { transport.connect(pk) } }
+            android.util.Log.i("p2pchat", "connectAll: groups=${core.listGroups().size} neighbors=${keys.size}")
+            keys.forEach { pk ->
+                android.util.Log.i("p2pchat", "neighbor ${pk.toHex().take(8)} len=${pk.size}")
+                runCatching { transport.connect(pk) }
+            }
             status = "соседей: ${keys.size}"
         }
     }

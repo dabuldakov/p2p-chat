@@ -77,7 +77,10 @@ class WebRtcTransport(
     fun connect(remoteKey: ByteArray) {
         val id = keyHex(remoteKey)
         if (conns.containsKey(id)) return
-        if (!weInitiate(remoteKey)) return // ждём их offer
+        if (!weInitiate(remoteKey)) {
+            android.util.Log.d("p2pchat", "connect skip (not initiator) ${id.take(8)}")
+            return
+        }
         android.util.Log.i("p2pchat", "connect initiate ${id.take(8)}")
         startOffer(remoteKey)
     }
@@ -240,6 +243,7 @@ class WebRtcTransport(
         override fun onCreateSuccess(sdp: SessionDescription) {
             val pc = conn.pc ?: return
             pc.setLocalDescription(noopObserver(), sdp)
+            android.util.Log.i("p2pchat", "local ${sdp.type} created -> signal")
             when (sdp.type) {
                 SessionDescription.Type.OFFER -> signaling.sendOffer(conn.remoteKey, sdp.description, sessionId())
                 SessionDescription.Type.ANSWER -> signaling.sendAnswer(conn.remoteKey, sdp.description, sessionId())
