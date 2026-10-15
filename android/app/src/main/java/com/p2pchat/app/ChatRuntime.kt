@@ -119,7 +119,7 @@ object ChatRuntime {
         if (backgroundEnabled) ChatService.start(app)
     }
 
-    fun setBackgroundEnabled(enabled: Boolean) {
+    fun setBackground(enabled: Boolean) {
         backgroundEnabled = enabled
         app.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY_BG, enabled).apply()
         if (enabled) ChatService.start(app) else ChatService.stop(app)

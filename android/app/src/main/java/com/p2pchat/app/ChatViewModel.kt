@@ -46,7 +46,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun loadOlder() = ChatRuntime.loadOlder()
     fun refresh() = ChatRuntime.refresh()
     fun checkNow(onDone: (Boolean) -> Unit) = ChatRuntime.checkNow(onDone)
-    fun setBackgroundEnabled(enabled: Boolean) = ChatRuntime.setBackgroundEnabled(enabled)
+    fun setBackground(enabled: Boolean) = ChatRuntime.setBackground(enabled)
 }
 
 internal fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

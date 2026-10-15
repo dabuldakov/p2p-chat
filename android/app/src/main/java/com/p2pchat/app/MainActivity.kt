@@ -339,7 +339,7 @@ private fun SettingsScreen(vm: ChatViewModel) {
                 Spacer(Modifier.width(8.dp))
                 Switch(
                     checked = vm.backgroundEnabled,
-                    onCheckedChange = { vm.setBackgroundEnabled(it) },
+                    onCheckedChange = { vm.setBackground(it) },
                 )
             }
         }
