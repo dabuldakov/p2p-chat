@@ -10,7 +10,7 @@ use prost::Message as _;
 use crate::log::Log;
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, Encrypted, Envelope, Gossip, PeerInfo, Presence};
+use crate::proto::{ChatMessage, Direct, Encrypted, Envelope, Gossip, PeerInfo, Presence};
 use crate::{CoreError, GroupId, PeerId};
 
 use p2pchat_crypto::GroupKey;
@@ -345,6 +345,9 @@ impl GossipEngine {
             Some(Body::Membership(ev)) => {
                 self.on_membership(ev, &origin, &mut out)?;
             }
+            Some(Body::Direct(d)) => {
+                self.on_direct(d, &origin, &mut out)?;
+            }
             Some(Body::Presence(p)) => {
                 self.on_presence(p);
             }
@@ -473,6 +476,8 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
     ) -> Result<(), CoreError> {
         let group = ev.group_id.clone();
         let from_other = ev.peer_id != self.peer_id();
+        let is_leave = !ev.join;
+        let is_join = ev.join;
         let changed = self
             .membership
             .entry(group.clone())
@@ -485,13 +490,106 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             })?;
             out.outgoing.push(Outgoing { envelope: env, targets: self.neighbor_keys(&group) });
         }
-        // Взаимное знакомство: если узнали о другом участнике — представимся ему.
-        if from_other && self.membership.get(&group).map(|m| m.is_member(&self.peer_id())).unwrap_or(false) {
+        // Взаимное знакомство: если узнали о НОВОМ участнике — представимся ему.
+        if changed
+            && is_join
+            && from_other
+            && self.membership.get(&group).map(|m| m.is_member(&self.peer_id())).unwrap_or(false)
+        {
             if let Some(self_ev) = self.self_events.get(&group).cloned() {
                 let env = self.seal(Gossip { body: Some(Body::Membership(self_ev)) })?;
                 out.outgoing.push(self.out_to(env, origin.to_vec()));
             }
         }
+        // Выход участника: если мы лидер среди оставшихся — меняем ключ группы,
+        // чтобы вышедший не читал новые сообщения (rekey).
+        if changed && is_leave && from_other && self.is_leader(&group) {
+            for o in self.rekey(&group)? {
+                out.outgoing.push(o);
+            }
+        }
+        Ok(())
+    }
+
+    /// Мы лидер группы (минимальный peer_id среди участников)?
+    fn is_leader(&self, group: &[u8]) -> bool {
+        let members = self.members(group);
+        match members.iter().map(|m| m.peer_id.clone()).min() {
+            Some(min_id) => min_id == self.peer_id(),
+            None => false,
+        }
+    }
+
+    /// Сменить ключ группы и раздать новый оставшимся (попарно зашифрованно).
+    pub fn rekey(&mut self, group: &[u8]) -> Result<Vec<Outgoing>, CoreError> {
+        let key = GroupKey::generate();
+        let key_bytes = key.export();
+        self.groups.insert(group.to_vec(), key);
+        let _ = self.log.store_group_key(group, &key_bytes);
+
+        let mut payload = group.to_vec();
+        payload.extend_from_slice(&key_bytes);
+
+        let mut out = Vec::new();
+        for m in self.members(group) {
+            if m.peer_id == self.peer_id() {
+                continue;
+            }
+            let Ok(vk) = VerifyingKey::from_bytes(
+                m.public_key.as_slice().try_into().unwrap_or(&[0u8; 32]),
+            ) else {
+                continue;
+            };
+            let (nonce, ct) = p2pchat_crypto::pairwise_encrypt(&self.identity, &vk, &payload)?;
+            let env = self.seal(Gossip {
+                body: Some(Body::Direct(Direct {
+                    to: m.public_key.clone(),
+                    nonce: nonce.to_vec(),
+                    ciphertext: ct,
+                })),
+            })?;
+            out.push(Outgoing { envelope: env, targets: vec![m.public_key] });
+        }
+        Ok(out)
+    }
+
+    /// Получили попарно зашифрованный прямой пакет (обычно — новый ключ группы).
+    fn on_direct(&mut self, d: Direct, origin: &[u8], _out: &mut Outcome) -> Result<(), CoreError> {
+        if d.to != self.public_key() {
+            return Ok(()); // не нам
+        }
+        let Ok(sender_vk) = VerifyingKey::from_bytes(
+            origin.try_into().unwrap_or(&[0u8; 32]),
+        ) else {
+            return Ok(());
+        };
+        let nonce: [u8; 12] = match d.nonce.as_slice().try_into() {
+            Ok(n) => n,
+            Err(_) => return Ok(()),
+        };
+        let Ok(plain) = p2pchat_crypto::pairwise_decrypt(&self.identity, &sender_vk, &nonce, &d.ciphertext)
+        else {
+            return Ok(());
+        };
+        if plain.len() <= 32 {
+            return Ok(());
+        }
+        let (group, key_bytes) = plain.split_at(plain.len() - 32);
+        let Ok(key) = <[u8; 32]>::try_from(key_bytes) else {
+            return Ok(());
+        };
+        // отправитель должен быть участником группы
+        let sender_id = p2pchat_crypto::peer_id_of(&sender_vk);
+        let is_member = self
+            .membership
+            .get(group)
+            .map(|m| m.is_member(&sender_id))
+            .unwrap_or(false);
+        if !is_member {
+            return Ok(());
+        }
+        self.groups.insert(group.to_vec(), GroupKey::from_bytes(key));
+        let _ = self.log.store_group_key(group, &key);
         Ok(())
     }
 

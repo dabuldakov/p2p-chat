@@ -9,8 +9,9 @@ use chacha20poly1305::{ChaCha20Poly1305, Nonce};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use hkdf::Hkdf;
 use rand::rngs::OsRng;
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha512};
 use thiserror::Error;
+use x25519_dalek::{PublicKey as XPublicKey, StaticSecret};
 use zeroize::Zeroize;
 
 pub type PeerId = [u8; 32];
@@ -186,9 +187,88 @@ pub fn derive_key(shared: &[u8], info: &[u8]) -> [u8; 32] {
     okm
 }
 
+/// X25519-секрет, выведенный из Ed25519 seed (стандартное преобразование).
+pub fn x25519_secret_bytes(seed: &[u8; 32]) -> [u8; 32] {
+    let mut h = Sha512::new();
+    h.update(seed);
+    let out = h.finalize();
+    let mut sk = [0u8; 32];
+    sk.copy_from_slice(&out[..32]);
+    sk[0] &= 248;
+    sk[31] &= 127;
+    sk[31] |= 64;
+    sk
+}
+
+impl Identity {
+    pub fn x25519_secret(&self) -> [u8; 32] {
+        x25519_secret_bytes(&self.signing.to_bytes())
+    }
+}
+
+/// X25519-публичный ключ из Ed25519-публичного (birational map).
+pub fn x25519_public(vk: &VerifyingKey) -> [u8; 32] {
+    vk.to_montgomery().to_bytes()
+}
+
+/// Общий попарный ключ между нашей личностью и публичным ключом собеседника.
+pub fn pairwise_key(id: &Identity, peer: &VerifyingKey) -> [u8; 32] {
+    let sk = StaticSecret::from(id.x25519_secret());
+    let pk = XPublicKey::from(x25519_public(peer));
+    let shared = sk.diffie_hellman(&pk);
+    derive_key(shared.as_bytes(), b"p2pchat-pairwise-v1")
+}
+
+/// Зашифровать данные личным ключом для конкретного собеседника.
+pub fn pairwise_encrypt(
+    id: &Identity,
+    peer: &VerifyingKey,
+    plaintext: &[u8],
+) -> Result<([u8; 12], Vec<u8>), CryptoError> {
+    let key = pairwise_key(id, peer);
+    let mut nonce = [0u8; 12];
+    rand::RngCore::fill_bytes(&mut OsRng, &mut nonce);
+    let cipher = ChaCha20Poly1305::new((&key).into());
+    let ct = cipher
+        .encrypt(Nonce::from_slice(&nonce), Payload { msg: plaintext, aad: &[] })
+        .map_err(|_| CryptoError::Encrypt)?;
+    Ok((nonce, ct))
+}
+
+pub fn pairwise_decrypt(
+    id: &Identity,
+    peer: &VerifyingKey,
+    nonce: &[u8; 12],
+    ciphertext: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    let key = pairwise_key(id, peer);
+    let cipher = ChaCha20Poly1305::new((&key).into());
+    cipher
+        .decrypt(Nonce::from_slice(nonce), Payload { msg: ciphertext, aad: &[] })
+        .map_err(|_| CryptoError::Decrypt)
+}
+
 /// Контент-адресация: id = SHA-256(data).
 pub fn content_id(data: &[u8]) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(data);
     h.finalize().into()
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pairwise_roundtrip_and_wrong_key() {
+        let a = Identity::generate();
+        let b = Identity::generate();
+        let c = Identity::generate();
+        let msg = b"new-group-key";
+
+        let (nonce, ct) = pairwise_encrypt(&a, &b.public_key(), msg).unwrap();
+        // B расшифровывает, зная публичный ключ A
+        assert_eq!(pairwise_decrypt(&b, &a.public_key(), &nonce, &ct).unwrap(), msg);
+        // C не может
+        assert!(pairwise_decrypt(&c, &a.public_key(), &nonce, &ct).is_err());
+    }
 }

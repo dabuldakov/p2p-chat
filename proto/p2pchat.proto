@@ -119,7 +119,17 @@ message Gossip {
     SyncFetch sync_fetch = 8;
     Encrypted encrypted = 9;
     MembershipEvent membership = 10;
+    Direct direct = 11;
   }
+}
+
+// Прямое (попарно зашифрованное) сообщение конкретному участнику.
+// Нужно для rekey: доставка нового группового ключа оставшимся
+// (шифруется ключом X25519(наш секрет, публичный ключ получателя)).
+message Direct {
+  bytes to = 1;            // публичный ключ получателя
+  bytes nonce = 2;
+  bytes ciphertext = 3;    // [group_id || 32-byte key], ChaCha20-Poly1305
 }
 
 // Событие членства группы. Реплицируется по сети; состав группы —
