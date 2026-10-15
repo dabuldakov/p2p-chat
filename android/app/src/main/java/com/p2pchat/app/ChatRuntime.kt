@@ -116,7 +116,8 @@ object ChatRuntime {
         checkForUpdate()
         scope.launch {
             while (true) {
-                kotlinx.coroutines.delay(30_000)
+                kotlinx.coroutines.delay(15_000)
+                connectAll()
                 syncAll()
             }
         }
