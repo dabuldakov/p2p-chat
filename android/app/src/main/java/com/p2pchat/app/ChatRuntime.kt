@@ -96,6 +96,7 @@ object ChatRuntime {
         publicKey = core.publicKey()
         publicKeyHex = publicKey.toHex()
         peerId = core.peerIdHex()
+        android.util.Log.i("p2pchat", "mykey $publicKeyHex peer=$peerId")
 
         signaling = SignalingClient(SIGNAL_URL, publicKey)
         transport = WebRtcTransport(
@@ -257,7 +258,7 @@ object ChatRuntime {
                 .distinctBy { it.toHex() }
             android.util.Log.i("p2pchat", "connectAll: groups=${core.listGroups().size} neighbors=${keys.size}")
             keys.forEach { pk ->
-                android.util.Log.i("p2pchat", "neighbor ${pk.toHex().take(8)} len=${pk.size}")
+                android.util.Log.i("p2pchat", "neighbor ${pk.toHex()}")
                 runCatching { transport.connect(pk) }
             }
             status = "соседей: ${keys.size}"

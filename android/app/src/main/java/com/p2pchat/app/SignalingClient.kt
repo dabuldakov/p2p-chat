@@ -55,11 +55,13 @@ class SignalingClient(
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
+                android.util.Log.d("p2pchat", "ws recv ${bytes.size}b")
                 runCatching { SignalEnvelope.parseFrom(bytes.toByteArray()) }
                     .onSuccess { env ->
-                        android.util.Log.d("p2pchat", "ws msg ${env.bodyCase}")
+                        android.util.Log.d("p2pchat", "ws msg ${env.bodyCase} from ${env.from.toByteArray().joinToString(""){"%02x".format(it)}.take(8)}")
                         _incoming.tryEmit(env)
                     }
+                    .onFailure { android.util.Log.w("p2pchat", "ws parse fail: $it") }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {

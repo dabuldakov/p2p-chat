@@ -49,6 +49,7 @@ class WebRtcTransport(
         var dc: DataChannel? = null
         var notified = false
         var makingOffer = false
+        var dead = false
         val createdAt = System.currentTimeMillis()
         val pendingCandidates = mutableListOf<IceCandidate>()
         val pendingOutgoing = ArrayDeque<ByteArray>()
@@ -182,6 +183,8 @@ class WebRtcTransport(
     }
 
     private fun handleDisconnect(conn: Conn) {
+        if (conn.dead) return
+        conn.dead = true
         val id = keyHex(conn.remoteKey)
         android.util.Log.w("p2pchat", "disconnect ${id.take(8)}")
         if (conns[id] === conn) {
