@@ -51,6 +51,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var unread by mutableStateOf<Map<String, ULong>>(emptyMap())
         private set
 
+    /** Число участников по группам (имя группы → число). */
+    var memberCounts by mutableStateOf<Map<String, Int>>(emptyMap())
+        private set
+
     var currentGroup by mutableStateOf<ByteArray?>(null)
         private set
 
@@ -137,7 +141,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     // --- Группы ----------------------------------------------------------
 
     fun createGroup(name: String) {
-        val g = name.ifBlank { "chat" }.toByteArray()
+        val n = name.trim()
+        if (n.isEmpty()) return
+        if (groups.contains(n)) {
+            status = "группа «$n» уже существует"
+            return
+        }
+        val g = n.toByteArray()
         invite = core.createGroupInvite(g)
         core.joinEnvelope(g)?.let { transport.sendTargets(it.envelope, it.targets) }
         refresh()
@@ -230,14 +240,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refresh() {
-        groups = core.listGroups().map { String(it) }.sorted()
+        val ids = core.listGroups()
+        groups = ids.map { String(it) }.sorted()
         currentGroup?.let { g ->
             members = core.members(g)
             reloadLatest(g)
             // открытая группа считается прочитанной
             runCatching { core.markRead(g) }
         }
-        unread = core.listGroups().associate { String(it) to core.unreadCount(it) }
+        unread = ids.associate { String(it) to core.unreadCount(it) }
+        memberCounts = ids.associate { String(it) to core.members(it).size }
     }
 
     /** Загрузить последнюю страницу истории. */

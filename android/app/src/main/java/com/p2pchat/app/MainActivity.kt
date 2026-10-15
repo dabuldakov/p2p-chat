@@ -176,7 +176,14 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(name, style = MaterialTheme.typography.bodyLarge)
+                            Column {
+                                Text(name, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "${vm.memberCounts[name] ?: 1} участн.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             Spacer(Modifier.weight(1f))
                             val u = vm.unread[name] ?: 0uL
                             if (u > 0uL) {
