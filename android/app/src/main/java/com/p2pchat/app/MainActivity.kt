@@ -532,6 +532,12 @@ private fun GroupScreen(vm: ChatViewModel) {
                             }
                         }
                     }
+                    OutlinedButton(
+                        onClick = { vm.leaveGroup() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Выйти из группы", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
@@ -571,13 +577,6 @@ private fun GroupScreen(vm: ChatViewModel) {
             )
             Spacer(Modifier.width(8.dp))
             Button(onClick = { vm.send(input); input = "" }) { Text("Отправить") }
-        }
-
-        OutlinedButton(
-            onClick = { vm.leaveGroup() },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Выйти из группы", color = MaterialTheme.colorScheme.error)
         }
     }
 }
