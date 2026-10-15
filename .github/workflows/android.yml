@@ -12,6 +12,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -101,16 +103,36 @@ jobs:
         id: ver
         run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
 
+      - name: Build release body (changelog)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          PREV="$(gh release view latest --json body --jq '.body' 2>/dev/null | grep -oE '[0-9a-f]{40}' | head -1 || true)"
+          if [ -n "$PREV" ] && git cat-file -e "$PREV" 2>/dev/null; then
+            RANGE="$PREV..HEAD"
+          else
+            RANGE="-n 40"
+          fi
+          {
+            echo "Версия: $VERSION"
+            echo "Коммит: ${{ github.sha }}"
+            echo
+            echo "## Что нового"
+            echo
+            git log --pretty=format:'%s' $RANGE | bash .github/scripts/changelog.sh
+          } > release_body.md
+          echo "----- release_body.md -----"
+          cat release_body.md
+
       - name: Publish latest release
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: p2pchat ${{ steps.ver.outputs.version }}
-          body: |
-            Версия: ${{ steps.ver.outputs.version }}
-            Ветка: ${{ github.ref_name }}
-            Коммит: ${{ github.sha }}
+          body_path: release_body.md
           make_latest: true
           files: |
             android/app/build/outputs/apk/release/p2p-chat-*.apk

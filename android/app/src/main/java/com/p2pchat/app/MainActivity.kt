@@ -1,5 +1,7 @@
 package com.p2pchat.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -28,6 +30,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -129,6 +133,7 @@ fun Root(vm: ChatViewModel) {
 
 // --- Список групп --------------------------------------------------------
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
     var showAdd by remember { mutableStateOf(false) }
@@ -165,11 +170,19 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SmallFloatingActionButton(
-                onClick = onSettings,
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            BadgedBox(
+                badge = {
+                    if (vm.update != null) {
+                        Badge(containerColor = Color.Red)
+                    }
+                },
             ) {
-                Icon(Icons.Filled.Settings, contentDescription = "Настройки")
+                SmallFloatingActionButton(
+                    onClick = onSettings,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Настройки")
+                }
             }
             FloatingActionButton(onClick = { showAdd = true }) {
                 Icon(Icons.Filled.Add, contentDescription = "Добавить группу")
@@ -221,17 +234,47 @@ private fun AddGroupDialog(vm: ChatViewModel, onClose: () -> Unit) {
 
 // --- Настройки / профиль -------------------------------------------------
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsScreen(vm: ChatViewModel) {
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val qr = remember { generateQrBitmap(vm.publicKeyHex, 480) }
+    var showUpdate by remember { mutableStateOf(false) }
+    val update = vm.update
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // Версия и наличие обновления
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Версия", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.weight(1f))
+                if (update != null) {
+                    BadgedBox(badge = { Badge(containerColor = Color.Red) }) {
+                        Text(
+                            update.version,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { showUpdate = true },
+                        )
+                    }
+                } else {
+                    Text(
+                        vm.version,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
         Text("Профиль", style = MaterialTheme.typography.titleMedium)
         Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
             Image(qr, "QR идентификатора", modifier = Modifier.size(240.dp).padding(12.dp))
@@ -254,6 +297,57 @@ private fun SettingsScreen(vm: ChatViewModel) {
             modifier = Modifier.padding(horizontal = 8.dp),
         )
     }
+
+    if (showUpdate && update != null) {
+        UpdateDialog(update, onDismiss = { showUpdate = false })
+    }
+}
+
+@Composable
+private fun UpdateDialog(info: UpdateInfo, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Появилась новая версия") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Доступна версия ${info.version}. Скачать и обновить?")
+                if (info.changelog.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Что нового", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.weight(1f))
+                        Icon(
+                            if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = "Развернуть",
+                        )
+                    }
+                    if (expanded) {
+                        Text(
+                            info.changelog,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                runCatching {
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.apkUrl)))
+                }
+                onDismiss()
+            }) { Text("Скачать") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Позже") }
+        },
+    )
 }
 
 // --- Экран группы --------------------------------------------------------

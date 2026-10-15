@@ -61,6 +61,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var invite by mutableStateOf<String?>(null)
         private set
 
+    /** Доступное обновление (версия новее установленной), если есть. */
+    var update by mutableStateOf<UpdateInfo?>(null)
+        private set
+
+    /** Текущая версия приложения. */
+    val version: String = BuildConfig.VERSION_NAME
+
     init {
         signaling.connect()
         viewModelScope.launch {
@@ -68,12 +75,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
         refresh()
         connectAll()
+        checkForUpdate()
         // периодический анти-энтропийный догон (офлайн-сообщения)
         viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(30_000)
                 syncAll()
             }
+        }
+    }
+
+    /** Проверить наличие новой релизной версии. */
+    private fun checkForUpdate() {
+        viewModelScope.launch {
+            update = withContext(Dispatchers.IO) { UpdateChecker.check(BuildConfig.VERSION_NAME) }
         }
     }
 
@@ -159,6 +174,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
         connectAll()
         syncAll()
+        checkForUpdate()
     }
 
     // --- Сообщения -------------------------------------------------------
