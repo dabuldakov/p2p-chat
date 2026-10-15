@@ -122,24 +122,106 @@ impl Store {
             self.conn.execute_batch("PRAGMA user_version = 1;")?;
         }
 
+        if version < 2 {
+            self.migrate_v2()?;
+            self.conn.execute_batch("PRAGMA user_version = 2;")?;
+        }
+
         Ok(())
+    }
+
+    /// v2: родители сообщений — в отдельной таблице (вместо JSON в messages).
+    fn migrate_v2(&self) -> Result<(), StorageError> {
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS message_parents (
+                message_id BLOB NOT NULL,
+                parent_id  BLOB NOT NULL,
+                PRIMARY KEY (message_id, parent_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_parents_parent ON message_parents(parent_id);
+            "#,
+        )?;
+
+        // Если в старой таблице ещё есть столбец parents — переносим и пересоздаём.
+        if self.has_column("messages", "parents")? {
+            let rows: Vec<(Vec<u8>, Vec<u8>)> = {
+                let mut stmt = self.conn.prepare("SELECT id, parents FROM messages")?;
+                let it = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+                it.collect::<Result<_, _>>()?
+            };
+
+            let tx = self.conn.unchecked_transaction()?;
+            {
+                let mut ins = tx.prepare(
+                    "INSERT OR IGNORE INTO message_parents (message_id, parent_id) VALUES (?1, ?2)",
+                )?;
+                for (id, parents_json) in &rows {
+                    let parents: Vec<Vec<u8>> =
+                        serde_json::from_slice(parents_json).unwrap_or_default();
+                    for p in parents {
+                        ins.execute(params![id, p])?;
+                    }
+                }
+            }
+            tx.execute_batch(
+                r#"
+                CREATE TABLE messages_new (
+                    id        BLOB PRIMARY KEY,
+                    group_id  BLOB NOT NULL,
+                    author    BLOB NOT NULL,
+                    lamport   INTEGER NOT NULL,
+                    wall_time INTEGER NOT NULL,
+                    text      TEXT NOT NULL,
+                    received  INTEGER NOT NULL
+                );
+                INSERT INTO messages_new (id, group_id, author, lamport, wall_time, text, received)
+                    SELECT id, group_id, author, lamport, wall_time, text, received FROM messages;
+                DROP TABLE messages;
+                ALTER TABLE messages_new RENAME TO messages;
+                CREATE INDEX IF NOT EXISTS idx_messages_group ON messages(group_id, lamport);
+                CREATE INDEX IF NOT EXISTS idx_messages_lamport ON messages(lamport);
+                "#,
+            )?;
+            tx.commit()?;
+        }
+
+        Ok(())
+    }
+
+    fn has_column(&self, table: &str, column: &str) -> Result<bool, StorageError> {
+        let mut stmt = self.conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let name: String = row.get(1)?;
+            if name == column {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Идемпотентная вставка сообщения и обновление часов — одной транзакцией.
     pub fn insert_message(&self, m: &StoredMessage, lamport: u64) -> Result<bool, StorageError> {
-        let parents = serde_json::to_vec(&m.parents).unwrap_or_default();
         let now = unix_now();
         let tx = self.conn.unchecked_transaction()?;
         let changed = tx.execute(
             "INSERT OR IGNORE INTO messages
-             (id, group_id, author, lamport, wall_time, text, parents, received)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+             (id, group_id, author, lamport, wall_time, text, received)
+             VALUES (?1,?2,?3,?4,?5,?6,?7)",
             params![
                 m.id, m.group_id, m.author, m.lamport as i64,
-                m.wall_time as i64, m.text, parents, now as i64
+                m.wall_time as i64, m.text, now as i64
             ],
         )?;
-        // часы пишем в той же транзакции — чтобы лог и лампорт не разъезжались
+        if changed > 0 {
+            let mut ins = tx.prepare(
+                "INSERT OR IGNORE INTO message_parents (message_id, parent_id) VALUES (?1, ?2)",
+            )?;
+            for p in &m.parents {
+                ins.execute(params![m.id, p])?;
+            }
+        }
         tx.execute(
             "INSERT INTO meta (key, value) VALUES ('lamport', ?1)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -161,15 +243,23 @@ impl Store {
         {
             let mut stmt = tx.prepare(
                 "INSERT OR IGNORE INTO messages
-                 (id, group_id, author, lamport, wall_time, text, parents, received)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                 (id, group_id, author, lamport, wall_time, text, received)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            )?;
+            let mut pstmt = tx.prepare(
+                "INSERT OR IGNORE INTO message_parents (message_id, parent_id) VALUES (?1, ?2)",
             )?;
             for m in messages {
-                let parents = serde_json::to_vec(&m.parents).unwrap_or_default();
-                inserted += stmt.execute(params![
+                let n = stmt.execute(params![
                     m.id, m.group_id, m.author, m.lamport as i64,
-                    m.wall_time as i64, m.text, parents, now as i64
+                    m.wall_time as i64, m.text, now as i64
                 ])?;
+                if n > 0 {
+                    for p in &m.parents {
+                        pstmt.execute(params![m.id, p])?;
+                    }
+                    inserted += n;
+                }
             }
         }
         tx.execute(
@@ -195,14 +285,13 @@ impl Store {
         group_id: &[u8],
         limit: i64,
     ) -> Result<Vec<StoredMessage>, StorageError> {
+        let parents = self.parents_map()?;
         let mut stmt = self.conn.prepare(
-            "SELECT id, group_id, author, lamport, wall_time, text, parents
+            "SELECT id, group_id, author, lamport, wall_time, text
              FROM messages WHERE group_id = ?1
              ORDER BY lamport ASC, id ASC LIMIT ?2",
         )?;
         let rows = stmt.query_map(params![group_id, limit], |r| {
-            let parents: Vec<Vec<u8>> =
-                serde_json::from_slice(&r.get::<_, Vec<u8>>(6)?).unwrap_or_default();
             Ok(StoredMessage {
                 id: r.get(0)?,
                 group_id: r.get(1)?,
@@ -210,21 +299,28 @@ impl Store {
                 lamport: r.get::<_, i64>(3)? as u64,
                 wall_time: r.get::<_, i64>(4)? as u64,
                 text: r.get(5)?,
-                parents,
+                parents: Vec::new(),
             })
         })?;
-        Ok(rows.collect::<Result<_, _>>()?)
+        let mut out = Vec::new();
+        for row in rows {
+            let mut m = row?;
+            if let Some(ps) = parents.get(&m.id) {
+                m.parents = ps.clone();
+            }
+            out.push(m);
+        }
+        Ok(out)
     }
 
     /// Все сообщения (для загрузки лога при старте).
     pub fn all_messages(&self) -> Result<Vec<StoredMessage>, StorageError> {
+        let parents = self.parents_map()?;
         let mut stmt = self.conn.prepare(
-            "SELECT id, group_id, author, lamport, wall_time, text, parents
+            "SELECT id, group_id, author, lamport, wall_time, text
              FROM messages ORDER BY lamport ASC, id ASC",
         )?;
         let rows = stmt.query_map([], |r| {
-            let parents: Vec<Vec<u8>> =
-                serde_json::from_slice(&r.get::<_, Vec<u8>>(6)?).unwrap_or_default();
             Ok(StoredMessage {
                 id: r.get(0)?,
                 group_id: r.get(1)?,
@@ -232,10 +328,34 @@ impl Store {
                 lamport: r.get::<_, i64>(3)? as u64,
                 wall_time: r.get::<_, i64>(4)? as u64,
                 text: r.get(5)?,
-                parents,
+                parents: Vec::new(),
             })
         })?;
-        Ok(rows.collect::<Result<_, _>>()?)
+        let mut out = Vec::new();
+        for row in rows {
+            let mut m = row?;
+            if let Some(ps) = parents.get(&m.id) {
+                m.parents = ps.clone();
+            }
+            out.push(m);
+        }
+        Ok(out)
+    }
+
+    /// Карта message_id -> parents.
+    fn parents_map(
+        &self,
+    ) -> Result<std::collections::HashMap<Vec<u8>, Vec<Vec<u8>>>, StorageError> {
+        let mut stmt = self.conn.prepare("SELECT message_id, parent_id FROM message_parents")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, Vec<u8>>(1)?))
+        })?;
+        let mut map: std::collections::HashMap<Vec<u8>, Vec<Vec<u8>>> = Default::default();
+        for row in rows {
+            let (id, parent) = row?;
+            map.entry(id).or_default().push(parent);
+        }
+        Ok(map)
     }
 
     pub fn upsert_peer(&self, p: &StoredPeer) -> Result<(), StorageError> {
@@ -353,7 +473,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 1);
+        assert_eq!(v, 2);
     }
 
     #[test]
@@ -375,5 +495,52 @@ mod tests {
         assert_eq!(n, 10);
         // повтор — уже ничего нового
         assert_eq!(store.insert_messages(&batch, 9).unwrap(), 0);
+    }
+
+    #[test]
+    fn migrate_v1_to_v2_moves_parents_without_loss() {
+        let mut path = std::env::temp_dir();
+        path.push(format!("p2pchat-mig-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let path = path.to_str().unwrap().to_string();
+
+        // создаём «старую» (v1) схему с родителями в JSON
+        {
+            let conn = rusqlite::Connection::open(&path).unwrap();
+            conn.execute_batch(
+                r#"
+                CREATE TABLE messages (
+                    id BLOB PRIMARY KEY, group_id BLOB NOT NULL, author BLOB NOT NULL,
+                    lamport INTEGER NOT NULL, wall_time INTEGER NOT NULL, text TEXT NOT NULL,
+                    parents BLOB NOT NULL, received INTEGER NOT NULL);
+                CREATE TABLE peers (peer_id BLOB PRIMARY KEY, endpoints BLOB NOT NULL,
+                    last_seen INTEGER NOT NULL, is_relay INTEGER NOT NULL, hops INTEGER NOT NULL);
+                CREATE TABLE meta (key TEXT PRIMARY KEY, value BLOB NOT NULL);
+                CREATE TABLE group_keys (group_id BLOB PRIMARY KEY, key BLOB NOT NULL);
+                CREATE TABLE membership (group_id BLOB NOT NULL, peer_id BLOB NOT NULL,
+                    public_key BLOB NOT NULL, joined INTEGER NOT NULL, lamport INTEGER NOT NULL,
+                    event_id BLOB NOT NULL, PRIMARY KEY (group_id, peer_id));
+                PRAGMA user_version = 1;
+                "#,
+            )
+            .unwrap();
+            let parents = serde_json::to_vec(&vec![vec![1u8, 2, 3]]).unwrap();
+            conn.execute(
+                "INSERT INTO messages VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                params![b"m1".to_vec(), b"g".to_vec(), b"a".to_vec(), 1i64, 1i64, "hi", parents, 1i64],
+            )
+            .unwrap();
+        }
+
+        // открываем через Store — должна пройти миграция v1 -> v2
+        let store = Store::open(&path).unwrap();
+        let msgs = store.all_messages().unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].parents, vec![vec![1u8, 2, 3]], "родители перенесены");
+        assert!(!store.has_column("messages", "parents").unwrap(), "старый столбец убран");
+        let v: i64 = store.conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        assert_eq!(v, 2);
+
+        let _ = std::fs::remove_file(&path);
     }
 }
