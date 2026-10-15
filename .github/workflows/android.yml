@@ -53,6 +53,13 @@ jobs:
           cargo ndk -t arm64-v8a -t armeabi-v7a \
             -o android/app/src/main/jniLibs build -p p2pchat-ffi --release
 
+      - name: Regenerate Kotlin bindings (UniFFI)
+        run: |
+          cargo build -p p2pchat-ffi
+          cargo run -p p2pchat-ffi --bin uniffi-bindgen -- generate \
+            --library target/debug/libp2pchat_ffi.so \
+            --language kotlin --out-dir android/app/src/main/java
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:

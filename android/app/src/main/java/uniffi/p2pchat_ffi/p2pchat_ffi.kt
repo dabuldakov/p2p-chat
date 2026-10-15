@@ -1043,7 +1043,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to() != 49268.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_constructor_chatcore_new() != 17218.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_constructor_chatcore_new() != 9728.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1497,6 +1497,8 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     }
     /**
      * Создать ядро. `db_path` — файл SQLite (или ":memory:").
+     * Личность хранится отдельным файлом рядом с БД (`identity.key`),
+     * чтобы эксперименты со схемой БД не сбрасывали аккаунт.
      */
     constructor(`dbPath`: kotlin.String) :
         this(
