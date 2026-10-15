@@ -754,6 +754,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -788,6 +790,8 @@ internal interface UniffiLib : Library {
     fun uniffi_p2pchat_ffi_fn_method_chatcore_groups_with(`ptr`: Pointer,`publicKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_history(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_history_window(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`beforeId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_join_envelope(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -941,6 +945,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_history(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_history_window(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite(
@@ -1001,7 +1007,10 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_groups_with() != 29021.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_history() != 38726.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_history() != 43862.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_history_window() != 21811.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope() != 63251.toShort()) {
@@ -1092,6 +1101,29 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
  * @suppress
  * */
 object NoPointer
+
+/**
+ * @suppress
+ */
+public object FfiConverterUInt: FfiConverter<UInt, Int> {
+    override fun lift(value: Int): UInt {
+        return value.toUInt()
+    }
+
+    override fun read(buf: ByteBuffer): UInt {
+        return lift(buf.getInt())
+    }
+
+    override fun lower(value: UInt): Int {
+        return value.toInt()
+    }
+
+    override fun allocationSize(value: UInt) = 4UL
+
+    override fun write(value: UInt, buf: ByteBuffer) {
+        buf.putInt(value.toInt())
+    }
+}
 
 /**
  * @suppress
@@ -1403,9 +1435,15 @@ public interface ChatCoreInterface {
     fun `groupsWith`(`publicKey`: kotlin.ByteArray): List<kotlin.ByteArray>
     
     /**
-     * История группы в причинном порядке.
+     * Вся история группы в причинном порядке (для тестов/утилит).
      */
     fun `history`(`groupId`: kotlin.ByteArray): List<FfiMessage>
+    
+    /**
+     * Окно истории: не более `limit` сообщений до `before_id` (не включая его).
+     * `before_id = None` — последние `limit`. `has_more` — есть ли более старые.
+     */
+    fun `historyWindow`(`groupId`: kotlin.ByteArray, `beforeId`: kotlin.ByteArray?, `limit`: kotlin.UInt): FfiHistoryPage
     
     /**
      * Конверт с нашим входом в группу — разослать соседям.
@@ -1633,13 +1671,29 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * История группы в причинном порядке.
+     * Вся история группы в причинном порядке (для тестов/утилит).
      */override fun `history`(`groupId`: kotlin.ByteArray): List<FfiMessage> {
             return FfiConverterSequenceTypeFfiMessage.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_history(
         it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Окно истории: не более `limit` сообщений до `before_id` (не включая его).
+     * `before_id = None` — последние `limit`. `has_more` — есть ли более старые.
+     */override fun `historyWindow`(`groupId`: kotlin.ByteArray, `beforeId`: kotlin.ByteArray?, `limit`: kotlin.UInt): FfiHistoryPage {
+            return FfiConverterTypeFfiHistoryPage.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_history_window(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterOptionalByteArray.lower(`beforeId`),FfiConverterUInt.lower(`limit`),_status)
 }
     }
     )
@@ -1879,6 +1933,41 @@ public object FfiConverterTypeChatCore: FfiConverter<ChatCore, Pointer> {
         // The Rust code always expects pointers written as 8 bytes,
         // and will fail to compile if they don't fit.
         buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+
+/**
+ * Страница истории: сообщения (по возрастанию) и есть ли ещё более старые.
+ */
+data class FfiHistoryPage (
+    var `messages`: List<FfiMessage>, 
+    var `hasMore`: kotlin.Boolean
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiHistoryPage: FfiConverterRustBuffer<FfiHistoryPage> {
+    override fun read(buf: ByteBuffer): FfiHistoryPage {
+        return FfiHistoryPage(
+            FfiConverterSequenceTypeFfiMessage.read(buf),
+            FfiConverterBoolean.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiHistoryPage) = (
+            FfiConverterSequenceTypeFfiMessage.allocationSize(value.`messages`) +
+            FfiConverterBoolean.allocationSize(value.`hasMore`)
+    )
+
+    override fun write(value: FfiHistoryPage, buf: ByteBuffer) {
+            FfiConverterSequenceTypeFfiMessage.write(value.`messages`, buf)
+            FfiConverterBoolean.write(value.`hasMore`, buf)
     }
 }
 
@@ -2169,6 +2258,38 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
         } else {
             buf.put(1)
             FfiConverterString.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
+    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterByteArray.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterByteArray.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterByteArray.write(value, buf)
         }
     }
 }

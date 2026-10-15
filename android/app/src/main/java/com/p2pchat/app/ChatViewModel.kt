@@ -22,6 +22,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         val SIGNAL_URL = BuildConfig.SIGNAL_URL
         val TURN_CREDS_URL = BuildConfig.TURN_CREDS_URL
+        private const val PAGE_SIZE = 50
     }
 
     private val core: ChatCore = ChatCore(app.filesDir.absolutePath + "/chat.db")
@@ -50,6 +51,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     var messages by mutableStateOf<List<FfiMessage>>(emptyList())
+        private set
+
+    /** Есть ли ещё более старые сообщения для подгрузки. */
+    var hasMore by mutableStateOf(false)
         private set
 
     var members by mutableStateOf<List<FfiMember>>(emptyList())
@@ -223,9 +228,27 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh() {
         groups = core.listGroups().map { String(it) }.sorted()
         currentGroup?.let { g ->
-            messages = core.history(g)
             members = core.members(g)
+            reloadLatest(g)
         }
+    }
+
+    /** Загрузить последнюю страницу истории. */
+    private fun reloadLatest(g: ByteArray) {
+        val page = core.historyWindow(g, null, PAGE_SIZE.toUInt())
+        messages = page.messages
+        hasMore = page.hasMore
+    }
+
+    /** Подгрузить более старые сообщения. */
+    fun loadOlder() {
+        val g = currentGroup ?: return
+        val oldest = messages.firstOrNull() ?: return
+        val page = core.historyWindow(g, oldest.id, PAGE_SIZE.toUInt())
+        if (page.messages.isNotEmpty()) {
+            messages = page.messages + messages
+        }
+        hasMore = page.hasMore
     }
 
     override fun onCleared() {

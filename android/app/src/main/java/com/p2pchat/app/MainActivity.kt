@@ -453,6 +453,12 @@ private fun GroupScreen(vm: ChatViewModel) {
             }
         }
 
+        if (vm.hasMore) {
+            TextButton(onClick = { vm.loadOlder() }, modifier = Modifier.fillMaxWidth()) {
+                Text("Показать раньше")
+            }
+        }
+
         Box(
             modifier = Modifier.fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))

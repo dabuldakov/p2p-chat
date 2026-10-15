@@ -68,6 +68,13 @@ pub struct FfiJoin {
     pub host_key: Vec<u8>,
 }
 
+/// Страница истории: сообщения (по возрастанию) и есть ли ещё более старые.
+#[derive(uniffi::Record)]
+pub struct FfiHistoryPage {
+    pub messages: Vec<FfiMessage>,
+    pub has_more: bool,
+}
+
 /// Ядро чата, которым владеет Android-слой.
 #[derive(uniffi::Object)]
 pub struct ChatCore {
@@ -211,22 +218,31 @@ impl ChatCore {
             .collect())
     }
 
-    /// История группы в причинном порядке.
+    /// Вся история группы в причинном порядке (для тестов/утилит).
     pub fn history(&self, group_id: Vec<u8>) -> Vec<FfiMessage> {
         let engine = self.inner.lock().unwrap();
-        engine
-            .log()
-            .ordered(&group_id)
-            .into_iter()
-            .map(|m| FfiMessage {
-                id: m.id,
-                group_id: m.group_id,
-                author: m.author,
-                text: m.text,
-                lamport: m.lamport,
-                wall_time: m.wall_time,
-            })
-            .collect()
+        engine.log().ordered(&group_id).into_iter().map(to_ffi_msg).collect()
+    }
+
+    /// Окно истории: не более `limit` сообщений до `before_id` (не включая его).
+    /// `before_id = None` — последние `limit`. `has_more` — есть ли более старые.
+    pub fn history_window(
+        &self,
+        group_id: Vec<u8>,
+        before_id: Option<Vec<u8>>,
+        limit: u32,
+    ) -> FfiHistoryPage {
+        let engine = self.inner.lock().unwrap();
+        let all = engine.log().ordered(&group_id);
+        let end = match &before_id {
+            Some(id) => all.iter().position(|m| &m.id == id).unwrap_or(all.len()),
+            None => all.len(),
+        };
+        let limit = limit as usize;
+        let start = end.saturating_sub(limit);
+        let has_more = start > 0;
+        let messages = all[start..end].iter().cloned().map(to_ffi_msg).collect();
+        FfiHistoryPage { messages, has_more }
     }
 
     /// Известные пиры.
@@ -302,6 +318,17 @@ fn io_err<E: std::fmt::Display>(e: E) -> FfiError {
     FfiError::Core { reason: e.to_string() }
 }
 
+fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage) -> FfiMessage {
+    FfiMessage {
+        id: m.id,
+        group_id: m.group_id,
+        author: m.author,
+        text: m.text,
+        lamport: m.lamport,
+        wall_time: m.wall_time,
+    }
+}
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
@@ -336,5 +363,29 @@ mod tests {
         assert_eq!(id1.secret_bytes(), id2.secret_bytes());
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn history_window_paginates() {
+        let core = ChatCore::new(":memory:".into()).unwrap();
+        let g = b"g".to_vec();
+        core.create_group_invite(g.clone());
+        for i in 0..120 {
+            core.post(g.clone(), format!("m{i}")).unwrap();
+        }
+
+        let page1 = core.history_window(g.clone(), None, 50);
+        assert_eq!(page1.messages.len(), 50);
+        assert!(page1.has_more);
+
+        let before1 = page1.messages.first().unwrap().id.clone();
+        let page2 = core.history_window(g.clone(), Some(before1), 50);
+        assert_eq!(page2.messages.len(), 50);
+        assert!(page2.has_more);
+
+        let before2 = page2.messages.first().unwrap().id.clone();
+        let page3 = core.history_window(g.clone(), Some(before2), 50);
+        assert_eq!(page3.messages.len(), 20);
+        assert!(!page3.has_more);
     }
 }
