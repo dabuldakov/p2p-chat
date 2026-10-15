@@ -28,9 +28,13 @@ object UpdateChecker {
         val releases = fetchReleases() ?: return null
 
         // все релизы новее установленной, с их версией
-        val newer = releases
-            .mapNotNull { o -> versionOf(o)?.let { it to o } }
-            .filter { (v, _) -> isNewerVersion(v, installed) }
+        val newer = mutableListOf<Pair<String, JSONObject>>()
+        for (i in 0 until releases.length()) {
+            val o = releases.getJSONObject(i)
+            if (o.optBoolean("draft")) continue
+            val v = versionOf(o) ?: continue
+            if (isNewerVersion(v, installed)) newer.add(v to o)
+        }
         if (newer.isEmpty()) return null
 
         val sorted = newer.sortedBy { (v, _) -> versionKey(v) }
