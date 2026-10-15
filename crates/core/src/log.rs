@@ -127,16 +127,18 @@ impl Log {
 
     fn persist(&self, msg: &ChatMessage) -> Result<(), CoreError> {
         if let Some(store) = &self.store {
-            store.insert_message(&StoredMessage {
-                id: msg.id.clone(),
-                group_id: msg.group_id.clone(),
-                author: msg.author.clone(),
-                lamport: msg.lamport,
-                wall_time: msg.wall_time,
-                text: msg.text.clone(),
-                parents: msg.parents.clone(),
-            })?;
-            store.set_meta("lamport", &self.clock.value().to_le_bytes())?;
+            store.insert_message(
+                &StoredMessage {
+                    id: msg.id.clone(),
+                    group_id: msg.group_id.clone(),
+                    author: msg.author.clone(),
+                    lamport: msg.lamport,
+                    wall_time: msg.wall_time,
+                    text: msg.text.clone(),
+                    parents: msg.parents.clone(),
+                },
+                self.clock.value(),
+            )?;
         }
         Ok(())
     }

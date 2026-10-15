@@ -56,61 +56,81 @@ impl Store {
     }
 
     fn migrate(&self) -> Result<(), StorageError> {
+        // PRAGMA: WAL + разумные значения для надёжности и конкурентности.
         self.conn.execute_batch(
             r#"
             PRAGMA journal_mode = WAL;
+            PRAGMA synchronous = NORMAL;
+            PRAGMA busy_timeout = 5000;
             PRAGMA foreign_keys = ON;
-
-            CREATE TABLE IF NOT EXISTS messages (
-                id        BLOB PRIMARY KEY,
-                group_id  BLOB NOT NULL,
-                author    BLOB NOT NULL,
-                lamport   INTEGER NOT NULL,
-                wall_time INTEGER NOT NULL,
-                text      TEXT NOT NULL,
-                parents   BLOB NOT NULL,       -- JSON-массив хешей
-                received  INTEGER NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_messages_group
-                ON messages(group_id, lamport);
-
-            CREATE TABLE IF NOT EXISTS peers (
-                peer_id   BLOB PRIMARY KEY,
-                endpoints BLOB NOT NULL,       -- JSON
-                last_seen INTEGER NOT NULL,
-                is_relay  INTEGER NOT NULL,
-                hops      INTEGER NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS meta (
-                key   TEXT PRIMARY KEY,
-                value BLOB NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS group_keys (
-                group_id BLOB PRIMARY KEY,
-                key      BLOB NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS membership (
-                group_id   BLOB NOT NULL,
-                peer_id    BLOB NOT NULL,
-                public_key BLOB NOT NULL,
-                joined     INTEGER NOT NULL,
-                lamport    INTEGER NOT NULL,
-                event_id   BLOB NOT NULL,
-                PRIMARY KEY (group_id, peer_id)
-            );
+            PRAGMA temp_store = MEMORY;
             "#,
         )?;
+
+        // Версия схемы: раньше её не было (0). Базовая схема — v1.
+        let version: i64 = self
+            .conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))?;
+
+        if version < 1 {
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS messages (
+                    id        BLOB PRIMARY KEY,
+                    group_id  BLOB NOT NULL,
+                    author    BLOB NOT NULL,
+                    lamport   INTEGER NOT NULL,
+                    wall_time INTEGER NOT NULL,
+                    text      TEXT NOT NULL,
+                    parents   BLOB NOT NULL,       -- JSON-массив хешей
+                    received  INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_messages_group
+                    ON messages(group_id, lamport);
+                CREATE INDEX IF NOT EXISTS idx_messages_lamport
+                    ON messages(lamport);
+
+                CREATE TABLE IF NOT EXISTS peers (
+                    peer_id   BLOB PRIMARY KEY,
+                    endpoints BLOB NOT NULL,       -- JSON
+                    last_seen INTEGER NOT NULL,
+                    is_relay  INTEGER NOT NULL,
+                    hops      INTEGER NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS meta (
+                    key   TEXT PRIMARY KEY,
+                    value BLOB NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS group_keys (
+                    group_id BLOB PRIMARY KEY,
+                    key      BLOB NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS membership (
+                    group_id   BLOB NOT NULL,
+                    peer_id    BLOB NOT NULL,
+                    public_key BLOB NOT NULL,
+                    joined     INTEGER NOT NULL,
+                    lamport    INTEGER NOT NULL,
+                    event_id   BLOB NOT NULL,
+                    PRIMARY KEY (group_id, peer_id)
+                );
+                "#,
+            )?;
+            self.conn.execute_batch("PRAGMA user_version = 1;")?;
+        }
+
         Ok(())
     }
 
-    /// Идемпотентная вставка: если id уже есть — ничего не меняем.
-    pub fn insert_message(&self, m: &StoredMessage) -> Result<bool, StorageError> {
+    /// Идемпотентная вставка сообщения и обновление часов — одной транзакцией.
+    pub fn insert_message(&self, m: &StoredMessage, lamport: u64) -> Result<bool, StorageError> {
         let parents = serde_json::to_vec(&m.parents).unwrap_or_default();
         let now = unix_now();
-        let changed = self.conn.execute(
+        let tx = self.conn.unchecked_transaction()?;
+        let changed = tx.execute(
             "INSERT OR IGNORE INTO messages
              (id, group_id, author, lamport, wall_time, text, parents, received)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
@@ -119,7 +139,46 @@ impl Store {
                 m.wall_time as i64, m.text, parents, now as i64
             ],
         )?;
+        // часы пишем в той же транзакции — чтобы лог и лампорт не разъезжались
+        tx.execute(
+            "INSERT INTO meta (key, value) VALUES ('lamport', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![lamport.to_le_bytes().as_slice()],
+        )?;
+        tx.commit()?;
         Ok(changed > 0)
+    }
+
+    /// Пакетная вставка (например, ответ синка) — одной транзакцией.
+    pub fn insert_messages(
+        &self,
+        messages: &[StoredMessage],
+        lamport: u64,
+    ) -> Result<usize, StorageError> {
+        let now = unix_now();
+        let tx = self.conn.unchecked_transaction()?;
+        let mut inserted = 0;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT OR IGNORE INTO messages
+                 (id, group_id, author, lamport, wall_time, text, parents, received)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+            )?;
+            for m in messages {
+                let parents = serde_json::to_vec(&m.parents).unwrap_or_default();
+                inserted += stmt.execute(params![
+                    m.id, m.group_id, m.author, m.lamport as i64,
+                    m.wall_time as i64, m.text, parents, now as i64
+                ])?;
+            }
+        }
+        tx.execute(
+            "INSERT INTO meta (key, value) VALUES ('lamport', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![lamport.to_le_bytes().as_slice()],
+        )?;
+        tx.commit()?;
+        Ok(inserted)
     }
 
     pub fn has_message(&self, id: &[u8]) -> Result<bool, StorageError> {
@@ -270,4 +329,51 @@ fn unix_now() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn msg(id: &[u8], lamport: u64) -> StoredMessage {
+        StoredMessage {
+            id: id.to_vec(),
+            group_id: b"g".to_vec(),
+            author: b"a".to_vec(),
+            lamport,
+            wall_time: 1,
+            text: "t".into(),
+            parents: vec![],
+        }
+    }
+
+    #[test]
+    fn schema_version_is_set() {
+        let store = Store::open_in_memory().unwrap();
+        let v: i64 = store
+            .conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, 1);
+    }
+
+    #[test]
+    fn insert_updates_lamport_in_one_tx() {
+        let store = Store::open_in_memory().unwrap();
+        assert!(store.insert_message(&msg(b"m1", 5), 5).unwrap());
+        // idempotent
+        assert!(!store.insert_message(&msg(b"m1", 5), 5).unwrap());
+        assert!(store.has_message(b"m1").unwrap());
+        let lamport = store.get_meta("lamport").unwrap().unwrap();
+        assert_eq!(u64::from_le_bytes(lamport.try_into().unwrap()), 5);
+    }
+
+    #[test]
+    fn batch_insert_counts() {
+        let store = Store::open_in_memory().unwrap();
+        let batch: Vec<_> = (0..10).map(|i| msg(format!("m{i}").as_bytes(), i)).collect();
+        let n = store.insert_messages(&batch, 9).unwrap();
+        assert_eq!(n, 10);
+        // повтор — уже ничего нового
+        assert_eq!(store.insert_messages(&batch, 9).unwrap(), 0);
+    }
 }
