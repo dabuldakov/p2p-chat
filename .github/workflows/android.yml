@@ -125,7 +125,7 @@ jobs:
             echo
             echo "## Что нового"
             echo
-            git log --pretty=format:'%s' $RANGE | bash .github/scripts/changelog.sh
+            git log --pretty=tformat:'%s' $RANGE | bash .github/scripts/changelog.sh
           } > release_body.md
           echo "----- release_body.md -----"
           cat release_body.md
