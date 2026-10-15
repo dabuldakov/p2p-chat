@@ -48,7 +48,6 @@ class WebRtcTransport(
         var pc: PeerConnection? = null
         var dc: DataChannel? = null
         var notified = false
-        var makingOffer = false
         var dead = false
         val createdAt = System.currentTimeMillis()
         val pendingCandidates = mutableListOf<IceCandidate>()
@@ -174,9 +173,6 @@ class WebRtcTransport(
 
     // --- Внутреннее ------------------------------------------------------
 
-    /** Принудительное подключение (bootstrap): то же, что connect. */
-    fun connectForce(remoteKey: ByteArray) = connect(remoteKey)
-
     private fun newConn(remoteKey: ByteArray): Conn {
         val conn = Conn(remoteKey)
         conn.pc = factory.createPeerConnection(iceServers, peerConnectionObserver(conn))
@@ -186,7 +182,6 @@ class WebRtcTransport(
 
     private fun startOffer(remoteKey: ByteArray) {
         val conn = newConn(remoteKey)
-        conn.makingOffer = true
         conns[keyHex(remoteKey)] = conn
         val dc = conn.pc!!.createDataChannel(DATA_CHANNEL_LABEL, DataChannel.Init())
         attachDataChannel(conn, dc)
@@ -269,7 +264,6 @@ class WebRtcTransport(
 
     private fun sdpObserver(conn: Conn) = object : SdpObserver {
         override fun onCreateSuccess(sdp: SessionDescription) {
-            conn.makingOffer = false
             val pc = conn.pc ?: return
             pc.setLocalDescription(noopObserver(), sdp)
             android.util.Log.i("p2pchat", "local ${sdp.type} created -> signal")
