@@ -4,24 +4,23 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 
-/** Информация о доступном обновлении. */
-data class UpdateInfo(
+/** Доступное обновление: версия, ссылка на скачивание и «что нового» по группам. */
+data class AppUpdate(
     val version: String,
-    val changelog: String,
-    val apkUrl: String,
+    val downloadUrl: String,
+    val changelog: List<ChangelogGroup> = emptyList(),
 )
 
 /**
- * Проверка обновлений через GitHub Releases.
- * Сравнивает установленную версию с последним релизом и, если он новее,
- * возвращает версию, список изменений и прямую ссылку на APK.
+ * Проверка новых релизов через GitHub. Версия берётся из тега релиза (`v1.2.3`),
+ * запасной вариант — из имени/тела. Возвращает обновление только если оно новее.
  */
 object UpdateChecker {
     private val client = OkHttpClient()
     private const val API =
         "https://api.github.com/repos/dabuldakov/p2p-chat/releases/latest"
 
-    fun check(installed: String): UpdateInfo? {
+    fun check(installed: String): AppUpdate? {
         val request = Request.Builder()
             .url(API)
             .header("Accept", "application/vnd.github+json")
@@ -38,14 +37,23 @@ object UpdateChecker {
         }
     }
 
-    private fun parse(raw: String, installed: String): UpdateInfo? {
+    private fun parse(raw: String, installed: String): AppUpdate? {
         val json = JSONObject(raw)
         val body = json.optString("body")
-        val text = json.optString("name") + " " + body
-        val version = Regex("""(\d+)\.(\d+)\.(\d+)""").find(text)?.value ?: return null
-        if (compareVersions(version, installed) <= 0) return null
-        val apkUrl = pickApk(json, version) ?: return null
-        return UpdateInfo(version, extractChangelog(body), apkUrl)
+
+        val version = versionOf(json) ?: return null
+        if (!isNewerVersion(version, installed)) return null
+
+        val url = pickApk(json, version) ?: json.optString("html_url")
+        if (url.isBlank()) return null
+        return AppUpdate(version, url, parseChangelog(body))
+    }
+
+    private fun versionOf(json: JSONObject): String? {
+        val tag = json.optString("tag_name").removePrefix("v").trim()
+        if (tag.matches(Regex("""\d+\.\d+\.\d+"""))) return tag
+        val text = json.optString("name") + " " + json.optString("body")
+        return Regex("""(\d+)\.(\d+)\.(\d+)""").find(text)?.value
     }
 
     private fun pickApk(json: JSONObject, version: String): String? {
@@ -61,21 +69,5 @@ object UpdateChecker {
             if (fallback == null) fallback = url
         }
         return fallback
-    }
-
-    private fun extractChangelog(body: String): String {
-        val idx = body.indexOf("Что нового")
-        return if (idx >= 0) body.substring(idx).trim() else body.trim()
-    }
-
-    /** Сравнение semver: >0 если a новее b. */
-    fun compareVersions(a: String, b: String): Int {
-        val pa = a.split(".").map { it.toIntOrNull() ?: 0 }
-        val pb = b.split(".").map { it.toIntOrNull() ?: 0 }
-        for (i in 0..2) {
-            val d = (pa.getOrNull(i) ?: 0) - (pb.getOrNull(i) ?: 0)
-            if (d != 0) return d
-        }
-        return 0
     }
 }

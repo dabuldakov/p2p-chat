@@ -304,7 +304,7 @@ private fun SettingsScreen(vm: ChatViewModel) {
 }
 
 @Composable
-private fun UpdateDialog(info: UpdateInfo, onDismiss: () -> Unit) {
+private fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
 
@@ -314,7 +314,7 @@ private fun UpdateDialog(info: UpdateInfo, onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Доступна версия ${info.version}. Скачать и обновить?")
-                if (info.changelog.isNotBlank()) {
+                if (info.changelog.isNotEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
                         verticalAlignment = Alignment.CenterVertically,
@@ -327,11 +327,22 @@ private fun UpdateDialog(info: UpdateInfo, onDismiss: () -> Unit) {
                         )
                     }
                     if (expanded) {
-                        Text(
-                            info.changelog,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            info.changelog.forEach { group ->
+                                Text(
+                                    group.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                group.items.forEach { item ->
+                                    Text(
+                                        "• $item",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -339,7 +350,7 @@ private fun UpdateDialog(info: UpdateInfo, onDismiss: () -> Unit) {
         confirmButton = {
             TextButton(onClick = {
                 runCatching {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.apkUrl)))
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl)))
                 }
                 onDismiss()
             }) { Text("Скачать") }

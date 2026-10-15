@@ -62,7 +62,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     /** Доступное обновление (версия новее установленной), если есть. */
-    var update by mutableStateOf<UpdateInfo?>(null)
+    var update by mutableStateOf<AppUpdate?>(null)
         private set
 
     /** Текущая версия приложения. */

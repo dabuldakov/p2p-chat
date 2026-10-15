@@ -70,6 +70,10 @@ jobs:
             echo "have=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Unit tests
+        working-directory: android
+        run: gradle testDebugUnitTest --no-daemon
+
       - name: Build APKs
         working-directory: android
         env:
@@ -109,7 +113,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.ver.outputs.version }}"
-          PREV="$(gh release view latest --json body --jq '.body' 2>/dev/null | grep -oE '[0-9a-f]{40}' | head -1 || true)"
+          PREV="$(gh release view --json body --jq '.body' 2>/dev/null | grep -oE '[0-9a-f]{40}' | head -1 || true)"
           if [ -n "$PREV" ] && git cat-file -e "$PREV" 2>/dev/null; then
             RANGE="$PREV..HEAD"
           else
@@ -130,7 +134,7 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
+          tag_name: v${{ steps.ver.outputs.version }}
           name: p2pchat ${{ steps.ver.outputs.version }}
           body_path: release_body.md
           make_latest: true
