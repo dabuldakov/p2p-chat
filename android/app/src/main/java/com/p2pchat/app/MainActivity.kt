@@ -248,23 +248,35 @@ private fun SettingsScreen(vm: ChatViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Версия и наличие обновления
+        // Версия и наличие обновления. Тап — проверить и открыть, что нового.
         Card {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val known = vm.update
+                        if (known != null) {
+                            showUpdate = true
+                        } else {
+                            vm.checkNow { has ->
+                                if (has) showUpdate = true
+                                else Toast.makeText(ctx, "Установлена последняя версия", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Версия", style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.weight(1f))
                 if (update != null) {
-                    BadgedBox(badge = { Badge(containerColor = Color.Red) }) {
-                        Text(
-                            update.version,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable { showUpdate = true },
-                        )
-                    }
+                    Text(
+                        update.version,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Badge(containerColor = Color.Red)
                 } else {
                     Text(
                         vm.version,

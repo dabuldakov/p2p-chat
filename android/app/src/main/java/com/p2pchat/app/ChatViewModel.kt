@@ -88,7 +88,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /** Проверить наличие новой релизной версии. */
     private fun checkForUpdate() {
         viewModelScope.launch {
-            update = withContext(Dispatchers.IO) { UpdateChecker.check(BuildConfig.VERSION_NAME) }
+            update = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
+        }
+    }
+
+    /** Проверить обновления по требованию; сообщает, найдено ли обновление. */
+    fun checkNow(onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val info = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
+            update = info
+            onDone(info != null)
         }
     }
 
