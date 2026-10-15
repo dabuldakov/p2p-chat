@@ -22,10 +22,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         val SIGNAL_URL = BuildConfig.SIGNAL_URL
         val TURN_CREDS_URL = BuildConfig.TURN_CREDS_URL
-        private const val AUTO_CHECK_INTERVAL_MS = 60 * 60 * 1000L
     }
-
-    private var lastAutoCheckMs = 0L
 
     private val core: ChatCore = ChatCore(app.filesDir.absolutePath + "/chat.db")
 
@@ -88,11 +85,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Проверить наличие новой релизной версии (не чаще раза в час). */
+    /** Проверить наличие новой релизной версии (один раз при открытии приложения). */
     private fun checkForUpdate() {
-        val now = System.currentTimeMillis()
-        if (now - lastAutoCheckMs < AUTO_CHECK_INTERVAL_MS) return
-        lastAutoCheckMs = now
         viewModelScope.launch {
             update = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
         }
@@ -189,7 +183,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
         connectAll()
         syncAll()
-        checkForUpdate()
     }
 
     // --- Сообщения -------------------------------------------------------
