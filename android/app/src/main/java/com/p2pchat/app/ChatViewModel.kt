@@ -65,6 +65,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var update by mutableStateOf<AppUpdate?>(null)
         private set
 
+    /** Черновик из системного «Поделиться»: подставляется в поле ввода группы. */
+    var sharedDraft by mutableStateOf<String?>(null)
+        private set
+
     /** Текущая версия приложения. */
     val version: String = BuildConfig.VERSION_NAME
 
@@ -163,6 +167,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun backToList() {
         currentGroup = null
+    }
+
+    /** Пришёл текст из системного «Поделиться»: показать список групп и запомнить черновик. */
+    fun onSharedText(text: String) {
+        if (text.isBlank()) return
+        sharedDraft = text
+        currentGroup = null
+    }
+
+    /** Забрать черновик (одноразовый — после подстановки в поле ввода). */
+    fun consumeSharedDraft(): String? {
+        val draft = sharedDraft
+        sharedDraft = null
+        return draft
     }
 
     /** Соединиться с соседями по всем группам (объединение). */

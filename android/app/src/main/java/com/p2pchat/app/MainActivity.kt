@@ -49,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,12 +76,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        intent?.getStringExtra(EXTRA_SHARED_TEXT)?.let(vm::onSharedText)
     }
 
     override fun onStart() {
         super.onStart()
         // Вернулись в приложение — догоняем пропущенное (вариант B).
         vm.onForeground()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // Поделились, пока приложение уже открыто.
+        intent.getStringExtra(EXTRA_SHARED_TEXT)?.let(vm::onSharedText)
+    }
+
+    companion object {
+        /** Ссылка/текст, которым поделились с приложением (ACTION_SEND). */
+        const val EXTRA_SHARED_TEXT = "extra_shared_text"
     }
 }
 
@@ -383,6 +397,15 @@ private fun GroupScreen(vm: ChatViewModel) {
     val ctx = LocalContext.current
     val invite = vm.invite
     val inviteQr = remember(invite) { invite?.let { generateQrBitmap(it, 640) } }
+
+    // Черновик из «Поделиться»: один раз подставляем в поле ввода.
+    val shared = vm.sharedDraft
+    LaunchedEffect(shared) {
+        if (shared != null) {
+            input = shared
+            vm.consumeSharedDraft()
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),

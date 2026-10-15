@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.P2pchat" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Прозрачная тема для промежуточной активности «Поделиться». -->
+    <style name="Theme.P2pchat.Transparent" parent="android:Theme.Translucent.NoTitleBar" />
 </resources>
