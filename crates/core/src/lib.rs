@@ -5,6 +5,7 @@
 //! и кому переслать.
 
 pub mod error;
+pub mod invite;
 pub mod log;
 pub mod membership;
 pub mod merkle;

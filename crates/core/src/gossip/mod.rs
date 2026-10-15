@@ -8,16 +8,14 @@ use ed25519_dalek::VerifyingKey;
 use prost::Message as _;
 
 use crate::log::Log;
-use crate::merkle::MerkleTree;
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{
-    ChatMessage, Encrypted, Envelope, Gossip, PeerInfo, Presence, SyncDigest, SyncFetch, SyncIds,
-    SyncRequest, SyncResponse,
-};
+use crate::proto::{ChatMessage, Encrypted, Envelope, Gossip, PeerInfo, Presence};
 use crate::{CoreError, GroupId, PeerId};
 
 use p2pchat_crypto::GroupKey;
+
+mod sync;
 
 /// Количество соседей для пересылки (используется транспортом при выборе цели).
 pub const FANOUT: usize = 5;
@@ -183,30 +181,50 @@ impl GossipEngine {
         }
     }
 
-    /// Инвайт-строка группы (ссылка/QR): `p2pchat://join?g=<hex>&k=<hex>&h=<hex-host>`.
-    /// `h` — публичный ключ приглашающего, чтобы входящий знал, к кому подключаться.
+    /// Инвайт-строка группы (ссылка/QR). См. [`crate::invite`].
     pub fn invite_for(&self, group: &[u8]) -> Option<String> {
         let key = self.groups.get(group)?.export();
-        Some(format!(
-            "p2pchat://join?g={}&k={}&h={}",
-            hex(group),
-            hex(&key),
-            hex(&self.public_key())
-        ))
+        Some(crate::invite::Invite::new(group, &key, &self.public_key()).encode())
     }
 
     /// Вступить по инвайт-строке (возвращает id группы).
     pub fn join_from_invite(&mut self, invite: &str) -> Result<GroupId, CoreError> {
-        let (group, key) = parse_invite(invite)?;
-        self.join_group(group.clone(), key);
-        Ok(group)
+        let inv = crate::invite::Invite::parse(invite)?;
+        self.join_group(inv.group_id.clone(), inv.key);
+        Ok(inv.group_id)
     }
 
     /// Вступить по инвайту, вернуть группу и ключ хозяина (для bootstrap-соединения).
     pub fn join_from_invite_full(&mut self, invite: &str) -> Result<(GroupId, Vec<u8>), CoreError> {
-        let (group, key, host) = parse_invite_full(invite)?;
-        self.join_group(group.clone(), key);
-        Ok((group, host))
+        let inv = crate::invite::Invite::parse(invite)?;
+        self.join_group(inv.group_id.clone(), inv.key);
+        Ok((inv.group_id, inv.host))
+    }
+
+    /// Выйти из группы: помечаем себя вышедшим и сообщаем соседям.
+    pub fn leave_group(&mut self, group: &[u8]) -> Result<Option<Outgoing>, CoreError> {
+        if !self.has_group(group) {
+            return Ok(None);
+        }
+        let lamport = self.log.tick();
+        let ev = crate::membership::membership_event(
+            group,
+            &self.peer_id(),
+            &self.public_key(),
+            false,
+            lamport,
+            &self.peer_id(),
+        );
+        self.membership
+            .entry(group.to_vec())
+            .or_default()
+            .apply(&ev);
+        let _ = self.log.store_membership(&ev);
+        self.self_events.remove(group);
+        let env = self.seal(Gossip {
+            body: Some(Body::Membership(ev)),
+        })?;
+        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
     }
 
     /// Участники группы (отсортированы).
@@ -351,23 +369,6 @@ impl GossipEngine {
         Ok(out)
     }
 
-    /// Merkle-digest группы: корень + количество.
-    pub fn sync_digest(&self, group: &[u8]) -> Result<Envelope, CoreError> {
-        let tree = MerkleTree::build(self.log.ids_for_group(group));
-        let d = SyncDigest {
-            group_id: group.to_vec(),
-            root: tree.root().to_vec(),
-            count: tree.len() as u64,
-        };
-        self.seal(Gossip { body: Some(Body::SyncDigest(d)) })
-    }
-
-    /// Digest группы, адресованный конкретному пиру (для офлайн-догона).
-    pub fn sync_digest_to(&self, group: &[u8], target: &[u8]) -> Result<Outgoing, CoreError> {
-        let env = self.sync_digest(group)?;
-        Ok(self.out_to(env, target.to_vec()))
-    }
-
     /// Группы, где мы состоим и есть участник с таким публичным ключом.
     pub fn groups_with(&self, public_key: &[u8]) -> Vec<GroupId> {
         self.membership
@@ -378,59 +379,6 @@ impl GossipEngine {
             })
             .map(|(g, _)| g.clone())
             .collect()
-    }
-
-    fn on_digest(&mut self, d: SyncDigest, origin: &[u8], out: &mut Outcome) -> Result<(), CoreError> {
-        let local = MerkleTree::build(self.log.ids_for_group(&d.group_id));
-        let remote_root: [u8; 32] = d.root.as_slice().try_into().unwrap_or([0u8; 32]);
-        if local.root() == remote_root && local.len() as u64 == d.count {
-            return Ok(());
-        }
-        // расходимся — отвечаем отправителю своим списком id
-        let ids = self.log.ids_for_group(&d.group_id);
-        let env = self.seal(Gossip {
-            body: Some(Body::SyncIds(SyncIds { group_id: d.group_id, ids })),
-        })?;
-        out.outgoing.push(self.out_to(env, origin.to_vec()));
-        Ok(())
-    }
-
-    fn on_sync_ids(&mut self, s: SyncIds, origin: &[u8], out: &mut Outcome) -> Result<(), CoreError> {
-        let local = MerkleTree::build(self.log.ids_for_group(&s.group_id));
-        let remote = MerkleTree::build(s.ids);
-
-        // отдаём то, чего нет у собеседника (ему)
-        let to_send = local.missing_from(&remote);
-        if !to_send.is_empty() {
-            let messages: Vec<ChatMessage> = to_send
-                .iter()
-                .filter_map(|id| self.log.get(id).cloned())
-                .collect();
-            self.emit_messages_to(messages, origin.to_vec(), out)?;
-        }
-
-        // просим то, чего нет у нас (у него)
-        let to_fetch = remote.missing_from(&local);
-        if !to_fetch.is_empty() {
-            let env = self.seal(Gossip {
-                body: Some(Body::SyncFetch(SyncFetch {
-                    group_id: s.group_id,
-                    ids: to_fetch,
-                })),
-            })?;
-            out.outgoing.push(self.out_to(env, origin.to_vec()));
-        }
-        Ok(())
-    }
-
-    /// Сформировать запрос синка по группе.
-    pub fn sync_request(&self, group: &[u8]) -> Result<Envelope, CoreError> {
-        let req = SyncRequest {
-            group_id: group.to_vec(),
-            have_heads: self.log.heads(group),
-            lamport_watermark: self.log.lamport(),
-        };
-        self.seal(Gossip { body: Some(Body::SyncRequest(req)) })
     }
 
     /// Разослать свою таблицу пиров.
@@ -527,21 +475,6 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         Ok(())
     }
 
-    fn make_sync_response(&self, req: &SyncRequest) -> SyncResponse {
-        let messages: Vec<ChatMessage> = self
-            .log
-            .ordered(&req.group_id)
-            .into_iter()
-            .filter(|m| m.lamport > req.lamport_watermark)
-            .take(256)
-            .collect();
-        SyncResponse {
-            messages,
-            peers: self.peers.all().cloned().collect(),
-            more: false,
-        }
-    }
-
     /// Подписать и упаковать gossip в конверт.
     fn seal(&self, gossip: Gossip) -> Result<Envelope, CoreError> {
         let payload = gossip.encode_to_vec();
@@ -572,52 +505,8 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
     }
 }
 
-fn hex(b: &[u8]) -> String {
-    b.iter().map(|x| format!("{:02x}", x)).collect()
-}
-
-fn unhex(s: &str) -> Result<Vec<u8>, CoreError> {
-    let s = s.trim();
-    if s.len() % 2 != 0 {
-        return Err(CoreError::BadEnvelope("hex length".into()));
-    }
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(|_| CoreError::BadEnvelope("hex".into())))
-        .collect()
-}
-
-/// Разобрать инвайт `p2pchat://join?g=<hex>&k=<hex>&h=<hex>`.
-pub fn parse_invite_full(invite: &str) -> Result<(GroupId, [u8; 32], Vec<u8>), CoreError> {
-    let query = invite
-        .split('?')
-        .nth(1)
-        .ok_or_else(|| CoreError::BadEnvelope("invite: no query".into()))?;
-    let (mut g, mut k, mut h) = (None, None, None);
-    for part in query.split('&') {
-        let mut it = part.splitn(2, '=');
-        match (it.next(), it.next()) {
-            (Some("g"), Some(v)) => g = Some(v.to_string()),
-            (Some("k"), Some(v)) => k = Some(v.to_string()),
-            (Some("h"), Some(v)) => h = Some(v.to_string()),
-            _ => {}
-        }
-    }
-    let group = unhex(&g.ok_or_else(|| CoreError::BadEnvelope("invite: no group".into()))?)?;
-    let keyv = unhex(&k.ok_or_else(|| CoreError::BadEnvelope("invite: no key".into()))?)?;
-    let key: [u8; 32] = keyv
-        .as_slice()
-        .try_into()
-        .map_err(|_| CoreError::BadEnvelope("invite: bad key".into()))?;
-    let host = match h {
-        Some(v) => unhex(&v)?,
-        None => Vec::new(),
-    };
-    Ok((group, key, host))
-}
-
-/// Разобрать инвайт (без ключа хозяина).
+/// Разобрать инвайт (совместимость). Подробнее — [`crate::invite`].
 pub fn parse_invite(invite: &str) -> Result<(GroupId, [u8; 32]), CoreError> {
-    let (g, k, _) = parse_invite_full(invite)?;
-    Ok((g, k))
+    let inv = crate::invite::Invite::parse(invite)?;
+    Ok((inv.group_id, inv.key))
 }

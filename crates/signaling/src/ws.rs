@@ -29,14 +29,14 @@ impl WsSignaling {
         let (mut write, mut read) = stream.split();
 
         write
-            .send(Message::Binary(register.encode_to_vec().into()))
+            .send(Message::Binary(register.encode_to_vec()))
             .await
             .map_err(|e| SignalingError::Protocol(format!("register: {e}")))?;
 
         let (tx, mut trx) = mpsc::channel::<Vec<u8>>(256);
         tokio::spawn(async move {
             while let Some(bytes) = trx.recv().await {
-                if write.send(Message::Binary(bytes.into())).await.is_err() {
+                if write.send(Message::Binary(bytes)).await.is_err() {
                     break;
                 }
             }

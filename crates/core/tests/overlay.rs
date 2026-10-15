@@ -1,5 +1,7 @@
 //! Оверлей: сообщение расходится по сети (multi-hop) и доходит до всех.
 
+#![allow(clippy::needless_range_loop)]
+
 use std::collections::{HashMap, VecDeque};
 
 use prost::Message as _;
@@ -33,9 +35,7 @@ fn gossip(engines: &mut [GossipEngine], keys: &[Vec<u8>], start: usize, first: O
                 continue;
             }
             let outcome = engines[i].handle(&bytes).expect("handle");
-            if !got_from.contains_key(&i) {
-                got_from.insert(i, from);
-            }
+            got_from.entry(i).or_insert(from);
             for o in outcome.outgoing {
                 queue.push_back((i, o));
             }

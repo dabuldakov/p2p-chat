@@ -169,26 +169,21 @@ async fn handle_conn(stream: TcpStream, node: Arc<Node>) -> Result<()> {
     });
 
     // читатель: кадры -> движок -> пересылка
-    loop {
-        match read_frame(&mut rd).await {
-            Ok(frame) => {
-                let outgoing = {
-                    let mut engine = node.engine.lock().await;
-                    engine.handle(&frame)
-                };
-                match outgoing {
-                    Ok(outcome) => {
-                        for m in &outcome.new_messages {
-                            info!("<- {}: {}", hex(&m.author[..4.min(m.author.len())]), m.text);
-                        }
-                        for env in outcome.outgoing {
-                            let _ = node.outbound.send(env.envelope.encode_to_vec());
-                        }
-                    }
-                    Err(e) => warn!("bad envelope: {e}"),
+    while let Ok(frame) = read_frame(&mut rd).await {
+        let outgoing = {
+            let mut engine = node.engine.lock().await;
+            engine.handle(&frame)
+        };
+        match outgoing {
+            Ok(outcome) => {
+                for m in &outcome.new_messages {
+                    info!("<- {}: {}", hex(&m.author[..4.min(m.author.len())]), m.text);
+                }
+                for env in outcome.outgoing {
+                    let _ = node.outbound.send(env.envelope.encode_to_vec());
                 }
             }
-            Err(_) => break,
+            Err(e) => warn!("bad envelope: {e}"),
         }
     }
 

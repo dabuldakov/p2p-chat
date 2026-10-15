@@ -31,6 +31,11 @@ pub struct StoredPeer {
     pub hops: u32,
 }
 
+/// Строка ключа группы: (group_id, key).
+pub type GroupKeyRow = (Vec<u8>, Vec<u8>);
+/// Строка состава: (group_id, peer_id, public_key, joined, lamport, event_id).
+pub type MembershipRow = (Vec<u8>, Vec<u8>, Vec<u8>, bool, u64, Vec<u8>);
+
 pub struct Store {
     conn: Connection,
 }
@@ -212,7 +217,7 @@ impl Store {
         Ok(())
     }
 
-    pub fn all_group_keys(&self) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
+    pub fn all_group_keys(&self) -> Result<Vec<GroupKeyRow>, StorageError> {
         let mut stmt = self.conn.prepare("SELECT group_id, key FROM group_keys")?;
         let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -242,9 +247,7 @@ impl Store {
     }
 
     /// Все строки состава: (group_id, peer_id, public_key, joined, lamport, event_id).
-    pub fn all_membership(
-        &self,
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>, Vec<u8>, bool, u64, Vec<u8>)>, StorageError> {
+    pub fn all_membership(&self) -> Result<Vec<MembershipRow>, StorageError> {
         let mut stmt = self.conn.prepare(
             "SELECT group_id, peer_id, public_key, joined, lamport, event_id FROM membership",
         )?;

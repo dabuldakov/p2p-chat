@@ -47,6 +47,13 @@ android {
 
     // signaling-сообщения генерируются из src/main/proto (симлинк на общий proto/).
 
+    // Только нужные ABI — заметно уменьшает размер (WebRTC/JNA/наш .so).
+    defaultConfig {
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
     signingConfigs {
         if (keystorePath != null) {
             create("release") {
@@ -60,7 +67,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             if (keystorePath != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -88,6 +96,11 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/*.version"
+            excludes += "/META-INF/versions/**"
+            excludes += "kotlin-tooling-metadata.json"
+            excludes += "DebugProbesKt.bin"
+            excludes += "**/attach_hotspot_windows.dll"
         }
     }
 

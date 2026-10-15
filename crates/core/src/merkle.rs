@@ -34,7 +34,7 @@ impl MerkleTree {
 
         let mut levels = vec![leaves.clone()];
         while leaves.len() > 1 {
-            let mut next = Vec::with_capacity((leaves.len() + 1) / 2);
+            let mut next = Vec::with_capacity(leaves.len().div_ceil(2));
             let mut i = 0;
             while i < leaves.len() {
                 let left = leaves[i];

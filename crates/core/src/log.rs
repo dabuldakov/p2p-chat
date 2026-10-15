@@ -166,7 +166,7 @@ impl Log {
         Ok(())
     }
 
-    pub fn load_group_keys(&self) -> Result<Vec<(Vec<u8>, Vec<u8>)>, CoreError> {
+    pub fn load_group_keys(&self) -> Result<Vec<p2pchat_storage::GroupKeyRow>, CoreError> {
         Ok(match &self.store {
             Some(s) => s.all_group_keys()?,
             None => Vec::new(),

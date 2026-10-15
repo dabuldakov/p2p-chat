@@ -46,7 +46,7 @@ async fn handle(stream: TcpStream, clients: Clients) -> Result<()> {
     let (tx, mut rx) = mpsc::channel::<Vec<u8>>(256);
     let writer = tokio::spawn(async move {
         while let Some(b) = rx.recv().await {
-            if write.send(Message::Binary(b.into())).await.is_err() {
+            if write.send(Message::Binary(b)).await.is_err() {
                 break;
             }
         }
