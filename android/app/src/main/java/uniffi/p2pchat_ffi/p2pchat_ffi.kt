@@ -760,6 +760,12 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -797,12 +803,16 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_history_window(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`beforeId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_is_owner(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Byte
     fun uniffi_p2pchat_ffi_fn_method_chatcore_join_envelope(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_join_from_invite(`ptr`: Pointer,`invite`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_join_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_leave_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_list_groups(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_mark_read(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -822,6 +832,8 @@ internal interface UniffiLib : Library {
     fun uniffi_p2pchat_ffi_fn_method_chatcore_public_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_receive(`ptr`: Pointer,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_remove_member(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_sync_digest_to(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`targetKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -955,11 +967,15 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_history_window(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_is_owner(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_group(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_leave_group(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_list_groups(
     ): Short
@@ -980,6 +996,8 @@ internal interface UniffiLib : Library {
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_public_key(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_receive(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_remove_member(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to(
     ): Short
@@ -1025,6 +1043,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_history_window() != 21811.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_is_owner() != 28503.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope() != 63251.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1032,6 +1053,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_group() != 25300.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_leave_group() != 34284.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_list_groups() != 45145.toShort()) {
@@ -1062,6 +1086,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_receive() != 36340.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_remove_member() != 39810.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to() != 49268.toShort()) {
@@ -1464,6 +1491,11 @@ public interface ChatCoreInterface {
     fun `historyWindow`(`groupId`: kotlin.ByteArray, `beforeId`: kotlin.ByteArray?, `limit`: kotlin.UInt): FfiHistoryPage
     
     /**
+     * Являемся ли мы владельцем группы.
+     */
+    fun `isOwner`(`groupId`: kotlin.ByteArray): kotlin.Boolean
+    
+    /**
      * Конверт с нашим входом в группу — разослать соседям.
      */
     fun `joinEnvelope`(`groupId`: kotlin.ByteArray): FfiOutgoing?
@@ -1477,6 +1509,11 @@ public interface ChatCoreInterface {
      * Вступить в группу по ключу (получен по защищённому каналу).
      */
     fun `joinGroup`(`groupId`: kotlin.ByteArray, `key`: kotlin.ByteArray)
+    
+    /**
+     * Выйти из группы. Возвращает конверт для рассылки (или None).
+     */
+    fun `leaveGroup`(`groupId`: kotlin.ByteArray): FfiOutgoing?
     
     /**
      * Список групп, в которых мы состоим.
@@ -1527,6 +1564,11 @@ public interface ChatCoreInterface {
      * Обработать входящий конверт. Возвращает конверты для пересылки (с адресатами).
      */
     fun `receive`(`envelope`: kotlin.ByteArray): List<FfiOutgoing>
+    
+    /**
+     * Удалить участника (только владелец). Возвращает конверты для рассылки.
+     */
+    fun `removeMember`(`groupId`: kotlin.ByteArray, `peerId`: kotlin.ByteArray): List<FfiOutgoing>
     
     /**
      * Merkle-digest группы, адресованный конкретному пиру (офлайн-догон).
@@ -1730,6 +1772,22 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
+     * Являемся ли мы владельцем группы.
+     */
+    @Throws(FfiException::class)override fun `isOwner`(`groupId`: kotlin.ByteArray): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_is_owner(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Конверт с нашим входом в группу — разослать соседям.
      */
     @Throws(FfiException::class)override fun `joinEnvelope`(`groupId`: kotlin.ByteArray): FfiOutgoing? {
@@ -1773,6 +1831,22 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 }
     }
     
+    
+
+    
+    /**
+     * Выйти из группы. Возвращает конверт для рассылки (или None).
+     */
+    @Throws(FfiException::class)override fun `leaveGroup`(`groupId`: kotlin.ByteArray): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_leave_group(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
     
 
     
@@ -1921,6 +1995,22 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_receive(
         it, FfiConverterByteArray.lower(`envelope`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Удалить участника (только владелец). Возвращает конверты для рассылки.
+     */
+    @Throws(FfiException::class)override fun `removeMember`(`groupId`: kotlin.ByteArray, `peerId`: kotlin.ByteArray): List<FfiOutgoing> {
+            return FfiConverterSequenceTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_remove_member(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`peerId`),_status)
 }
     }
     )

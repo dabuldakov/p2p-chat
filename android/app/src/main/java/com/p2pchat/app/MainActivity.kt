@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
@@ -468,6 +469,23 @@ private fun GroupScreen(vm: ChatViewModel) {
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Участники", style = MaterialTheme.typography.titleSmall)
+                        vm.members.forEach { m ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    m.peerId.toHex().take(10) + (if (m.peerId.toHex() == vm.peerId) " (вы)" else ""),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Spacer(Modifier.weight(1f))
+                                if (vm.isOwner && m.peerId.toHex() != vm.peerId) {
+                                    IconButton(onClick = { vm.removeMember(m.peerId) }) {
+                                        Icon(Icons.Filled.Close, contentDescription = "Удалить")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -505,6 +523,13 @@ private fun GroupScreen(vm: ChatViewModel) {
             )
             Spacer(Modifier.width(8.dp))
             Button(onClick = { vm.send(input); input = "" }) { Text("Отправить") }
+        }
+
+        OutlinedButton(
+            onClick = { vm.leaveGroup() },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Выйти из группы", color = MaterialTheme.colorScheme.error)
         }
     }
 }

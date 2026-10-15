@@ -168,6 +168,20 @@ impl Log {
         Ok(())
     }
 
+    pub fn set_meta(&self, key: &str, value: &[u8]) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.set_meta(key, value)?;
+        }
+        Ok(())
+    }
+
+    pub fn get_meta(&self, key: &str) -> Result<Option<Vec<u8>>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s.get_meta(key)?,
+            None => None,
+        })
+    }
+
     /// Отметка «прочитано до» (id последнего прочитанного сообщения группы).
     pub fn set_read(&self, group: &[u8], id: &[u8]) -> Result<(), CoreError> {
         if let Some(s) = &self.store {

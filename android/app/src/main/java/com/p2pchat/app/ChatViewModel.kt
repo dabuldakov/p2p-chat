@@ -74,6 +74,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var invite by mutableStateOf<String?>(null)
         private set
 
+    /** Мы владелец текущей группы (можем удалять участников). */
+    var isOwner by mutableStateOf(false)
+        private set
+
     /** Доступное обновление (версия новее установленной), если есть. */
     var update by mutableStateOf<AppUpdate?>(null)
         private set
@@ -181,6 +185,26 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun selectGroup(g: ByteArray) {
         currentGroup = g
         invite = core.groupInvite(g)
+        isOwner = runCatching { core.isOwner(g) }.getOrDefault(false)
+        refresh()
+    }
+
+    /** Выйти из текущей группы. */
+    fun leaveGroup() {
+        val g = currentGroup ?: return
+        runCatching { core.leaveGroup(g) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
+        currentGroup = null
+        refresh()
+    }
+
+    /** Удалить участника (только владелец). */
+    fun removeMember(peerId: ByteArray) {
+        val g = currentGroup ?: return
+        runCatching { core.removeMember(g, peerId) }.getOrDefault(emptyList()).forEach {
+            transport.sendTargets(it.envelope, it.targets)
+        }
         refresh()
     }
 

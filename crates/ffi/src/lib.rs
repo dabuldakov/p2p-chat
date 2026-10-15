@@ -174,6 +174,35 @@ impl ChatCore {
         Ok(self.inner.lock().unwrap().unread_count(&group_id)?)
     }
 
+    /// Выйти из группы. Возвращает конверт для рассылки (или None).
+    pub fn leave_group(&self, group_id: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .leave_group(&group_id)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    /// Удалить участника (только владелец). Возвращает конверты для рассылки.
+    pub fn remove_member(
+        &self,
+        group_id: Vec<u8>,
+        peer_id: Vec<u8>,
+    ) -> Result<Vec<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .remove_member(&group_id, &peer_id)?
+            .into_iter()
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+            .collect())
+    }
+
+    /// Являемся ли мы владельцем группы.
+    pub fn is_owner(&self, group_id: Vec<u8>) -> Result<bool, FfiError> {
+        Ok(self.inner.lock().unwrap().is_owner(&group_id)?)
+    }
+
     /// Участники группы.
     pub fn members(&self, group_id: Vec<u8>) -> Vec<FfiMember> {
         self.inner

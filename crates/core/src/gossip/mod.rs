@@ -30,6 +30,8 @@ pub struct GossipEngine {
     membership: std::collections::HashMap<GroupId, crate::membership::Membership>,
     /// Наше собственное событие входа в группу (для рассылки).
     self_events: std::collections::HashMap<GroupId, crate::proto::MembershipEvent>,
+    /// Владельцы групп (кто создал) — для удаления участников.
+    owners: std::collections::HashMap<GroupId, PeerId>,
     /// nonce уже обработанных конвертов (анти-реплей, дедуп лавины)
     seen: std::collections::HashSet<u64>,
 }
@@ -57,7 +59,7 @@ pub struct Outcome {
 impl GossipEngine {
     pub fn new(identity: p2pchat_crypto::Identity, log: Log) -> Self {
         let peers = PeerTable::new(identity.peer_id().to_vec());
-        Self { identity, log, peers, groups: Default::default(), membership: Default::default(), self_events: Default::default(), seen: Default::default() }
+        Self { identity, log, peers, groups: Default::default(), membership: Default::default(), self_events: Default::default(), owners: Default::default(), seen: Default::default() }
     }
 
     pub fn peer_id(&self) -> PeerId {
@@ -97,8 +99,57 @@ impl GossipEngine {
         let bytes = key.export();
         self.groups.insert(group.clone(), key);
         let _ = self.log.store_group_key(&group, &bytes);
+        // владелец группы (создатель) — для удаления участников
+        let _ = self.log.set_meta(&format!("owner:{}", hex(&group)), &self.peer_id());
+        self.owners.insert(group.clone(), self.peer_id());
         self.self_join(&group);
         bytes
+    }
+
+    /// Мы владелец группы (её создатель)?
+    pub fn is_owner(&self, group: &[u8]) -> Result<bool, CoreError> {
+        if let Some(owner) = self.owners.get(group) {
+            return Ok(*owner == self.peer_id());
+        }
+        let key = format!("owner:{}", hex(group));
+        Ok(self.log.get_meta(&key)?.as_deref() == Some(self.peer_id().as_slice()))
+    }
+
+    /// Удалить участника (только владелец): создаём событие выхода за него
+    /// и, если мы лидер, сразу меняем ключ группы.
+    pub fn remove_member(
+        &mut self,
+        group: &[u8],
+        peer_id: &[u8],
+    ) -> Result<Vec<Outgoing>, CoreError> {
+        if !self.is_owner(group)? {
+            return Ok(Vec::new());
+        }
+        let Some(pk) = self.membership.get(group).and_then(|m| m.public_key_of(peer_id)) else {
+            return Ok(Vec::new());
+        };
+        let lamport = self.log.tick();
+        let ev = crate::membership::membership_event(
+            group,
+            peer_id,
+            &pk,
+            false,
+            lamport,
+            &self.peer_id(),
+        );
+        self.membership
+            .entry(group.to_vec())
+            .or_default()
+            .apply(&ev);
+        let _ = self.log.store_membership(&ev);
+        let env = self.seal(Gossip {
+            body: Some(Body::Membership(ev)),
+        })?;
+        let mut out = vec![Outgoing { envelope: env, targets: self.neighbor_keys(group) }];
+        if self.is_leader(group) {
+            out.extend(self.rekey(group)?);
+        }
+        Ok(out)
     }
 
     /// Вступить в группу, зная её ключ.
@@ -163,6 +214,9 @@ impl GossipEngine {
         }
         // заново объявить себя во всех группах, где мы состоим
         for g in self.groups() {
+            if let Some(owner) = self.log.get_meta(&format!("owner:{}", hex(&g)))? {
+                self.owners.insert(g.clone(), owner);
+            }
             self.self_join(&g);
         }
         Ok(())
@@ -621,6 +675,15 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         p2pchat_crypto::verify(&pk, &env.payload, &env.signature)?;
         Ok(Gossip::decode(env.payload.as_slice())?)
     }
+}
+
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
 }
 
 /// Разобрать инвайт (совместимость). Подробнее — [`crate::invite`].
