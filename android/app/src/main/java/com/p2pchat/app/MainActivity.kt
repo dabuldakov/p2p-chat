@@ -20,14 +20,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,13 +75,28 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Root(vm: ChatViewModel = viewModel()) {
-    val g = vm.currentGroup
+    var settings by remember { mutableStateOf(false) }
+    val group = vm.currentGroup
+
+    val title = when {
+        settings -> "Настройки"
+        group != null -> String(group)
+        else -> "p2pchat"
+    }
+    val onBack: (() -> Unit)? = when {
+        settings -> { { settings = false } }
+        group != null -> { { vm.backToList() } }
+        else -> null
+    }
+
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(if (g == null) "p2pchat" else String(g)) },
+            title = { Text(title) },
             navigationIcon = {
-                if (g != null) {
-                    TextButton(onClick = { vm.backToList() }) { Text("←") }
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                    }
                 }
             },
             actions = {
@@ -84,7 +110,11 @@ fun Root(vm: ChatViewModel = viewModel()) {
         )
     }) { pad ->
         Box(modifier = Modifier.fillMaxSize().padding(pad)) {
-            if (g == null) GroupsScreen(vm) else GroupScreen(vm)
+            when {
+                settings -> SettingsScreen(vm)
+                group != null -> GroupScreen(vm)
+                else -> GroupsScreen(vm, onSettings = { settings = true })
+            }
         }
     }
 }
@@ -92,76 +122,129 @@ fun Root(vm: ChatViewModel = viewModel()) {
 // --- Список групп --------------------------------------------------------
 
 @Composable
-private fun GroupsScreen(vm: ChatViewModel) {
-    var newName by remember { mutableStateOf("") }
-    var inviteIn by remember { mutableStateOf("") }
-    val clipboard = LocalClipboardManager.current
-    val ctx = LocalContext.current
-    val myQr = remember { generateQrBitmap(vm.publicKeyHex, 360) }
+private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
+    var showAdd by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (vm.groups.isEmpty()) {
+                Text(
+                    "Пока нет групп. Нажмите «+», чтобы создать или войти по инвайту.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 24.dp),
+                )
+            } else {
+                vm.groups.forEach { name ->
+                    Card(modifier = Modifier.fillMaxWidth().clickable { vm.selectGroup(name.toByteArray()) }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(name, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.size(72.dp)) // место под кнопки
+        }
+
+        Row(
+            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SmallFloatingActionButton(
+                onClick = onSettings,
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
             ) {
-                Text("Мой ключ", style = MaterialTheme.typography.titleMedium)
-                Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
-                    Image(myQr, "QR ключа", modifier = Modifier.size(160.dp).padding(8.dp))
-                }
-                OutlinedButton(onClick = {
-                    clipboard.setText(AnnotatedString(vm.publicKeyHex))
-                    Toast.makeText(ctx, "Ключ скопирован", Toast.LENGTH_SHORT).show()
-                }) { Text("Скопировать ключ") }
+                Icon(Icons.Filled.Settings, contentDescription = "Настройки")
+            }
+            FloatingActionButton(onClick = { showAdd = true }) {
+                Icon(Icons.Filled.Add, contentDescription = "Добавить группу")
             }
         }
+    }
 
-        Card {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Создать группу", style = MaterialTheme.typography.titleSmall)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = newName,
-                        onValueChange = { newName = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("название") },
-                        singleLine = true,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { vm.createGroup(newName); newName = "" }) { Text("Создать") }
-                }
-            }
-        }
+    if (showAdd) AddGroupDialog(vm, onClose = { showAdd = false })
+}
 
-        Card {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Войти по инвайту", style = MaterialTheme.typography.titleSmall)
+@Composable
+private fun AddGroupDialog(vm: ChatViewModel, onClose: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var inviteIn by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Новая группа") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("название группы") },
+                    singleLine = true,
+                )
+                Button(
+                    onClick = { vm.createGroup(name); onClose() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Создать") }
                 OutlinedTextField(
                     value = inviteIn,
                     onValueChange = { inviteIn = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("p2pchat://join?g=…&k=…") },
+                    placeholder = { Text("или вставьте инвайт") },
                     maxLines = 3,
                 )
-                Button(onClick = { vm.joinGroup(inviteIn.trim()); inviteIn = "" }) { Text("Войти") }
+                OutlinedButton(
+                    onClick = { vm.joinGroup(inviteIn.trim()); onClose() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Войти по инвайту") }
             }
-        }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onClose) { Text("Закрыть") } },
+    )
+}
 
-        Text("Мои группы", style = MaterialTheme.typography.titleSmall)
-        if (vm.groups.isEmpty()) {
-            Text("Пока нет групп", style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            vm.groups.forEach { name ->
-                Card(modifier = Modifier.fillMaxWidth().clickable { vm.selectGroup(name.toByteArray()) }) {
-                    Text(name, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyLarge)
-                }
-            }
+// --- Настройки / профиль -------------------------------------------------
+
+@Composable
+private fun SettingsScreen(vm: ChatViewModel) {
+    val clipboard = LocalClipboardManager.current
+    val ctx = LocalContext.current
+    val qr = remember { generateQrBitmap(vm.publicKeyHex, 480) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Профиль", style = MaterialTheme.typography.titleMedium)
+        Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
+            Image(qr, "QR идентификатора", modifier = Modifier.size(240.dp).padding(12.dp))
         }
+        Text(
+            "id: ${vm.peerId.take(24)}…",
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = {
+            clipboard.setText(AnnotatedString(vm.publicKeyHex))
+            Toast.makeText(ctx, "Ключ скопирован", Toast.LENGTH_SHORT).show()
+        }) { Text("Скопировать ключ") }
+
+        Text(
+            vm.publicKeyHex,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
     }
 }
 
@@ -170,37 +253,55 @@ private fun GroupsScreen(vm: ChatViewModel) {
 @Composable
 private fun GroupScreen(vm: ChatViewModel) {
     var input by remember { mutableStateOf("") }
+    var inviteExpanded by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val invite = vm.invite
-    val inviteQr = remember(invite) { invite?.let { generateQrBitmap(it, 480) } }
+    val inviteQr = remember(invite) { invite?.let { generateQrBitmap(it, 640) } }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+        // Свёрнутый по умолчанию блок приглашения
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { inviteExpanded = !inviteExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Пригласить в группу", style = MaterialTheme.typography.titleSmall)
-                if (inviteQr != null) {
-                    Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
-                        Image(inviteQr, "QR инвайта", modifier = Modifier.size(200.dp).padding(8.dp))
+                Spacer(Modifier.weight(1f))
+                Text("${vm.members.size} участн.", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    if (inviteExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "Развернуть",
+                )
+            }
+            if (inviteExpanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (inviteQr != null) {
+                        Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
+                            Image(inviteQr, "QR инвайта", modifier = Modifier.size(240.dp).padding(10.dp))
+                        }
                     }
+                    if (invite != null) {
+                        OutlinedButton(onClick = {
+                            clipboard.setText(AnnotatedString(invite))
+                            Toast.makeText(ctx, "Инвайт скопирован", Toast.LENGTH_SHORT).show()
+                        }) { Text("Скопировать инвайт") }
+                    }
+                    Text(
+                        "${vm.status} · соединено: ${vm.connected}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                if (invite != null) {
-                    OutlinedButton(onClick = {
-                        clipboard.setText(AnnotatedString(invite))
-                        Toast.makeText(ctx, "Инвайт скопирован", Toast.LENGTH_SHORT).show()
-                    }) { Text("Скопировать инвайт") }
-                }
-                Text("участников: ${vm.members.size}", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${vm.status} · соединено: ${vm.connected}", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 

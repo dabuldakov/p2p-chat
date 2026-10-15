@@ -108,6 +108,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
 
     // UniFFI-биндинги используют JNA для загрузки нативной библиотеки.
     implementation("net.java.dev.jna:jna:5.13.0@aar")
