@@ -75,6 +75,13 @@ pub struct FfiHistoryPage {
     pub has_more: bool,
 }
 
+/// Никнейм участника.
+#[derive(uniffi::Record)]
+pub struct FfiNickname {
+    pub peer_id: Vec<u8>,
+    pub nickname: String,
+}
+
 /// Ядро чата, которым владеет Android-слой.
 #[derive(uniffi::Object)]
 pub struct ChatCore {
@@ -201,6 +208,42 @@ impl ChatCore {
     /// Являемся ли мы владельцем группы.
     pub fn is_owner(&self, group_id: Vec<u8>) -> Result<bool, FfiError> {
         Ok(self.inner.lock().unwrap().is_owner(&group_id)?)
+    }
+
+    /// Задать свой никнейм; возвращает конверт для рассылки.
+    pub fn set_nickname(&self, name: String) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .set_nickname(&name)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    /// Конверт с нашим профилем для повторной рассылки (если ник задан).
+    pub fn profile_envelope(&self) -> Result<Option<FfiOutgoing>, FfiError> {
+        let engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .profile_envelope()?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    pub fn my_nickname(&self) -> Option<String> {
+        self.inner.lock().unwrap().my_nickname()
+    }
+
+    pub fn nickname_of(&self, peer_id: Vec<u8>) -> Option<String> {
+        self.inner.lock().unwrap().nickname_of(&peer_id)
+    }
+
+    pub fn all_nicknames(&self) -> Vec<FfiNickname> {
+        self.inner
+            .lock()
+            .unwrap()
+            .all_nicknames()
+            .into_iter()
+            .map(|(peer_id, nickname)| FfiNickname { peer_id, nickname })
+            .collect()
     }
 
     /// Участники группы.

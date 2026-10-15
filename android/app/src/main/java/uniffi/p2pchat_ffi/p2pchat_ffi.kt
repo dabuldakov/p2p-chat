@@ -766,6 +766,16 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -791,6 +801,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_p2pchat_ffi_fn_constructor_chatcore_new(`dbPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_all_nicknames(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_create_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_create_group_invite(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -819,9 +831,13 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_p2pchat_ffi_fn_method_chatcore_members(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_my_nickname(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_neighbor_keys(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_neighbors(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_nickname_of(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_peer_id_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -829,11 +845,15 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_post(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_profile_envelope(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_public_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_receive(`ptr`: Pointer,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_remove_member(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_set_nickname(`ptr`: Pointer,`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_sync_digest_to(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`targetKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -955,6 +975,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_p2pchat_ffi_checksum_func_default_group_id(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_all_nicknames(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_group(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_group_invite(
@@ -983,9 +1005,13 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_members(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_my_nickname(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_neighbor_keys(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_neighbors(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_nickname_of(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_peer_id_hex(
     ): Short
@@ -993,11 +1019,15 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_post(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_profile_envelope(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_public_key(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_receive(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_remove_member(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_set_nickname(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to(
     ): Short
@@ -1023,6 +1053,9 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_func_default_group_id() != 53485.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_all_nicknames() != 41658.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_group() != 18445.toShort()) {
@@ -1067,10 +1100,16 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_members() != 23214.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_my_nickname() != 5284.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_neighbor_keys() != 656.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_neighbors() != 17184.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_nickname_of() != 10251.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_peer_id_hex() != 59466.toShort()) {
@@ -1082,6 +1121,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post() != 30042.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_profile_envelope() != 20307.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_public_key() != 17771.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1089,6 +1131,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_remove_member() != 39810.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_set_nickname() != 38114.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to() != 49268.toShort()) {
@@ -1459,6 +1504,8 @@ private class JavaLangRefCleanable(
  */
 public interface ChatCoreInterface {
     
+    fun `allNicknames`(): List<FfiNickname>
+    
     /**
      * Создать группу: возвращает групповой ключ для раздачи участникам.
      */
@@ -1530,6 +1577,8 @@ public interface ChatCoreInterface {
      */
     fun `members`(`groupId`: kotlin.ByteArray): List<FfiMember>
     
+    fun `myNickname`(): kotlin.String?
+    
     /**
      * Публичные ключи соседей группы (кому соединяться/пересылать).
      */
@@ -1539,6 +1588,8 @@ public interface ChatCoreInterface {
      * Соседи группы (peer_id).
      */
     fun `neighbors`(`groupId`: kotlin.ByteArray): List<kotlin.ByteArray>
+    
+    fun `nicknameOf`(`peerId`: kotlin.ByteArray): kotlin.String?
     
     /**
      * Наш peer_id (hex-строкой — удобно для UI и логов).
@@ -1556,6 +1607,11 @@ public interface ChatCoreInterface {
     fun `post`(`groupId`: kotlin.ByteArray, `text`: kotlin.String): FfiOutgoing
     
     /**
+     * Конверт с нашим профилем для повторной рассылки (если ник задан).
+     */
+    fun `profileEnvelope`(): FfiOutgoing?
+    
+    /**
      * Наш публичный ключ (его передаём собеседникам).
      */
     fun `publicKey`(): kotlin.ByteArray
@@ -1569,6 +1625,11 @@ public interface ChatCoreInterface {
      * Удалить участника (только владелец). Возвращает конверты для рассылки.
      */
     fun `removeMember`(`groupId`: kotlin.ByteArray, `peerId`: kotlin.ByteArray): List<FfiOutgoing>
+    
+    /**
+     * Задать свой никнейм; возвращает конверт для рассылки.
+     */
+    fun `setNickname`(`name`: kotlin.String): FfiOutgoing?
     
     /**
      * Merkle-digest группы, адресованный конкретному пиру (офлайн-догон).
@@ -1678,6 +1739,18 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
             UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_clone_chatcore(pointer!!, status)
         }
     }
+
+    override fun `allNicknames`(): List<FfiNickname> {
+            return FfiConverterSequenceTypeFfiNickname.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_all_nicknames(
+        it, _status)
+}
+    }
+    )
+    }
+    
 
     
     /**
@@ -1894,6 +1967,18 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     }
     
 
+    override fun `myNickname`(): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_my_nickname(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
     
     /**
      * Публичные ключи соседей группы (кому соединяться/пересылать).
@@ -1918,6 +2003,18 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_neighbors(
         it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    override fun `nicknameOf`(`peerId`: kotlin.ByteArray): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_nickname_of(
+        it, FfiConverterByteArray.lower(`peerId`),_status)
 }
     }
     )
@@ -1972,6 +2069,22 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
+     * Конверт с нашим профилем для повторной рассылки (если ник задан).
+     */
+    @Throws(FfiException::class)override fun `profileEnvelope`(): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_profile_envelope(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Наш публичный ключ (его передаём собеседникам).
      */override fun `publicKey`(): kotlin.ByteArray {
             return FfiConverterByteArray.lift(
@@ -2011,6 +2124,22 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_remove_member(
         it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`peerId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Задать свой никнейм; возвращает конверт для рассылки.
+     */
+    @Throws(FfiException::class)override fun `setNickname`(`name`: kotlin.String): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_set_nickname(
+        it, FfiConverterString.lower(`name`),_status)
 }
     }
     )
@@ -2239,6 +2368,41 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
             FfiConverterString.write(value.`text`, buf)
             FfiConverterULong.write(value.`lamport`, buf)
             FfiConverterULong.write(value.`wallTime`, buf)
+    }
+}
+
+
+
+/**
+ * Никнейм участника.
+ */
+data class FfiNickname (
+    var `peerId`: kotlin.ByteArray, 
+    var `nickname`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiNickname: FfiConverterRustBuffer<FfiNickname> {
+    override fun read(buf: ByteBuffer): FfiNickname {
+        return FfiNickname(
+            FfiConverterByteArray.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiNickname) = (
+            FfiConverterByteArray.allocationSize(value.`peerId`) +
+            FfiConverterString.allocationSize(value.`nickname`)
+    )
+
+    override fun write(value: FfiNickname, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`peerId`, buf)
+            FfiConverterString.write(value.`nickname`, buf)
     }
 }
 
@@ -2555,6 +2719,34 @@ public object FfiConverterSequenceTypeFfiMessage: FfiConverterRustBuffer<List<Ff
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeFfiMessage.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiNickname: FfiConverterRustBuffer<List<FfiNickname>> {
+    override fun read(buf: ByteBuffer): List<FfiNickname> {
+        val len = buf.getInt()
+        return List<FfiNickname>(len) {
+            FfiConverterTypeFfiNickname.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiNickname>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiNickname.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiNickname>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiNickname.write(it, buf)
         }
     }
 }

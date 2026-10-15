@@ -32,6 +32,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val update get() = ChatRuntime.update
     val sharedDraft get() = ChatRuntime.sharedDraft
     val backgroundEnabled get() = ChatRuntime.backgroundEnabled
+    val nicknames get() = ChatRuntime.nicknames
+    val myNickname get() = ChatRuntime.myNickname
 
     fun createGroup(name: String) = ChatRuntime.createGroup(name)
     fun joinGroup(invite: String) = ChatRuntime.joinGroup(invite)
@@ -47,6 +49,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh() = ChatRuntime.refresh()
     fun checkNow(onDone: (Boolean) -> Unit) = ChatRuntime.checkNow(onDone)
     fun setBackground(enabled: Boolean) = ChatRuntime.setBackground(enabled)
+    fun setNickname(name: String) = ChatRuntime.setNickname(name)
 }
 
 internal fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

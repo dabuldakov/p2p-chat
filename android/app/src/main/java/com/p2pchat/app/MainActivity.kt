@@ -277,6 +277,7 @@ private fun SettingsScreen(vm: ChatViewModel) {
     val qr = remember { generateQrBitmap(vm.publicKeyHex, 480) }
     var showUpdate by remember { mutableStateOf(false) }
     val update = vm.update
+    var nick by remember(vm.myNickname) { mutableStateOf(vm.myNickname ?: "") }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -318,6 +319,28 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+        }
+
+        Card {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Никнейм", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Его увидят участники чата вместо идентификатора.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = nick,
+                        onValueChange = { nick = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("ваше имя") },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { vm.setNickname(nick) }) { Text("Сохранить") }
                 }
             }
         }
@@ -496,12 +519,12 @@ private fun GroupScreen(vm: ChatViewModel) {
                         Text("Участники", style = MaterialTheme.typography.titleSmall)
                         vm.members.forEach { m ->
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    m.peerId.toHex().take(10) + (if (m.peerId.toHex() == vm.peerId) " (вы)" else ""),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                                val hex = m.peerId.toHex()
+                                val label = (vm.nicknames[hex]?.takeIf { it.isNotBlank() }
+                                    ?: hex.take(10)) + (if (hex == vm.peerId) " (вы)" else "")
+                                Text(label, style = MaterialTheme.typography.bodySmall)
                                 Spacer(Modifier.weight(1f))
-                                if (vm.isOwner && m.peerId.toHex() != vm.peerId) {
+                                if (vm.isOwner && hex != vm.peerId) {
                                     IconButton(onClick = { vm.removeMember(m.peerId) }) {
                                         Icon(Icons.Filled.Close, contentDescription = "Удалить")
                                     }
@@ -530,7 +553,9 @@ private fun GroupScreen(vm: ChatViewModel) {
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     vm.messages.forEach { m ->
-                        MessageLine(m.author.toHexShort(), m.text)
+                        val name = vm.nicknames[m.author.toHex()]?.takeIf { it.isNotBlank() }
+                            ?: m.author.toHexShort()
+                        MessageLine(name, m.text)
                     }
                 }
             }

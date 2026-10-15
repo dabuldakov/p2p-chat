@@ -127,6 +127,19 @@ impl Store {
             self.conn.execute_batch("PRAGMA user_version = 2;")?;
         }
 
+        if version < 3 {
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS profiles (
+                    peer_id  BLOB PRIMARY KEY,
+                    nickname TEXT NOT NULL,
+                    lamport  INTEGER NOT NULL
+                );
+                "#,
+            )?;
+            self.conn.execute_batch("PRAGMA user_version = 3;")?;
+        }
+
         Ok(())
     }
 
@@ -394,6 +407,29 @@ impl Store {
 
     pub fn get_read(&self, group_id: &[u8]) -> Result<Option<Vec<u8>>, StorageError> {
         self.get_meta(&format!("read:{}", hex(group_id)))
+    }
+
+    pub fn set_profile(
+        &self,
+        peer_id: &[u8],
+        nickname: &str,
+        lamport: u64,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            "INSERT INTO profiles (peer_id, nickname, lamport) VALUES (?1, ?2, ?3)
+             ON CONFLICT(peer_id) DO UPDATE SET
+                nickname = excluded.nickname, lamport = excluded.lamport",
+            params![peer_id, nickname, lamport as i64],
+        )?;
+        Ok(())
+    }
+
+    pub fn all_profiles(&self) -> Result<Vec<(Vec<u8>, String, u64)>, StorageError> {
+        let mut stmt = self.conn.prepare("SELECT peer_id, nickname, lamport FROM profiles")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? as u64))
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     pub fn set_group_key(&self, group_id: &[u8], key: &[u8]) -> Result<(), StorageError> {

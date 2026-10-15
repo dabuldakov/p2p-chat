@@ -74,6 +74,13 @@ object ChatRuntime {
     var sharedDraft by mutableStateOf<String?>(null)
         private set
 
+    /** Никнеймы участников (hex peer_id → ник). */
+    var nicknames by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
+    var myNickname by mutableStateOf<String?>(null)
+        private set
+
     /** Держать связь в фоне (foreground-служба). По умолчанию выключено. */
     var backgroundEnabled by mutableStateOf(false)
         private set
@@ -140,6 +147,10 @@ object ChatRuntime {
     }
 
     private fun syncAll() {
+        // заодно напоминаем свой ник
+        runCatching { core.profileEnvelope() }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
         for (g in core.listGroups()) {
             for (key in core.neighborKeys(g)) {
                 runCatching { core.syncDigestTo(g, key) }.getOrNull()?.let {
@@ -150,6 +161,9 @@ object ChatRuntime {
     }
 
     private fun onPeerConnected(peerKey: ByteArray) {
+        runCatching { core.profileEnvelope() }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
         for (g in core.groupsWith(peerKey)) {
             runCatching { core.syncDigestTo(g, peerKey) }.getOrNull()?.let {
                 transport.sendTargets(it.envelope, it.targets)
@@ -278,6 +292,16 @@ object ChatRuntime {
         }
         unread = ids.associate { String(it) to core.unreadCount(it) }
         memberCounts = ids.associate { String(it) to core.members(it).size }
+        myNickname = core.myNickname()
+        nicknames = core.allNicknames().associate { it.peerId.toHex() to it.nickname }
+    }
+
+    /** Задать свой никнейм и разослать его. */
+    fun setNickname(name: String) {
+        runCatching { core.setNickname(name.trim()) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
+        refresh()
     }
 
     private fun reloadLatest(g: ByteArray) {

@@ -120,7 +120,18 @@ message Gossip {
     Encrypted encrypted = 9;
     MembershipEvent membership = 10;
     Direct direct = 11;
+    ProfileEvent profile = 12;
   }
+}
+
+// Профиль участника (никнейм). Реплицируется по сети, LWW по lamport —
+// как события членства. У кого задан ник — показываем его, иначе идентификатор.
+message ProfileEvent {
+  bytes peer_id = 1;
+  string nickname = 2;
+  uint64 lamport = 3;
+  bytes author = 4;
+  bytes id = 5;
 }
 
 // Прямое (попарно зашифрованное) сообщение конкретному участнику.

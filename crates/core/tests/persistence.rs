@@ -79,3 +79,23 @@ fn read_marker_persists_and_unread_survives() {
 
     let _ = std::fs::remove_file(&path);
 }
+
+#[test]
+fn nickname_persists() {
+    let path = tmp("nick");
+    {
+        let store = Store::open(&path).unwrap();
+        let identity = Identity::generate();
+        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
+        e.load_state().unwrap();
+        e.set_nickname("Дмитрий").unwrap();
+    }
+    let store = Store::open(&path).unwrap();
+    let identity =
+        Identity::from_secret_bytes(&store.get_meta("identity").unwrap().unwrap()).unwrap();
+    let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
+    e.load_state().unwrap();
+    assert_eq!(e.my_nickname().as_deref(), Some("Дмитрий"));
+    let _ = std::fs::remove_file(&path);
+}

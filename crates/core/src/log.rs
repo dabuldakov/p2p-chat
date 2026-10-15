@@ -197,6 +197,20 @@ impl Log {
         })
     }
 
+    pub fn store_profile(&self, peer_id: &[u8], nickname: &str, lamport: u64) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.set_profile(peer_id, nickname, lamport)?;
+        }
+        Ok(())
+    }
+
+    pub fn load_profiles(&self) -> Result<Vec<(Vec<u8>, String, u64)>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s.all_profiles()?,
+            None => Vec::new(),
+        })
+    }
+
     pub fn load_group_keys(&self) -> Result<Vec<p2pchat_storage::GroupKeyRow>, CoreError> {
         Ok(match &self.store {
             Some(s) => s.all_group_keys()?,

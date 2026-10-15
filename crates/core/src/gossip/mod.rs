@@ -10,7 +10,7 @@ use prost::Message as _;
 use crate::log::Log;
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, Direct, Encrypted, Envelope, Gossip, PeerInfo, Presence};
+use crate::proto::{ChatMessage, Direct, Encrypted, Envelope, Gossip, PeerInfo, Presence, ProfileEvent};
 use crate::{CoreError, GroupId, PeerId};
 
 use p2pchat_crypto::GroupKey;
@@ -32,6 +32,8 @@ pub struct GossipEngine {
     self_events: std::collections::HashMap<GroupId, crate::proto::MembershipEvent>,
     /// Владельцы групп (кто создал) — для удаления участников.
     owners: std::collections::HashMap<GroupId, PeerId>,
+    /// Никнеймы участников (peer_id → (ник, lamport)).
+    nicknames: std::collections::HashMap<PeerId, (String, u64)>,
     /// nonce уже обработанных конвертов (анти-реплей, дедуп лавины)
     seen: std::collections::HashSet<u64>,
 }
@@ -59,7 +61,7 @@ pub struct Outcome {
 impl GossipEngine {
     pub fn new(identity: p2pchat_crypto::Identity, log: Log) -> Self {
         let peers = PeerTable::new(identity.peer_id().to_vec());
-        Self { identity, log, peers, groups: Default::default(), membership: Default::default(), self_events: Default::default(), owners: Default::default(), seen: Default::default() }
+        Self { identity, log, peers, groups: Default::default(), membership: Default::default(), self_events: Default::default(), owners: Default::default(), nicknames: Default::default(), seen: Default::default() }
     }
 
     pub fn peer_id(&self) -> PeerId {
@@ -211,6 +213,9 @@ impl GossipEngine {
                 .entry(ev.group_id.clone())
                 .or_default()
                 .apply(&ev);
+        }
+        for (pid, nick, lamport) in self.log.load_profiles()? {
+            self.nicknames.insert(pid, (nick, lamport));
         }
         // заново объявить себя во всех группах, где мы состоим
         for g in self.groups() {
@@ -401,6 +406,9 @@ impl GossipEngine {
             }
             Some(Body::Direct(d)) => {
                 self.on_direct(d, &origin, &mut out)?;
+            }
+            Some(Body::Profile(p)) => {
+                self.on_profile(p, &mut out)?;
             }
             Some(Body::Presence(p)) => {
                 self.on_presence(p);
@@ -644,6 +652,65 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         }
         self.groups.insert(group.to_vec(), GroupKey::from_bytes(key));
         let _ = self.log.store_group_key(group, &key);
+        Ok(())
+    }
+
+    // --- Профиль (никнейм) ----------------------------------------------
+
+    /// Задать свой никнейм и вернуть конверт для рассылки.
+    pub fn set_nickname(&mut self, name: &str) -> Result<Option<Outgoing>, CoreError> {
+        let pid = self.peer_id();
+        let lamport = self.log.tick();
+        self.nicknames.insert(pid.clone(), (name.to_string(), lamport));
+        let _ = self.log.store_profile(&pid, name, lamport);
+        Ok(Some(self.profile_outgoing()?))
+    }
+
+    pub fn my_nickname(&self) -> Option<String> {
+        self.nicknames.get(&self.peer_id()).map(|(n, _)| n.clone())
+    }
+
+    pub fn nickname_of(&self, peer_id: &[u8]) -> Option<String> {
+        self.nicknames.get(peer_id).map(|(n, _)| n.clone())
+    }
+
+    pub fn all_nicknames(&self) -> Vec<(PeerId, String)> {
+        self.nicknames.iter().map(|(k, (n, _))| (k.clone(), n.clone())).collect()
+    }
+
+    /// Конверт с нашим профилем (для повторной рассылки), если ник задан.
+    pub fn profile_envelope(&self) -> Result<Option<Outgoing>, CoreError> {
+        if self.nicknames.contains_key(&self.peer_id()) {
+            Ok(Some(self.profile_outgoing()?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn profile_outgoing(&self) -> Result<Outgoing, CoreError> {
+        let pid = self.peer_id();
+        let (name, lamport) = self
+            .nicknames
+            .get(&pid)
+            .cloned()
+            .unwrap_or((String::new(), 0));
+        let ev = crate::membership::profile_event(&pid, &name, lamport, &pid);
+        let env = self.seal(Gossip { body: Some(Body::Profile(ev)) })?;
+        Ok(self.out_all(env))
+    }
+
+    fn on_profile(&mut self, ev: ProfileEvent, out: &mut Outcome) -> Result<(), CoreError> {
+        let wins = match self.nicknames.get(&ev.peer_id) {
+            None => true,
+            Some((_, l)) => ev.lamport > *l,
+        };
+        if wins {
+            self.nicknames
+                .insert(ev.peer_id.clone(), (ev.nickname.clone(), ev.lamport));
+            let _ = self.log.store_profile(&ev.peer_id, &ev.nickname, ev.lamport);
+            let env = self.seal(Gossip { body: Some(Body::Profile(ev)) })?;
+            out.outgoing.push(self.out_all(env));
+        }
         Ok(())
     }
 

@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use sha2::{Digest, Sha256};
 
-use crate::proto::MembershipEvent;
+use crate::proto::{MembershipEvent, ProfileEvent};
 use crate::PeerId;
 
 /// Малые группы соединяем «каждый с каждым».
@@ -152,6 +152,23 @@ pub fn membership_event(
     h.update(&ev.peer_id);
     h.update(ev.lamport.to_be_bytes());
     h.update([ev.join as u8]);
+    ev.id = h.finalize().to_vec();
+    ev
+}
+
+/// Собрать событие профиля (никнейм), id — контент-хеш.
+pub fn profile_event(peer_id: &[u8], nickname: &str, lamport: u64, author: &[u8]) -> ProfileEvent {
+    let mut ev = ProfileEvent {
+        peer_id: peer_id.to_vec(),
+        nickname: nickname.to_string(),
+        lamport,
+        author: author.to_vec(),
+        id: Vec::new(),
+    };
+    let mut h = Sha256::new();
+    h.update(&ev.peer_id);
+    h.update(nickname.as_bytes());
+    h.update(ev.lamport.to_be_bytes());
     ev.id = h.finalize().to_vec();
     ev
 }
