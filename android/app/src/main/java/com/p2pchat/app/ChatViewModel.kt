@@ -32,7 +32,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val update get() = ChatRuntime.update
     val sharedDraft get() = ChatRuntime.sharedDraft
     val backgroundEnabled get() = ChatRuntime.backgroundEnabled
-    val debugLogsEnabled get() = ChatRuntime.debugLogs
+    val debugLogsEnabled get() = ChatRuntime.debugLogsEnabled
     val nicknames get() = ChatRuntime.nicknames
     val myNickname get() = ChatRuntime.myNickname
 

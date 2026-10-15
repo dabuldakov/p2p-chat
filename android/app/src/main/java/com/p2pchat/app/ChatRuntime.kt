@@ -86,7 +86,7 @@ object ChatRuntime {
         private set
 
     /** Режим отладки (подробные логи). */
-    var debugLogs by mutableStateOf(false)
+    var debugLogsEnabled by mutableStateOf(false)
         private set
 
     /** Инициализация (идемпотентна). Вызывается из Application и ViewModel. */
@@ -96,7 +96,7 @@ object ChatRuntime {
         initialized = true
         app = context
         Logs.init(app)
-        debugLogs = Logs.enabled
+        debugLogsEnabled = Logs.enabled
 
         core = ChatCore(context.filesDir.absolutePath + "/chat.db")
         publicKey = core.publicKey()
@@ -143,7 +143,7 @@ object ChatRuntime {
     /** Режим отладки: подробные логи в logcat (тег p2pchat). */
     fun setDebugLogs(enabled: Boolean) {
         Logs.setEnabled(app, enabled)
-        debugLogs = enabled
+        debugLogsEnabled = enabled
     }
 
     private fun checkForUpdate() {
