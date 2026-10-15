@@ -77,15 +77,17 @@ class WebRtcTransport(
     }
 
     /** Инициировать соединение (только если мы «инициатор» этой пары). */
-    /** Установить/переустановить соединение с соседом (обе стороны могут). */
+    /** Установить/переустановить соединение с соседом (инициирует только меньший ключ). */
     fun connect(remoteKey: ByteArray) {
         val id = keyHex(remoteKey)
         val existing = conns[id]
-        if (existing?.dc?.state() == DataChannel.State.OPEN) return
-        // инициатор — только сторона с меньшим ключом; вторая ждёт offer
-        if (!weInitiate(remoteKey)) return
+        val isInitiator = PeerConnectionPolicy.weInitiate(myKey, remoteKey)
+        val open = existing?.dc?.state() == DataChannel.State.OPEN
+        val ageMs = existing?.let { System.currentTimeMillis() - it.createdAt } ?: 0L
+        if (!PeerConnectionPolicy.shouldOffer(isInitiator, open, existing != null, ageMs, RETRY_MS)) {
+            return
+        }
         if (existing != null) {
-            if (System.currentTimeMillis() - existing.createdAt < RETRY_MS) return
             existing.dead = true
             conns.remove(id)
             handler.post { runCatching { existing.pc?.close() } }
@@ -106,7 +108,8 @@ class WebRtcTransport(
     }
 
     /** Мы инициатор пары, если наш ключ лексикографически меньше. */
-    private fun weInitiate(remoteKey: ByteArray): Boolean = keyHex(myKey) < keyHex(remoteKey)
+    private fun weInitiate(remoteKey: ByteArray): Boolean =
+        PeerConnectionPolicy.weInitiate(myKey, remoteKey)
 
     fun onSignal(env: SignalEnvelope) {
         val from = env.from.toByteArray()
@@ -329,5 +332,5 @@ class WebRtcTransport(
 
     private fun sessionId(): String = "s" + System.currentTimeMillis().toString(16)
 
-    private fun keyHex(k: ByteArray): String = k.joinToString("") { "%02x".format(it) }
+    private fun keyHex(k: ByteArray): String = PeerConnectionPolicy.keyHex(k)
 }
