@@ -579,16 +579,15 @@ private fun MessageLine(prefix: String, text: String) {
 
 private fun messageAnnotated(prefix: String, text: String): AnnotatedString = buildAnnotatedString {
     append("$prefix: ")
-    val urlRegex = Regex("""https?://\S+""")
     var last = 0
-    for (m in urlRegex.findAll(text)) {
-        append(text.substring(last, m.range.first))
-        pushStringAnnotation(URL_TAG, m.value)
+    for (span in urlSpans(text)) {
+        append(text.substring(last, span.start))
+        pushStringAnnotation(URL_TAG, span.url)
         withStyle(SpanStyle(color = Color(0xFF5B8CFF), textDecoration = TextDecoration.Underline)) {
-            append(m.value)
+            append(span.url)
         }
         pop()
-        last = m.range.last + 1
+        last = span.end
     }
     append(text.substring(last))
 }

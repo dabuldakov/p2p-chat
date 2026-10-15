@@ -50,3 +50,32 @@ fn identity_group_and_messages_persist() {
     assert_eq!(e.log().ordered(b"team").len(), 1, "сообщение сохранилось");
     assert_eq!(e.log().ordered(b"team")[0].text, "привет");
 }
+
+#[test]
+fn read_marker_persists_and_unread_survives() {
+    let path = tmp("read");
+    let g = b"team".to_vec();
+
+    {
+        let store = Store::open(&path).unwrap();
+        let identity = Identity::generate();
+        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
+        e.load_state().unwrap();
+        e.create_group(g.clone());
+        e.post(g.clone(), "m1".into()).unwrap();
+        e.mark_read(&g).unwrap();
+        e.post(g.clone(), "m2".into()).unwrap();
+        assert_eq!(e.unread_count(&g).unwrap(), 1);
+    }
+
+    // перезапуск: отметка прочтения и непрочитанное сохраняются
+    let store = Store::open(&path).unwrap();
+    let identity =
+        Identity::from_secret_bytes(&store.get_meta("identity").unwrap().unwrap()).unwrap();
+    let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
+    e.load_state().unwrap();
+    assert_eq!(e.unread_count(&g).unwrap(), 1, "отметка прочтения сохранилась");
+
+    let _ = std::fs::remove_file(&path);
+}
