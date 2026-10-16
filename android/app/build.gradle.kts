@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.protobuf")
 }
 
@@ -43,6 +44,8 @@ android {
         buildConfigField("String", "SIGNAL_URL", "\"${secret("SIGNAL_URL", "wss://90.188.89.63.sslip.io:9443")}\"")
         // Эндпоинт временных TURN-кред (TURN REST API).
         buildConfigField("String", "TURN_CREDS_URL", "\"${secret("TURN_CREDS_URL", "https://90.188.89.63.sslip.io:9443/turn-credentials")}\"")
+        // Публичный ключ KLIPY GIF API (запросы идут с устройства напрямую).
+        buildConfigField("String", "KLIPY_APP_KEY", "\"${secret("KLIPY_APP_KEY", "")}\"")
     }
 
     // signaling-сообщения генерируются из src/main/proto (симлинк на общий proto/).
@@ -132,6 +135,21 @@ dependencies {
     // WebSocket для signaling.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // JSON для KLIPY GIF API.
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    // Загрузка/анимация гифок (webp/gif) в Compose.
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.coil-kt:coil-gif:2.6.0")
+
+    // Воспроизведение mp4-гифок (без звука, зацикленно).
+    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-ui:1.3.1")
+    implementation("androidx.media3:media3-datasource-okhttp:1.3.1")
+
+    // LazyVerticalGrid и пр. фундамент Compose.
+    implementation("androidx.compose.foundation:foundation")
+
     // protobuf-lite для сигнальных сообщений.
     implementation("com.google.protobuf:protobuf-javalite:3.25.3")
 
@@ -141,6 +159,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }
 
 protobuf {

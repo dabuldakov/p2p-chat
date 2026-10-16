@@ -2,6 +2,8 @@ package com.p2pchat.app
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import com.p2pchat.app.gif.Gif
+import com.p2pchat.app.gif.GifRef
 
 /**
  * Тонкая обёртка над [ChatRuntime] для Compose. Вся логика и состояние —
@@ -51,6 +53,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun checkNow(onDone: (Boolean) -> Unit) = ChatRuntime.checkNow(onDone)
     fun setBackground(enabled: Boolean) = ChatRuntime.setBackground(enabled)
     fun setDebugLogs(enabled: Boolean) = ChatRuntime.setDebugLogs(enabled)
+
+    // --- Гифки -----------------------------------------------------------
+    val gifEnabled get() = ChatRuntime.gifEnabled
+    fun sendGif(gif: Gif) = ChatRuntime.sendGif(gif)
+    suspend fun searchGifs(query: String, page: Int): List<Gif> = ChatRuntime.searchGifs(query, page)
+    suspend fun resolveGif(providerId: String): Gif? = ChatRuntime.resolveGif(providerId)
+    fun cachedGif(providerId: String): Gif? = ChatRuntime.cachedGif(providerId)
+    fun myGifRefs(limit: Int = 60): List<GifRef> = ChatRuntime.myGifRefs(limit)
+    fun groupGifRefs(limit: Int = 60): List<GifRef> = ChatRuntime.groupGifRefs(limit)
     fun setNickname(name: String) = ChatRuntime.setNickname(name)
 }
 

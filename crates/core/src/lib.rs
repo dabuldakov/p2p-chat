@@ -41,6 +41,18 @@ pub fn message_id(m: &proto::ChatMessage) -> MessageId {
     for p in &m.parents {
         h.update(p);
     }
+    // Вложение хэшируем только при наличии (текстовые сообщения сохраняют id).
+    // Маркер 0xFF невозможен в валидном UTF-8 (text/kind/id/url), поэтому
+    // граница однозначна.
+    if let Some(a) = &m.attachment {
+        h.update([0xFF]);
+        h.update(a.kind.as_bytes());
+        h.update([0x00]);
+        h.update(a.id.as_bytes());
+        h.update(a.width.to_be_bytes());
+        h.update(a.height.to_be_bytes());
+        h.update(a.url.as_bytes());
+    }
     h.finalize().to_vec()
 }
 

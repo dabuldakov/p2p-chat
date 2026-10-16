@@ -21,6 +21,18 @@ pub struct StoredMessage {
     pub wall_time: u64,
     pub text: String,
     pub parents: Vec<Vec<u8>>,
+    pub attachment: Option<StoredAttachment>,
+}
+
+/// Вложение сообщения. Для гифок храним только ссылку-идентификатор
+/// (`kind` + `id`); байты медиа не персистим.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredAttachment {
+    pub kind: String,
+    pub id: String,
+    pub width: u32,
+    pub height: u32,
+    pub url: String,
 }
 
 #[derive(Debug, Clone)]
@@ -140,6 +152,28 @@ impl Store {
             self.conn.execute_batch("PRAGMA user_version = 3;")?;
         }
 
+        if version < 4 {
+            self.migrate_v4()?;
+            self.conn.execute_batch("PRAGMA user_version = 4;")?;
+        }
+
+        Ok(())
+    }
+
+    /// v4: вложение сообщения — колонками на строке (одно вложение на сообщение).
+    fn migrate_v4(&self) -> Result<(), StorageError> {
+        for (col, ty) in [
+            ("attachment_kind", "TEXT"),
+            ("attachment_id", "TEXT"),
+            ("attachment_width", "INTEGER"),
+            ("attachment_height", "INTEGER"),
+            ("attachment_url", "TEXT"),
+        ] {
+            if !self.has_column("messages", col)? {
+                self.conn
+                    .execute_batch(&format!("ALTER TABLE messages ADD COLUMN {col} {ty};"))?;
+            }
+        }
         Ok(())
     }
 
@@ -218,13 +252,16 @@ impl Store {
     pub fn insert_message(&self, m: &StoredMessage, lamport: u64) -> Result<bool, StorageError> {
         let now = unix_now();
         let tx = self.conn.unchecked_transaction()?;
+        let (ak, ai, aw, ah, au) = attachment_cols(m);
         let changed = tx.execute(
             "INSERT OR IGNORE INTO messages
-             (id, group_id, author, lamport, wall_time, text, received)
-             VALUES (?1,?2,?3,?4,?5,?6,?7)",
+             (id, group_id, author, lamport, wall_time, text, received,
+              attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
             params![
                 m.id, m.group_id, m.author, m.lamport as i64,
-                m.wall_time as i64, m.text, now as i64
+                m.wall_time as i64, m.text, now as i64,
+                ak, ai, aw, ah, au
             ],
         )?;
         if changed > 0 {
@@ -256,16 +293,19 @@ impl Store {
         {
             let mut stmt = tx.prepare(
                 "INSERT OR IGNORE INTO messages
-                 (id, group_id, author, lamport, wall_time, text, received)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                 (id, group_id, author, lamport, wall_time, text, received,
+                  attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
             )?;
             let mut pstmt = tx.prepare(
                 "INSERT OR IGNORE INTO message_parents (message_id, parent_id) VALUES (?1, ?2)",
             )?;
             for m in messages {
+                let (ak, ai, aw, ah, au) = attachment_cols(m);
                 let n = stmt.execute(params![
                     m.id, m.group_id, m.author, m.lamport as i64,
-                    m.wall_time as i64, m.text, now as i64
+                    m.wall_time as i64, m.text, now as i64,
+                    ak, ai, aw, ah, au
                 ])?;
                 if n > 0 {
                     for p in &m.parents {
@@ -300,7 +340,8 @@ impl Store {
     ) -> Result<Vec<StoredMessage>, StorageError> {
         let parents = self.parents_map()?;
         let mut stmt = self.conn.prepare(
-            "SELECT id, group_id, author, lamport, wall_time, text
+            "SELECT id, group_id, author, lamport, wall_time, text,
+                    attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url
              FROM messages WHERE group_id = ?1
              ORDER BY lamport ASC, id ASC LIMIT ?2",
         )?;
@@ -313,6 +354,7 @@ impl Store {
                 wall_time: r.get::<_, i64>(4)? as u64,
                 text: r.get(5)?,
                 parents: Vec::new(),
+                attachment: read_attachment(r)?,
             })
         })?;
         let mut out = Vec::new();
@@ -330,7 +372,8 @@ impl Store {
     pub fn all_messages(&self) -> Result<Vec<StoredMessage>, StorageError> {
         let parents = self.parents_map()?;
         let mut stmt = self.conn.prepare(
-            "SELECT id, group_id, author, lamport, wall_time, text
+            "SELECT id, group_id, author, lamport, wall_time, text,
+                    attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url
              FROM messages ORDER BY lamport ASC, id ASC",
         )?;
         let rows = stmt.query_map([], |r| {
@@ -342,6 +385,7 @@ impl Store {
                 wall_time: r.get::<_, i64>(4)? as u64,
                 text: r.get(5)?,
                 parents: Vec::new(),
+                attachment: read_attachment(r)?,
             })
         })?;
         let mut out = Vec::new();
@@ -487,6 +531,88 @@ impl Store {
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
+
+    /// Уникальные вложения-гифки группы, свежие сверху (дедуп по kind+id).
+    pub fn gifs_for_group(
+        &self,
+        group_id: &[u8],
+        limit: i64,
+    ) -> Result<Vec<StoredAttachment>, StorageError> {
+        self.gifs_query("group_id = ?1", params![group_id, limit])
+    }
+
+    /// Уникальные вложения-гифки, отправленные конкретным автором (свежие сверху).
+    pub fn gifs_by_author(
+        &self,
+        author: &[u8],
+        limit: i64,
+    ) -> Result<Vec<StoredAttachment>, StorageError> {
+        self.gifs_query("author = ?1", params![author, limit])
+    }
+
+    fn gifs_query(
+        &self,
+        filter: &str,
+        params: impl rusqlite::Params,
+    ) -> Result<Vec<StoredAttachment>, StorageError> {
+        let sql = format!(
+            "SELECT attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url,
+                    MAX(wall_time) AS wt
+             FROM messages
+             WHERE {filter} AND attachment_kind IS NOT NULL
+             GROUP BY attachment_kind, attachment_id
+             ORDER BY wt DESC, attachment_id DESC
+             LIMIT ?2"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(params, |r| {
+            Ok(StoredAttachment {
+                kind: r.get(0)?,
+                id: r.get(1)?,
+                width: r.get::<_, Option<i64>>(2)?.unwrap_or(0) as u32,
+                height: r.get::<_, Option<i64>>(3)?.unwrap_or(0) as u32,
+                url: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+}
+
+/// Колонки вложения для INSERT (None, если вложения нет).
+type AttachmentCols<'a> = (
+    Option<&'a str>,
+    Option<&'a str>,
+    Option<i64>,
+    Option<i64>,
+    Option<&'a str>,
+);
+
+fn attachment_cols(m: &StoredMessage) -> AttachmentCols<'_> {
+    match &m.attachment {
+        Some(a) => (
+            Some(a.kind.as_str()),
+            Some(a.id.as_str()),
+            Some(a.width as i64),
+            Some(a.height as i64),
+            Some(a.url.as_str()),
+        ),
+        None => (None, None, None, None, None),
+    }
+}
+
+/// Прочитать вложение из строки выборки (колонки 6..10).
+fn read_attachment(r: &rusqlite::Row<'_>) -> rusqlite::Result<Option<StoredAttachment>> {
+    let kind: Option<String> = r.get(6)?;
+    Ok(match kind {
+        Some(kind) => Some(StoredAttachment {
+            kind,
+            id: r.get::<_, Option<String>>(7)?.unwrap_or_default(),
+            width: r.get::<_, Option<i64>>(8)?.unwrap_or(0) as u32,
+            height: r.get::<_, Option<i64>>(9)?.unwrap_or(0) as u32,
+            url: r.get::<_, Option<String>>(10)?.unwrap_or_default(),
+        }),
+        None => None,
+    })
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -518,6 +644,7 @@ mod tests {
             wall_time: 1,
             text: "t".into(),
             parents: vec![],
+            attachment: None,
         }
     }
 
@@ -528,7 +655,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 3);
+        assert_eq!(v, 4);
     }
 
     #[test]
@@ -594,8 +721,70 @@ mod tests {
         assert_eq!(msgs[0].parents, vec![vec![1u8, 2, 3]], "родители перенесены");
         assert!(!store.has_column("messages", "parents").unwrap(), "старый столбец убран");
         let v: i64 = store.conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(v, 3);
+        assert_eq!(v, 4);
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn attachment_round_trip() {
+        let store = Store::open_in_memory().unwrap();
+        let mut m = msg(b"m1", 5);
+        m.text = String::new();
+        m.attachment = Some(StoredAttachment {
+            kind: "klipy".into(),
+            id: "abc123".into(),
+            width: 220,
+            height: 230,
+            url: "https://static.klipy.com/x.mp4".into(),
+        });
+        assert!(store.insert_message(&m, 5).unwrap());
+
+        let back = store.messages_for_group(b"g", 10).unwrap();
+        assert_eq!(back.len(), 1);
+        let a = back[0].attachment.as_ref().expect("вложение сохранено");
+        assert_eq!(a.kind, "klipy");
+        assert_eq!(a.id, "abc123");
+        assert_eq!((a.width, a.height), (220, 230));
+        assert_eq!(a.url, "https://static.klipy.com/x.mp4");
+
+        // у обычного сообщения вложения нет
+        assert!(store.insert_message(&msg(b"m2", 6), 6).unwrap());
+        let back = store.messages_for_group(b"g", 10).unwrap();
+        let plain = back.iter().find(|m| m.id == b"m2".to_vec()).unwrap();
+        assert!(plain.attachment.is_none());
+    }
+
+    #[test]
+    fn gifs_queries_dedup_and_order() {
+        let store = Store::open_in_memory().unwrap();
+        let mut a = msg(b"a1", 1);
+        a.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g1".into(), width: 1, height: 1, url: String::new() });
+        a.wall_time = 100;
+        let mut a2 = msg(b"a2", 2);
+        a2.group_id = b"g2".to_vec();
+        a2.author = b"b".to_vec();
+        a2.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g2".into(), width: 1, height: 1, url: String::new() });
+        a2.wall_time = 200;
+        // дубликат g1 тем же автором позже — не должен дублироваться
+        let mut a1dup = msg(b"a1dup", 3);
+        a1dup.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g1".into(), width: 1, height: 1, url: String::new() });
+        a1dup.wall_time = 300;
+
+        store.insert_message(&a, 1).unwrap();
+        store.insert_message(&a2, 2).unwrap();
+        store.insert_message(&a1dup, 3).unwrap();
+
+        let group_g = store.gifs_for_group(b"g", 50).unwrap();
+        assert_eq!(group_g.len(), 1, "дедуп по kind+id");
+        assert_eq!(group_g[0].id, "g1");
+
+        let by_a = store.gifs_by_author(b"a", 50).unwrap();
+        assert_eq!(by_a.len(), 1);
+        assert_eq!(by_a[0].id, "g1");
+
+        let by_b = store.gifs_by_author(b"b", 50).unwrap();
+        assert_eq!(by_b.len(), 1);
+        assert_eq!(by_b[0].id, "g2");
     }
 }

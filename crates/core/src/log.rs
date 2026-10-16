@@ -58,6 +58,13 @@ impl Log {
                 wall_time: m.wall_time,
                 text: m.text,
                 parents: m.parents,
+                attachment: m.attachment.map(|a| crate::proto::Attachment {
+                    kind: a.kind,
+                    id: a.id,
+                    width: a.width,
+                    height: a.height,
+                    url: a.url,
+                }),
             });
         }
         Ok(log)
@@ -73,6 +80,7 @@ impl Log {
         group_id: GroupId,
         author: crate::PeerId,
         text: String,
+        attachment: Option<crate::proto::Attachment>,
     ) -> Result<ChatMessage, CoreError> {
         let parents: Vec<MessageId> = self
             .heads
@@ -89,6 +97,7 @@ impl Log {
             wall_time: unix_now(),
             text,
             parents,
+            attachment,
         };
         msg.id = message_id(&msg);
         self.insert(msg.clone());
@@ -136,6 +145,13 @@ impl Log {
                     wall_time: msg.wall_time,
                     text: msg.text.clone(),
                     parents: msg.parents.clone(),
+                    attachment: msg.attachment.as_ref().map(|a| p2pchat_storage::StoredAttachment {
+                        kind: a.kind.clone(),
+                        id: a.id.clone(),
+                        width: a.width,
+                        height: a.height,
+                        url: a.url.clone(),
+                    }),
                 },
                 self.clock.value(),
             )?;
@@ -245,6 +261,38 @@ impl Log {
             .collect())
     }
 
+    /// Уникальные гифки группы (свежие сверху) — для вкладки «Эта группа».
+    pub fn gifs_for_group(
+        &self,
+        group_id: &[u8],
+        limit: i64,
+    ) -> Result<Vec<crate::proto::Attachment>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s
+                .gifs_for_group(group_id, limit)?
+                .into_iter()
+                .map(to_attachment)
+                .collect(),
+            None => Vec::new(),
+        })
+    }
+
+    /// Гифки, отправленные конкретным автором (свежие сверху) — для вкладки «Мои».
+    pub fn gifs_by_author(
+        &self,
+        author: &[u8],
+        limit: i64,
+    ) -> Result<Vec<crate::proto::Attachment>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s
+                .gifs_by_author(author, limit)?
+                .into_iter()
+                .map(to_attachment)
+                .collect(),
+            None => Vec::new(),
+        })
+    }
+
     /// Все id сообщений группы (для Merkle-синка).
     pub fn ids_for_group(&self, group_id: &[u8]) -> Vec<MessageId> {
         self.messages
@@ -325,6 +373,16 @@ impl Log {
     }
 }
 
+fn to_attachment(a: p2pchat_storage::StoredAttachment) -> crate::proto::Attachment {
+    crate::proto::Attachment {
+        kind: a.kind,
+        id: a.id,
+        width: a.width,
+        height: a.height,
+        url: a.url,
+    }
+}
+
 impl Default for Log {
     fn default() -> Self {
         Self::new()
@@ -343,9 +401,9 @@ mod tests {
         let alice = b"alice".to_vec();
         let bob = b"bob".to_vec();
 
-        let m1 = a.append_local(g.clone(), alice.clone(), "hi".into()).unwrap();
+        let m1 = a.append_local(g.clone(), alice.clone(), "hi".into(), None).unwrap();
         b.merge(m1.clone()).unwrap();
-        let m2 = b.append_local(g.clone(), bob.clone(), "hello".into()).unwrap();
+        let m2 = b.append_local(g.clone(), bob.clone(), "hello".into(), None).unwrap();
         a.merge(m2.clone()).unwrap();
 
         assert_eq!(a.len(), 2);
@@ -357,7 +415,7 @@ mod tests {
     fn idempotent_merge() {
         let mut a = Log::new();
         let g = b"g".to_vec();
-        let m = a.append_local(g, b"x".to_vec(), "t".into()).unwrap();
+        let m = a.append_local(g, b"x".to_vec(), "t".into(), None).unwrap();
         let mut b = Log::new();
         assert!(b.merge(m.clone()).unwrap());
         assert!(!b.merge(m).unwrap());

@@ -86,6 +86,7 @@ jobs:
         env:
           SIGNAL_URL: ${{ secrets.SIGNAL_URL }}
           TURN_CREDS_URL: ${{ secrets.TURN_CREDS_URL }}
+          KLIPY_APP_KEY: ${{ secrets.KLIPY_APP_KEY }}
           KEYSTORE_FILE: ${{ steps.keystore.outputs.have == 'true' && format('{0}/android/app/release.keystore', github.workspace) || '' }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

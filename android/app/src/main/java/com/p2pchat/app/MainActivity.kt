@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
@@ -75,6 +77,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.p2pchat.app.gif.GifAttachmentView
+import com.p2pchat.app.gif.GifPickerDialog
+import uniffi.p2pchat_ffi.FfiMessage
 
 class MainActivity : ComponentActivity() {
     private val vm: ChatViewModel by viewModels()
@@ -487,6 +492,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     var input by remember { mutableStateOf("") }
     var inviteExpanded by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    var showGifPicker by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val invite = vm.invite
@@ -600,9 +606,10 @@ private fun GroupScreen(vm: ChatViewModel) {
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items(vm.messages.asReversed(), key = { it.id.toHex() }) { m ->
+                        val mine = m.author.toHex() == vm.peerId
                         val name = vm.nicknames[m.author.toHex()]?.takeIf { it.isNotBlank() }
                             ?: m.author.toHexShort()
-                        MessageLine(name, m.text)
+                        MessageRow(mine = mine, name = name, message = m, vm = vm)
                     }
                     if (vm.hasMore) {
                         item {
@@ -616,6 +623,11 @@ private fun GroupScreen(vm: ChatViewModel) {
         }
 
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (vm.gifEnabled) {
+                IconButton(onClick = { showGifPicker = true }) {
+                    Icon(Icons.Filled.GifBox, contentDescription = "Гифка")
+                }
+            }
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it },
@@ -626,6 +638,10 @@ private fun GroupScreen(vm: ChatViewModel) {
             Spacer(Modifier.width(8.dp))
             Button(onClick = { vm.send(input); input = "" }) { Text("Отправить") }
         }
+    }
+
+    if (showGifPicker && vm.gifEnabled) {
+        GifPickerDialog(vm = vm, onDismiss = { showGifPicker = false })
     }
 
     if (confirmLeave) {
@@ -650,11 +666,49 @@ private fun ByteArray.toHexShort(): String =
 
 private const val URL_TAG = "url"
 
-/** Строка сообщения «автор: текст» со кликабельными ссылками http(s)://… */
+/** Пузырь сообщения: владелец — справа, собеседник — слева. */
 @Composable
-private fun MessageLine(prefix: String, text: String) {
+private fun MessageRow(mine: Boolean, name: String, message: FfiMessage, vm: ChatViewModel) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
+    ) {
+        Surface(
+            color = if (mine) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(12.dp),
+            tonalElevation = 1.dp,
+            modifier = Modifier.widthIn(max = 260.dp),
+        ) {
+            Column(Modifier.padding(8.dp)) {
+                if (!mine) {
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val att = message.attachment
+                if (att != null) {
+                    GifAttachmentView(
+                        providerId = att.id,
+                        width = att.width.toInt(),
+                        height = att.height.toInt(),
+                        vm = vm,
+                    )
+                } else {
+                    MessageText(message.text)
+                }
+            }
+        }
+    }
+}
+
+/** Текст сообщения с кликабельными ссылками http(s)://… */
+@Composable
+private fun MessageText(text: String) {
     val ctx = LocalContext.current
-    val annotated = remember(prefix, text) { messageAnnotated(prefix, text) }
+    val annotated = remember(text) { linksAnnotated(text) }
     ClickableText(
         text = annotated,
         style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
@@ -665,8 +719,7 @@ private fun MessageLine(prefix: String, text: String) {
     }
 }
 
-private fun messageAnnotated(prefix: String, text: String): AnnotatedString = buildAnnotatedString {
-    append("$prefix: ")
+private fun linksAnnotated(text: String): AnnotatedString = buildAnnotatedString {
     var last = 0
     for (span in urlSpans(text)) {
         append(text.substring(last, span.start))

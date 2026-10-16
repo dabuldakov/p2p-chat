@@ -9,7 +9,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.p2pchat.app.gif.Gif
+import com.p2pchat.app.gif.GifCache
+import com.p2pchat.app.gif.GifMediaCache
+import com.p2pchat.app.gif.GifRef
+import com.p2pchat.app.gif.GifRepository
+import com.p2pchat.app.gif.KlipyApi
 import uniffi.p2pchat_ffi.ChatCore
+import uniffi.p2pchat_ffi.FfiAttachment
 import uniffi.p2pchat_ffi.FfiMember
 import uniffi.p2pchat_ffi.FfiMessage
 
@@ -37,6 +44,8 @@ object ChatRuntime {
     private lateinit var core: ChatCore
     private lateinit var signaling: SignalingClient
     private lateinit var transport: WebRtcTransport
+    lateinit var gifs: GifRepository
+        private set
 
     lateinit var publicKey: ByteArray
         private set
@@ -103,6 +112,12 @@ object ChatRuntime {
         publicKeyHex = publicKey.toHex()
         peerId = core.peerIdHex()
         Logs.i("mykey $publicKeyHex peer=$peerId")
+
+        gifs = GifRepository(
+            api = KlipyApi(BuildConfig.KLIPY_APP_KEY),
+            cache = GifCache(java.io.File(app.filesDir, "gif_cache.json")),
+            mediaCache = GifMediaCache(java.io.File(app.filesDir, "gif_media.json")),
+        )
 
         signaling = SignalingClient(SIGNAL_URL, publicKey)
         transport = WebRtcTransport(
@@ -293,6 +308,51 @@ object ChatRuntime {
         transport.sendTargets(out.envelope, out.targets)
         refresh()
     }
+
+    /** Отправить гифку: между клиентами едет только ссылка (kind+id). */
+    fun sendGif(gif: Gif) {
+        val g = currentGroup ?: return
+        val out = core.postGif(
+            g,
+            FfiAttachment(
+                kind = "klipy",
+                id = gif.providerId,
+                width = (gif.width ?: 0).toUInt(),
+                height = (gif.height ?: 0).toUInt(),
+                url = "",
+            ),
+        )
+        Logs.d("send gif ${gif.providerId} targets=${out.targets.size}")
+        transport.sendTargets(out.envelope, out.targets)
+        refresh()
+    }
+
+    // --- Гифки: пикер ----------------------------------------------------
+
+    val gifEnabled: Boolean get() = gifs.enabled
+
+    suspend fun searchGifs(query: String, page: Int): List<Gif> = gifs.search(query, page)
+
+    suspend fun resolveGif(providerId: String): Gif? = gifs.resolve(providerId)
+
+    fun cachedGif(providerId: String): Gif? = gifs.cached(providerId)
+
+    /** Ссылки на отправленные мной гифки (вкладка «Мои»). */
+    fun myGifRefs(limit: Int = 60): List<GifRef> =
+        core.recentGifs(limit.toUInt()).map(::toGifRef)
+
+    /** Ссылки на гифки текущей группы (вкладка «Эта группа»). */
+    fun groupGifRefs(limit: Int = 60): List<GifRef> {
+        val g = currentGroup ?: return emptyList()
+        return core.groupGifs(g, limit.toUInt()).map(::toGifRef)
+    }
+
+    private fun toGifRef(a: FfiAttachment): GifRef =
+        GifRef(
+            providerId = a.id,
+            width = a.width.toInt().takeIf { it > 0 },
+            height = a.height.toInt().takeIf { it > 0 },
+        )
 
     private fun handleIncoming(envelope: ByteArray) {
         val outs = core.receive(envelope)

@@ -90,7 +90,19 @@ impl GossipEngine {
 
     /// Создать сообщение и упаковать его с адресатами (соседями группы).
     pub fn post(&mut self, group: GroupId, text: String) -> Result<Outgoing, CoreError> {
-        let msg = self.log.append_local(group, self.peer_id(), text)?;
+        let msg = self.log.append_local(group, self.peer_id(), text, None)?;
+        self.out_msg(msg)
+    }
+
+    /// Создать сообщение-гифку: между клиентами едет только ссылка-идентификатор.
+    pub fn post_gif(
+        &mut self,
+        group: GroupId,
+        attachment: crate::proto::Attachment,
+    ) -> Result<Outgoing, CoreError> {
+        let msg = self
+            .log
+            .append_local(group, self.peer_id(), String::new(), Some(attachment))?;
         self.out_msg(msg)
     }
 

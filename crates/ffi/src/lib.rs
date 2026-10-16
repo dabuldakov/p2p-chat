@@ -35,6 +35,17 @@ pub struct FfiMessage {
     pub text: String,
     pub lamport: u64,
     pub wall_time: u64,
+    pub attachment: Option<FfiAttachment>,
+}
+
+/// Вложение-ссылка (гифка). Байты медиа не передаются — клиент тянет их сам.
+#[derive(uniffi::Record)]
+pub struct FfiAttachment {
+    pub kind: String,
+    pub id: String,
+    pub width: u32,
+    pub height: u32,
+    pub url: String,
 }
 
 /// Пир для UI.
@@ -127,6 +138,51 @@ impl ChatCore {
         let o = engine.post(group_id, text)?;
         use prost::Message as _;
         Ok(FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+    }
+
+    /// Отправить гифку (между клиентами едет только ссылка kind+id).
+    pub fn post_gif(
+        &self,
+        group_id: Vec<u8>,
+        attachment: FfiAttachment,
+    ) -> Result<FfiOutgoing, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        let o = engine.post_gif(
+            group_id,
+            p2pchat_core::proto::Attachment {
+                kind: attachment.kind,
+                id: attachment.id,
+                width: attachment.width,
+                height: attachment.height,
+                url: attachment.url,
+            },
+        )?;
+        use prost::Message as _;
+        Ok(FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+    }
+
+    /// Гифки, которые отправлял я (вкладка «Мои»), свежие сверху.
+    pub fn recent_gifs(&self, limit: u32) -> Vec<FfiAttachment> {
+        let engine = self.inner.lock().unwrap();
+        engine
+            .log()
+            .gifs_by_author(&engine.peer_id(), limit as i64)
+            .unwrap_or_default()
+            .into_iter()
+            .map(to_ffi_attachment)
+            .collect()
+    }
+
+    /// Гифки текущей группы (вкладка «Эта группа»), свежие сверху.
+    pub fn group_gifs(&self, group_id: Vec<u8>, limit: u32) -> Vec<FfiAttachment> {
+        let engine = self.inner.lock().unwrap();
+        engine
+            .log()
+            .gifs_for_group(&group_id, limit as i64)
+            .unwrap_or_default()
+            .into_iter()
+            .map(to_ffi_attachment)
+            .collect()
     }
 
     /// Создать группу: возвращает групповой ключ для раздачи участникам.
@@ -409,6 +465,17 @@ fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage) -> FfiMessage {
         text: m.text,
         lamport: m.lamport,
         wall_time: m.wall_time,
+        attachment: m.attachment.map(to_ffi_attachment),
+    }
+}
+
+fn to_ffi_attachment(a: p2pchat_core::proto::Attachment) -> FfiAttachment {
+    FfiAttachment {
+        kind: a.kind,
+        id: a.id,
+        width: a.width,
+        height: a.height,
+        url: a.url,
     }
 }
 

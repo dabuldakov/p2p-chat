@@ -35,3 +35,19 @@
 
 # --- Наше приложение ---
 -keep class com.p2pchat.app.** { *; }
+
+# --- kotlinx.serialization ---
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault
+-keepclassmembers class kotlinx.serialization.json.** { *; }
+-keep,includedescriptorclasses class com.p2pchat.app.gif.**$$serializer { *; }
+-keepclassmembers class com.p2pchat.app.gif.**$Companion { *; }
+-keepclasseswithmembers class com.p2pchat.app.gif.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+# --- Coil / Media3 / OkHttp (поставляют consumer-правила) ---
+-dontwarn coil.**
+-dontwarn androidx.media3.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
