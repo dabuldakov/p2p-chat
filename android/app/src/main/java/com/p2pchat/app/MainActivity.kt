@@ -486,6 +486,7 @@ private fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
 private fun GroupScreen(vm: ChatViewModel) {
     var input by remember { mutableStateOf("") }
     var inviteExpanded by remember { mutableStateOf(false) }
+    var confirmLeave by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val invite = vm.invite
@@ -574,7 +575,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                         }
                     }
                     OutlinedButton(
-                        onClick = { vm.leaveGroup() },
+                        onClick = { confirmLeave = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Выйти из группы", color = MaterialTheme.colorScheme.error)
@@ -625,6 +626,22 @@ private fun GroupScreen(vm: ChatViewModel) {
             Spacer(Modifier.width(8.dp))
             Button(onClick = { vm.send(input); input = "" }) { Text("Отправить") }
         }
+    }
+
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            title = { Text("Выйти из группы") },
+            text = { Text("Вы уверены, что хотите выйти из группы?") },
+            confirmButton = {
+                TextButton(onClick = { confirmLeave = false; vm.leaveGroup() }) {
+                    Text("Выйти", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmLeave = false }) { Text("Отмена") }
+            },
+        )
     }
 }
 
