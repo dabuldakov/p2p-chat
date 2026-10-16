@@ -26,7 +26,7 @@ data class KlipyGifResponse(
 
 @Serializable
 data class KlipyPage(
-    val data: List<KlipyGifDto>? = null,
+    @SerialName("data") val items: List<KlipyGifDto>? = null,
     @SerialName("current_page") val currentPage: Int? = null,
     @SerialName("per_page") val perPage: Int? = null,
     @SerialName("has_next") val hasNext: Boolean? = null,
