@@ -512,6 +512,15 @@ private fun GroupScreen(vm: ChatViewModel) {
     val groupKey = vm.currentGroup?.toHex()
     LaunchedEffect(groupKey) { if (vm.messages.isNotEmpty()) listState.scrollToItem(0) }
 
+    // Новое сообщение/гифка: если это наше или мы у «дна» — прокручиваем вниз.
+    val newestId = vm.messages.lastOrNull()?.id?.toHex()
+    LaunchedEffect(newestId) {
+        val newest = vm.messages.lastOrNull() ?: return@LaunchedEffect
+        val mine = newest.author.toHex() == vm.peerId
+        val nearBottom = listState.firstVisibleItemIndex <= 1
+        if (mine || nearBottom) listState.animateScrollToItem(0)
+    }
+
     // Авто-подгрузка старых при прокрутке вверх (дошли до начала окна).
     LaunchedEffect(listState) {
         snapshotFlow {
