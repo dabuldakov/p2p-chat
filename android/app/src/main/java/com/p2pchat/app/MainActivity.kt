@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -57,6 +60,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -495,8 +500,22 @@ private fun GroupScreen(vm: ChatViewModel) {
         }
     }
 
+    // Список сообщений: reverseLayout=true — «дно» это самые свежие сообщения.
+    val listState = rememberLazyListState()
+    val groupKey = vm.currentGroup?.toHex()
+    LaunchedEffect(groupKey) { if (vm.messages.isNotEmpty()) listState.scrollToItem(0) }
+
+    // Авто-подгрузка старых при прокрутке вверх (дошли до начала окна).
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.collect { near -> if (near && vm.hasMore) vm.loadOlder() }
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Свёрнутый по умолчанию блок приглашения
@@ -564,26 +583,32 @@ private fun GroupScreen(vm: ChatViewModel) {
             }
         }
 
-        if (vm.hasMore) {
-            TextButton(onClick = { vm.loadOlder() }, modifier = Modifier.fillMaxWidth()) {
-                Text("Показать раньше")
-            }
-        }
-
         Box(
-            modifier = Modifier.fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
         ) {
             if (vm.messages.isEmpty()) {
                 Text("Пока нет сообщений", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(12.dp))
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    vm.messages.forEach { m ->
+                LazyColumn(
+                    state = listState,
+                    reverseLayout = true,
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(vm.messages.asReversed(), key = { it.id.toHex() }) { m ->
                         val name = vm.nicknames[m.author.toHex()]?.takeIf { it.isNotBlank() }
                             ?: m.author.toHexShort()
                         MessageLine(name, m.text)
+                    }
+                    if (vm.hasMore) {
+                        item {
+                            TextButton(onClick = { vm.loadOlder() }, modifier = Modifier.fillMaxWidth()) {
+                                Text("Показать раньше")
+                            }
+                        }
                     }
                 }
             }
