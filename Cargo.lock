@@ -1797,6 +1797,7 @@ dependencies = [
  "bytes",
  "ed25519-dalek",
  "p2pchat-crypto",
+ "p2pchat-mls",
  "p2pchat-proto",
  "p2pchat-storage",
  "prost",

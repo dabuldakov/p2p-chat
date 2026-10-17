@@ -9,6 +9,7 @@ pub mod invite;
 pub mod log;
 pub mod membership;
 pub mod merkle;
+pub mod mls;
 pub mod peers;
 pub mod gossip;
 pub mod clock;

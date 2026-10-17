@@ -8,6 +8,7 @@ license.workspace = true
 p2pchat-crypto = { workspace = true }
 p2pchat-storage = { workspace = true }
 p2pchat-proto = { workspace = true }
+p2pchat-mls = { workspace = true }
 
 prost = { workspace = true }
 bytes = { workspace = true }

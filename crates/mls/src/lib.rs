@@ -60,6 +60,30 @@ pub fn new_identity(identity: &[u8]) -> Result<MlsIdentity, MlsError> {
     Ok(id)
 }
 
+/// Создать личность из готовых ключей: `account_identity` — байты аккаунта
+/// (credential), `private`/`public` — ключ подписи устройства (Ed25519, 32+32).
+pub fn from_parts(
+    account_identity: &[u8],
+    private: &[u8],
+    public: &[u8],
+) -> Result<MlsIdentity, MlsError> {
+    let provider = OpenMlsRustCrypto::default();
+    let signer = SignatureKeyPair::from_raw(
+        CIPHERSUITE.signature_algorithm(),
+        private.to_vec(),
+        public.to_vec(),
+    );
+    mls(signer.store(provider.storage()))?;
+    let credential = BasicCredential::new(account_identity.to_vec());
+    let credential_with_key = CredentialWithKey {
+        credential: credential.into(),
+        signature_key: signer.public().into(),
+    };
+    let id = MlsIdentity { provider, signer, credential_with_key };
+    persist::remember_signer(&id);
+    Ok(id)
+}
+
 /// Сгенерировать и сериализовать KeyPackage (публичная часть для впуска).
 pub fn key_package(id: &MlsIdentity) -> Result<Vec<u8>, MlsError> {
     let bundle = mls(KeyPackage::builder().build(
