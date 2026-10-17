@@ -11,6 +11,9 @@ use openmls::prelude::{tls_codec::*, *};
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 
+pub mod persist;
+pub use persist::{load_group, load_identity, save};
+
 /// Криптопровайдер (в нём хранится ключевой материал).
 pub type Provider = OpenMlsRustCrypto;
 
@@ -52,7 +55,9 @@ pub fn new_identity(identity: &[u8]) -> Result<MlsIdentity, MlsError> {
         credential: credential.into(),
         signature_key: signer.public().into(),
     };
-    Ok(MlsIdentity { provider, signer, credential_with_key })
+    let id = MlsIdentity { provider, signer, credential_with_key };
+    persist::remember_signer(&id);
+    Ok(id)
 }
 
 /// Сгенерировать и сериализовать KeyPackage (публичная часть для впуска).
@@ -127,11 +132,60 @@ pub fn decrypt(
     id: &MlsIdentity,
     bytes: &[u8],
 ) -> Result<Option<Vec<u8>>, MlsError> {
+    Ok(match process(group, id, bytes)? {
+        Received::Application(app) => Some(app),
+        _ => None,
+    })
+}
+
+/// Что пришло в сообщении (после обработки).
+#[derive(Debug, PartialEq, Eq)]
+pub enum Received {
+    /// Прикладные данные (наша полезная нагрузка).
+    Application(Vec<u8>),
+    /// Handshake (Commit/Proposal) — уже применён к группе.
+    Handshake,
+    /// Прочее (например, standalone-предложение).
+    Other,
+}
+
+/// Обработать входящее MLS-сообщение. Commit'ы применяются (merge) автоматически.
+pub fn process(
+    group: &mut MlsGroup,
+    id: &MlsIdentity,
+    bytes: &[u8],
+) -> Result<Received, MlsError> {
     let msg = codec(MlsMessageIn::tls_deserialize_exact(bytes))?;
     let protocol = mls(msg.try_into_protocol_message())?;
     let processed = mls(group.process_message(&id.provider, protocol))?;
     Ok(match processed.into_content() {
-        ProcessedMessageContent::ApplicationMessage(app) => Some(app.into_bytes()),
-        _ => None,
+        ProcessedMessageContent::ApplicationMessage(app) => Received::Application(app.into_bytes()),
+        ProcessedMessageContent::StagedCommitMessage(staged) => {
+            mls(group.merge_staged_commit(&id.provider, *staged))?;
+            Received::Handshake
+        }
+        _ => Received::Other,
     })
+}
+
+/// Удалить участника по identity (credential). Возвращает commit для остальных.
+/// Свою эпоху продвигаем сразу (merge_pending_commit).
+pub fn remove_member(
+    group: &mut MlsGroup,
+    id: &MlsIdentity,
+    identity: &[u8],
+) -> Result<Vec<u8>, MlsError> {
+    let index = group
+        .members()
+        .find(|m| m.credential.serialized_content() == identity)
+        .map(|m| m.index)
+        .ok_or_else(|| MlsError::Mls("участник не найден".into()))?;
+    let (commit, _welcome, _gi) = mls(group.remove_members(&id.provider, &id.signer, &[index]))?;
+    mls(group.merge_pending_commit(&id.provider))?;
+    codec(commit.tls_serialize_detached())
+}
+
+/// Число участников группы.
+pub fn member_count(group: &MlsGroup) -> usize {
+    group.members().count()
 }
