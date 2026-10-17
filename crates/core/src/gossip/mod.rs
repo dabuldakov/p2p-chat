@@ -425,6 +425,9 @@ impl GossipEngine {
             Some(Body::Presence(p)) => {
                 self.on_presence(p);
             }
+            Some(Body::Mls(_)) => {
+                // TODO(mls): обработать MLS-сообщение (приложение/handshake).
+            }
             None => {}
         }
 

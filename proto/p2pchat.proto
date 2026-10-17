@@ -132,7 +132,16 @@ message Gossip {
     MembershipEvent membership = 10;
     Direct direct = 11;
     ProfileEvent profile = 12;
+    Mls mls = 13;
   }
+}
+
+// Сообщение MLS (RFC 9420): прикладное или handshake (Commit/Welcome/Proposal).
+// `group_id` — для маршрутизации к нужной группе; `message` — сериализованный
+// MlsMessageOut. Само шифрование/аутентификация — внутри MLS.
+message Mls {
+  bytes group_id = 1;
+  bytes message = 2;
 }
 
 // Профиль участника (никнейм). Реплицируется по сети, LWW по lamport —

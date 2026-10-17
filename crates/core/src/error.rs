@@ -14,4 +14,12 @@ pub enum CoreError {
     UnknownPeer(Vec<u8>),
     #[error("bad envelope: {0}")]
     BadEnvelope(String),
+    #[error("mls: {0}")]
+    Mls(String),
+}
+
+impl From<p2pchat_mls::MlsError> for CoreError {
+    fn from(e: p2pchat_mls::MlsError) -> Self {
+        CoreError::Mls(e.to_string())
+    }
 }

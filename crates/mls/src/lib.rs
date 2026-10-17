@@ -11,6 +11,9 @@ use openmls::prelude::{tls_codec::*, *};
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 
+/// Реэкспорт типа группы (нужен вызывающему для хранения состояний).
+pub use openmls::prelude::MlsGroup;
+
 pub mod persist;
 pub use persist::{load_group, load_identity, save};
 
@@ -212,4 +215,17 @@ pub fn remove_member(
 /// Число участников группы.
 pub fn member_count(group: &MlsGroup) -> usize {
     group.members().count()
+}
+
+/// id группы MLS.
+pub fn group_id(group: &MlsGroup) -> Vec<u8> {
+    group.group_id().as_slice().to_vec()
+}
+
+/// credential.identity всех участников (байты аккаунта).
+pub fn members(group: &MlsGroup) -> Vec<Vec<u8>> {
+    group
+        .members()
+        .map(|m| m.credential.serialized_content().to_vec())
+        .collect()
 }
