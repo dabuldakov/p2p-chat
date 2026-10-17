@@ -8,12 +8,11 @@ use ed25519_dalek::VerifyingKey;
 use prost::Message as _;
 
 use crate::log::Log;
+use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, Direct, Encrypted, Envelope, Gossip, PeerInfo, Presence, ProfileEvent};
+use crate::proto::{ChatMessage, Direct, Envelope, Gossip, Mls, PeerInfo, Presence, ProfileEvent};
 use crate::{CoreError, GroupId, PeerId};
-
-use p2pchat_crypto::GroupKey;
 
 mod sync;
 
@@ -24,13 +23,11 @@ pub struct GossipEngine {
     identity: p2pchat_crypto::Identity,
     log: Log,
     peers: PeerTable,
-    /// Групповые ключи: группа -> симметричный ключ шифрования payload.
-    groups: std::collections::HashMap<GroupId, GroupKey>,
-    /// Состав каждой группы (CRDT). Из него считается топология оверлея.
-    membership: std::collections::HashMap<GroupId, crate::membership::Membership>,
-    /// Наше собственное событие входа в группу (для рассылки).
-    self_events: std::collections::HashMap<GroupId, crate::proto::MembershipEvent>,
-    /// Владельцы групп (кто создал) — для удаления участников.
+    /// MLS: личность (аккаунт+устройство) и состояния групп.
+    mls: MlsGroups,
+    /// Путь к SQLite для снапшотов MLS (None — без персиста, напр. в тестах).
+    mls_db: Option<String>,
+    /// Владельцы групп (кто создал) — для выдачи билетов и удаления участников.
     owners: std::collections::HashMap<GroupId, PeerId>,
     /// Никнеймы участников (peer_id → (ник, lamport)).
     nicknames: std::collections::HashMap<PeerId, (String, u64)>,
@@ -61,7 +58,17 @@ pub struct Outcome {
 impl GossipEngine {
     pub fn new(identity: p2pchat_crypto::Identity, log: Log) -> Self {
         let peers = PeerTable::new(identity.peer_id().to_vec());
-        Self { identity, log, peers, groups: Default::default(), membership: Default::default(), self_events: Default::default(), owners: Default::default(), nicknames: Default::default(), seen: Default::default() }
+        let mls = MlsGroups::from_crypto(&identity).expect("mls identity");
+        Self {
+            identity,
+            log,
+            peers,
+            mls,
+            mls_db: None,
+            owners: Default::default(),
+            nicknames: Default::default(),
+            seen: Default::default(),
+        }
     }
 
     pub fn peer_id(&self) -> PeerId {
@@ -91,7 +98,9 @@ impl GossipEngine {
     /// Создать сообщение и упаковать его с адресатами (соседями группы).
     pub fn post(&mut self, group: GroupId, text: String) -> Result<Outgoing, CoreError> {
         let msg = self.log.append_local(group, self.peer_id(), text, None)?;
-        self.out_msg(msg)
+        let out = self.out_msg(msg)?;
+        self.persist_mls();
+        Ok(out)
     }
 
     /// Создать сообщение-гифку: между клиентами едет только ссылка-идентификатор.
@@ -103,21 +112,19 @@ impl GossipEngine {
         let msg = self
             .log
             .append_local(group, self.peer_id(), String::new(), Some(attachment))?;
-        self.out_msg(msg)
+        let out = self.out_msg(msg)?;
+        self.persist_mls();
+        Ok(out)
     }
 
-    /// Создать новую группу: генерирует ключ, помечает себя участником.
-    /// Возвращает ключ группы (его раздаём по инвайту).
-    pub fn create_group(&mut self, group: GroupId) -> [u8; 32] {
-        let key = GroupKey::generate();
-        let bytes = key.export();
-        self.groups.insert(group.clone(), key);
-        let _ = self.log.store_group_key(&group, &bytes);
-        // владелец группы (создатель) — для удаления участников
+    /// Создать новую группу (MLS). Ключ раздаётся попарно при впуске.
+    pub fn create_group(&mut self, group: GroupId) -> Result<(), CoreError> {
+        self.mls.create(&group)?;
         let _ = self.log.set_meta(&format!("owner:{}", hex(&group)), &self.peer_id());
         self.owners.insert(group.clone(), self.peer_id());
-        self.self_join(&group);
-        bytes
+        self.remember_group(&group);
+        self.persist_mls();
+        Ok(())
     }
 
     /// Мы владелец группы (её создатель)?
@@ -129,8 +136,7 @@ impl GossipEngine {
         Ok(self.log.get_meta(&key)?.as_deref() == Some(self.peer_id().as_slice()))
     }
 
-    /// Удалить участника (только владелец): создаём событие выхода за него
-    /// и, если мы лидер, сразу меняем ключ группы.
+    /// Удалить участника (только владелец): MLS Remove + Commit остальным.
     pub fn remove_member(
         &mut self,
         group: &[u8],
@@ -139,193 +145,230 @@ impl GossipEngine {
         if !self.is_owner(group)? {
             return Ok(Vec::new());
         }
-        let Some(pk) = self.membership.get(group).and_then(|m| m.public_key_of(peer_id)) else {
+        let Some(pk) = self
+            .members(group)
+            .into_iter()
+            .find(|m| m.peer_id == peer_id)
+            .map(|m| m.public_key)
+        else {
             return Ok(Vec::new());
         };
-        let lamport = self.log.tick();
-        let ev = crate::membership::membership_event(
-            group,
-            peer_id,
-            &pk,
-            false,
-            lamport,
-            &self.peer_id(),
-        );
-        self.membership
-            .entry(group.to_vec())
-            .or_default()
-            .apply(&ev);
-        let _ = self.log.store_membership(&ev);
+        let commit = self.mls.remove_member(group, &pk)?;
         let env = self.seal(Gossip {
-            body: Some(Body::Membership(ev)),
+            body: Some(Body::Mls(Mls { group_id: group.to_vec(), message: commit })),
         })?;
-        let mut out = vec![Outgoing { envelope: env, targets: self.neighbor_keys(group) }];
-        if self.is_leader(group) {
-            out.extend(self.rekey(group)?);
-        }
-        Ok(out)
+        self.persist_mls();
+        Ok(vec![Outgoing { envelope: env, targets: self.member_keys(group) }])
     }
 
-    /// Вступить в группу, зная её ключ.
-    pub fn join_group(&mut self, group: GroupId, key: [u8; 32]) {
-        self.groups.insert(group.clone(), GroupKey::from_bytes(key));
-        let _ = self.log.store_group_key(&group, &key);
-        self.self_join(&group);
-    }
-
-    pub fn has_group_key(&self, group: &[u8]) -> bool {
-        self.groups.contains_key(group)
-    }
-
-    /// Все группы, в которых мы состоим (по членству).
-    pub fn groups(&self) -> Vec<GroupId> {
-        self.membership
-            .iter()
-            .filter(|(_, m)| m.is_member(&self.peer_id()))
-            .map(|(g, _)| g.clone())
-            .collect()
-    }
-
-    /// Состоим ли мы в группе.
     pub fn has_group(&self, group: &[u8]) -> bool {
-        self.membership
-            .get(group)
-            .map(|m| m.is_member(&self.peer_id()))
-            .unwrap_or(false)
+        self.mls.has(group)
     }
 
-    /// Пометить себя участником (локально) и запомнить событие для рассылки.
-    fn self_join(&mut self, group: &[u8]) {
-        let lamport = self.log.tick();
-        let ev = crate::membership::membership_event(
-            group,
-            &self.peer_id(),
-            &self.public_key(),
-            true,
-            lamport,
-            &self.peer_id(),
-        );
-        self.membership
-            .entry(group.to_vec())
-            .or_default()
-            .apply(&ev.clone());
-        self.self_events.insert(group.to_vec(), ev.clone());
-        let _ = self.log.store_membership(&ev);
+    /// Все группы, в которых мы состоим.
+    pub fn groups(&self) -> Vec<GroupId> {
+        self.mls.group_ids()
     }
 
-    /// Восстановить группы и состав из хранилища (при старте).
+    /// Запомнить id группы для загрузки при старте.
+    fn remember_group(&self, group: &[u8]) {
+        let mut list: Vec<String> = self
+            .log
+            .get_meta("mls_groups")
+            .ok()
+            .flatten()
+            .map(|b| {
+                String::from_utf8_lossy(&b)
+                    .split('\n')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let h = hex(group);
+        if !list.contains(&h) {
+            list.push(h);
+            let _ = self.log.set_meta("mls_groups", list.join("\n").as_bytes());
+        }
+    }
+
+    /// Восстановить профили и владельцев (MLS-состояние грузится через `load_mls`).
     pub fn load_state(&mut self) -> Result<(), CoreError> {
-        for (g, k) in self.log.load_group_keys()? {
-            if let Ok(kb) = <[u8; 32]>::try_from(k.as_slice()) {
-                self.groups.insert(g, GroupKey::from_bytes(kb));
-            }
-        }
-        for ev in self.log.load_membership()? {
-            self.membership
-                .entry(ev.group_id.clone())
-                .or_default()
-                .apply(&ev);
-        }
         for (pid, nick, lamport) in self.log.load_profiles()? {
             self.nicknames.insert(pid, (nick, lamport));
-        }
-        // заново объявить себя во всех группах, где мы состоим
-        for g in self.groups() {
-            if let Some(owner) = self.log.get_meta(&format!("owner:{}", hex(&g)))? {
-                self.owners.insert(g.clone(), owner);
-            }
-            self.self_join(&g);
         }
         Ok(())
     }
 
-    /// Конверт с нашим входом в группу — чтобы разослать соседям.
-    pub fn join_envelope(&self, group: &[u8]) -> Result<Option<Outgoing>, CoreError> {
-        match self.self_events.get(group) {
-            Some(ev) => {
-                let env = self.seal(Gossip {
-                    body: Some(Body::Membership(ev.clone())),
-                })?;
-                Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+    /// Загрузить MLS-состояние (личность + группы) из SQLite.
+    pub fn load_mls(&mut self, db_path: &str) -> Result<(), CoreError> {
+        self.mls_db = Some(db_path.to_string());
+        self.mls = MlsGroups::load(&self.identity, db_path)?;
+        let ids: Vec<String> = self
+            .log
+            .get_meta("mls_groups")?
+            .map(|b| {
+                String::from_utf8_lossy(&b)
+                    .split('\n')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        for h in ids {
+            if let Ok(gid) = unhex(&h) {
+                self.mls.load_group(&gid)?;
+                if let Some(owner) = self.log.get_meta(&format!("owner:{}", hex(&gid)))? {
+                    self.owners.insert(gid.clone(), owner);
+                }
             }
-            None => Ok(None),
         }
+        Ok(())
     }
 
-    /// Инвайт-строка группы (ссылка/QR). См. [`crate::invite`].
-    pub fn invite_for(&self, group: &[u8]) -> Option<String> {
-        let key = self.groups.get(group)?.export();
-        Some(crate::invite::Invite::new(group, &key, &self.public_key()).encode())
+    /// Создать одноразовый инвайт-билет (только владелец). `ttl_secs=0` — без срока.
+    pub fn create_invite(&mut self, group: &[u8], ttl_secs: u64) -> Result<String, CoreError> {
+        if !self.is_owner(group)? {
+            return Err(CoreError::BadEnvelope("invite: только владелец".into()));
+        }
+        let now = crate::unix_now();
+        let expiry = if ttl_secs == 0 { 0 } else { now + ttl_secs };
+        let inv = crate::invite::Invite::ticket(group, &self.public_key(), expiry, &self.identity);
+        let _ = self.log.set_meta(&format!("invite:{}", inv.use_token()), b"1");
+        Ok(inv.encode())
     }
 
-    /// Вступить по инвайт-строке (возвращает id группы).
-    pub fn join_from_invite(&mut self, invite: &str) -> Result<GroupId, CoreError> {
+    /// Начать впуск по билету: заявка (KeyPackage + билет) хозяину, попарно.
+    pub fn join_request(&self, invite: &str) -> Result<(GroupId, Outgoing), CoreError> {
         let inv = crate::invite::Invite::parse(invite)?;
-        self.join_group(inv.group_id.clone(), inv.key);
-        Ok(inv.group_id)
+        if !inv.verify_sig() {
+            return Err(CoreError::BadEnvelope("invite: подпись неверна".into()));
+        }
+        let req = crate::proto::JoinRequest {
+            group_id: inv.group_id.clone(),
+            ticket: invite.to_string(),
+            key_package: self.mls.key_package()?,
+        };
+        let pairwise = crate::proto::Pairwise {
+            body: Some(crate::proto::pairwise::Body::JoinRequest(req)),
+        };
+        let env = self.seal_pairwise(&inv.host, &pairwise.encode_to_vec())?;
+        Ok((inv.group_id, Outgoing { envelope: env, targets: vec![inv.host.clone()] }))
     }
 
-    /// Вступить по инвайту, вернуть группу и ключ хозяина (для bootstrap-соединения).
-    pub fn join_from_invite_full(&mut self, invite: &str) -> Result<(GroupId, Vec<u8>), CoreError> {
-        let inv = crate::invite::Invite::parse(invite)?;
-        self.join_group(inv.group_id.clone(), inv.key);
-        Ok((inv.group_id, inv.host))
-    }
-
-    /// Выйти из группы: помечаем себя вышедшим и сообщаем соседям.
+    /// Выйти из группы (локально). Удаление участника делает владелец.
     pub fn leave_group(&mut self, group: &[u8]) -> Result<Option<Outgoing>, CoreError> {
         if !self.has_group(group) {
             return Ok(None);
         }
-        let lamport = self.log.tick();
-        let ev = crate::membership::membership_event(
-            group,
-            &self.peer_id(),
-            &self.public_key(),
-            false,
-            lamport,
-            &self.peer_id(),
-        );
-        self.membership
-            .entry(group.to_vec())
-            .or_default()
-            .apply(&ev);
-        let _ = self.log.store_membership(&ev);
-        self.self_events.remove(group);
-        let env = self.seal(Gossip {
-            body: Some(Body::Membership(ev)),
-        })?;
-        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+        let _ = self.log.set_meta(&format!("left:{}", hex(group)), &self.peer_id());
+        Ok(None)
     }
 
-    /// Участники группы (отсортированы).
+    /// Участники группы (отсортированы по peer_id).
     pub fn members(&self, group: &[u8]) -> Vec<crate::membership::Member> {
-        self.membership.get(group).map(|m| m.members()).unwrap_or_default()
+        let mut v: Vec<_> = self
+            .mls
+            .members(group)
+            .into_iter()
+            .map(|pk| crate::membership::Member {
+                peer_id: p2pchat_crypto::content_id(&pk).to_vec(),
+                public_key: pk,
+            })
+            .collect();
+        v.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
+        v
     }
 
-    /// Наши соседи в оверлее группы (peer_id).
+    /// Наши соседи в оверлее группы (peer_id): малая группа — full mesh,
+    /// большая — кольцо с «дальними» связями (детерминированно у всех).
     pub fn neighbors(&self, group: &[u8]) -> Vec<PeerId> {
-        self.membership
-            .get(group)
-            .map(|m| m.neighbors(&self.peer_id(), crate::membership::DEFAULT_FANOUT))
-            .unwrap_or_default()
+        let members: Vec<PeerId> = self.members(group).into_iter().map(|m| m.peer_id).collect();
+        let me = self.peer_id();
+        let Some(idx) = members.iter().position(|m| m == &me) else {
+            return Vec::new();
+        };
+        let n = members.len();
+        let others = n.saturating_sub(1);
+        if others <= crate::membership::MESH_THRESHOLD {
+            return members.into_iter().filter(|m| m != &me).collect();
+        }
+        let mut out: Vec<PeerId> = Vec::new();
+        let mut offset = 1usize;
+        while out.len() < FANOUT && offset < n {
+            let fwd = &members[(idx + offset) % n];
+            if fwd != &me && !out.contains(fwd) {
+                out.push(fwd.clone());
+            }
+            if out.len() >= FANOUT {
+                break;
+            }
+            let back = &members[(idx + n - offset) % n];
+            if back != &me && !out.contains(back) {
+                out.push(back.clone());
+            }
+            offset = if offset == 1 { 2 } else { offset * 2 };
+        }
+        out.truncate(FANOUT);
+        out
     }
 
     /// Публичные ключи соседей (кому пересылаем / с кем соединяемся).
     pub fn neighbor_keys(&self, group: &[u8]) -> Vec<Vec<u8>> {
-        let Some(m) = self.membership.get(group) else {
-            return Vec::new();
-        };
-        m.neighbors(&self.peer_id(), crate::membership::DEFAULT_FANOUT)
+        let ids = self.neighbors(group);
+        self.members(group)
             .into_iter()
-            .filter_map(|p| m.public_key_of(&p))
+            .filter(|m| ids.contains(&m.peer_id))
+            .map(|m| m.public_key)
             .collect()
     }
 
-    /// Сообщение чата + адресаты (соседи его группы).
-    fn out_msg(&self, msg: ChatMessage) -> Result<Outgoing, CoreError> {
-        let envelope = self.seal_body_message(msg.clone())?;
+    /// Публичные ключи ВСЕХ участников (кроме себя) — для handshake (Commit).
+    fn member_keys(&self, group: &[u8]) -> Vec<Vec<u8>> {
+        let me = self.public_key();
+        self.members(group)
+            .into_iter()
+            .map(|m| m.public_key)
+            .filter(|k| k != &me)
+            .collect()
+    }
+
+    /// Сохранить MLS-состояние (если задан путь к БД).
+    fn persist_mls(&self) {
+        if let Some(p) = &self.mls_db {
+            let _ = self.mls.save(p);
+        }
+    }
+
+    /// Сообщение чата + адресаты (участники его группы).
+    fn out_msg(&mut self, msg: ChatMessage) -> Result<Outgoing, CoreError> {
+        let envelope = self.encrypt_env(&msg)?;
         Ok(Outgoing { envelope, targets: self.neighbor_keys(&msg.group_id) })
+    }
+
+    /// Зашифровать `ChatMessage` через MLS и упаковать в конверт.
+    fn encrypt_env(&mut self, msg: &ChatMessage) -> Result<Envelope, CoreError> {
+        let message = self.mls.encrypt(&msg.group_id, &msg.encode_to_vec())?;
+        self.seal(Gossip {
+            body: Some(Body::Mls(Mls { group_id: msg.group_id.clone(), message })),
+        })
+    }
+
+    /// Попарно (X25519) зашифровать сервисный payload прямому адресату.
+    fn seal_pairwise(&self, to: &[u8], payload: &[u8]) -> Result<Envelope, CoreError> {
+        let vk = VerifyingKey::from_bytes(
+            to.try_into()
+                .map_err(|_| CoreError::BadEnvelope("bad recipient key".into()))?,
+        )
+        .map_err(|_| CoreError::BadEnvelope("bad recipient key".into()))?;
+        let (nonce, ct) = p2pchat_crypto::pairwise_encrypt(&self.identity, &vk, payload)?;
+        self.seal(Gossip {
+            body: Some(Body::Direct(Direct {
+                to: to.to_vec(),
+                nonce: nonce.to_vec(),
+                ciphertext: ct,
+            })),
+        })
     }
 
     /// Адресовать конкретному пиру (напр. ответ на синк).
@@ -338,31 +381,15 @@ impl GossipEngine {
         Outgoing { envelope, targets: Vec::new() }
     }
 
-    /// Упаковать сообщение чата: зашифровать, если есть ключ группы.
-    fn seal_body_message(&self, msg: ChatMessage) -> Result<Envelope, CoreError> {
-        let body = match self.groups.get(&msg.group_id) {
-            Some(key) => {
-                let (nonce, ct) = key.encrypt(&msg.encode_to_vec())?;
-                Body::Encrypted(Encrypted {
-                    group_id: msg.group_id.clone(),
-                    nonce: nonce.to_vec(),
-                    ciphertext: ct,
-                })
-            }
-            None => Body::Message(msg),
-        };
-        self.seal(Gossip { body: Some(body) })
-    }
-
     /// Отправить набор сообщений конкретному пиру (ответ на синк).
     fn emit_messages_to(
-        &self,
+        &mut self,
         msgs: Vec<ChatMessage>,
         target: Vec<u8>,
         out: &mut Outcome,
     ) -> Result<(), CoreError> {
         for m in msgs {
-            let env = self.seal_body_message(m)?;
+            let env = self.encrypt_env(&m)?;
             out.outgoing.push(self.out_to(env, target.clone()));
         }
         Ok(())
@@ -373,6 +400,7 @@ impl GossipEngine {
         let env = Envelope::decode(bytes)?;
         let origin = env.sender.clone();
         let gossip = self.open(&env)?;
+        let forward_group = mls_group_of(&gossip);
         let mut out = Outcome::default();
 
         match gossip.body {
@@ -410,11 +438,8 @@ impl GossipEngine {
                     .collect();
                 self.emit_messages_to(messages, origin.clone(), &mut out)?;
             }
-            Some(Body::Encrypted(enc)) => {
-                self.on_encrypted(enc, &mut out)?;
-            }
-            Some(Body::Membership(ev)) => {
-                self.on_membership(ev, &origin, &mut out)?;
+            Some(Body::Encrypted(_)) | Some(Body::Membership(_)) => {
+                // Устаревшие тела старого протокола — игнорируем.
             }
             Some(Body::Direct(d)) => {
                 self.on_direct(d, &origin, &mut out)?;
@@ -425,16 +450,19 @@ impl GossipEngine {
             Some(Body::Presence(p)) => {
                 self.on_presence(p);
             }
-            Some(Body::Mls(_)) => {
-                // TODO(mls): обработать MLS-сообщение (приложение/handshake).
+            Some(Body::Mls(m)) => {
+                self.on_mls(m, &mut out)?;
             }
             None => {}
         }
 
-        // после применения — распространяем новое дальше
-        let forward: Vec<ChatMessage> = out.new_messages.clone();
-        for m in forward {
-            out.outgoing.push(self.out_msg(m)?);
+        // MLS-трафик пересылаем как есть (шифртекст) соседям группы —
+        // расшифровывать/перешифровывать на релее нельзя (forward secrecy).
+        if let Some(g) = forward_group {
+            let targets = self.neighbor_keys(&g);
+            if !targets.is_empty() {
+                out.outgoing.push(Outgoing { envelope: env.clone(), targets });
+            }
         }
 
         // если не хватает родителей — инициируем Merkle-синк по группе
@@ -446,18 +474,15 @@ impl GossipEngine {
             }
         }
 
+        self.persist_mls();
         Ok(out)
     }
 
     /// Группы, где мы состоим и есть участник с таким публичным ключом.
     pub fn groups_with(&self, public_key: &[u8]) -> Vec<GroupId> {
-        self.membership
-            .iter()
-            .filter(|(_, m)| {
-                m.is_member(&self.peer_id())
-                    && m.members().iter().any(|x| x.public_key == public_key)
-            })
-            .map(|(g, _)| g.clone())
+        self.groups()
+            .into_iter()
+            .filter(|g| self.mls.members(g).iter().any(|k| k == public_key))
             .collect()
     }
 
@@ -496,25 +521,18 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         Ok(())
     }
 
-    /// Расшифровать групповое сообщение. Без ключа группы — молча пропускаем
-    /// (конверт всё равно прошёл проверку подписи и может быть переслан дальше).
-    fn on_encrypted(&mut self, enc: Encrypted, out: &mut Outcome) -> Result<(), CoreError> {
-        let Some(key_bytes) = self.groups.get(&enc.group_id).map(|k| k.export()) else {
-            return Ok(());
-        };
-        let key = GroupKey::from_bytes(key_bytes);
-        let nonce: [u8; 12] = enc
-            .nonce
-            .as_slice()
-            .try_into()
-            .map_err(|_| CoreError::BadEnvelope("bad nonce".into()))?;
-        // Не смогли расшифровать (чужой/устаревший ключ) — не фатально:
-        // целостность уже проверена подписью, конверт можно переслать дальше.
-        let Ok(pt) = key.decrypt(&nonce, &enc.ciphertext) else {
-            return Ok(());
-        };
-        let msg = ChatMessage::decode(pt.as_slice())?;
-        self.on_message(msg, out)?;
+    /// Обработать MLS-сообщение: прикладное → в лог; handshake — уже применён.
+    ///
+    /// Ошибки (дубликат при лавине, свой же Commit, устаревший epoch) не фатальны —
+    /// игнорируем: доставка идемпотентна, состояние уже применено.
+    fn on_mls(&mut self, m: Mls, out: &mut Outcome) -> Result<(), CoreError> {
+        if !self.mls.has(&m.group_id) {
+            return Ok(()); // неизвестная группа (например, Commit до Welcome)
+        }
+        if let Ok(Received::Application(bytes)) = self.mls.process(&m.group_id, &m.message) {
+            let msg = ChatMessage::decode(bytes.as_slice())?;
+            self.on_message(msg, out)?;
+        }
         Ok(())
     }
 
@@ -544,129 +562,82 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         });
     }
 
-    /// Обработать событие членства: обновить состав и переслать дальше.
-    fn on_membership(
-        &mut self,
-        ev: crate::proto::MembershipEvent,
-        origin: &[u8],
-        out: &mut Outcome,
-    ) -> Result<(), CoreError> {
-        let group = ev.group_id.clone();
-        let from_other = ev.peer_id != self.peer_id();
-        let is_leave = !ev.join;
-        let is_join = ev.join;
-        let changed = self
-            .membership
-            .entry(group.clone())
-            .or_default()
-            .apply(&ev);
-        if changed {
-            let _ = self.log.store_membership(&ev);
-            let env = self.seal(Gossip {
-                body: Some(Body::Membership(ev)),
-            })?;
-            out.outgoing.push(Outgoing { envelope: env, targets: self.neighbor_keys(&group) });
+    /// Попарно зашифрованный сервисный пакет: впуск (заявка/Welcome).
+    fn on_direct(&mut self, d: Direct, origin: &[u8], out: &mut Outcome) -> Result<(), CoreError> {
+        if d.to != self.public_key() {
+            return Ok(());
         }
-        // Взаимное знакомство: если узнали о НОВОМ участнике — представимся ему.
-        if changed
-            && is_join
-            && from_other
-            && self.membership.get(&group).map(|m| m.is_member(&self.peer_id())).unwrap_or(false)
-        {
-            if let Some(self_ev) = self.self_events.get(&group).cloned() {
-                let env = self.seal(Gossip { body: Some(Body::Membership(self_ev)) })?;
-                out.outgoing.push(self.out_to(env, origin.to_vec()));
-            }
-        }
-        // Выход участника: если мы лидер среди оставшихся — меняем ключ группы,
-        // чтобы вышедший не читал новые сообщения (rekey).
-        if changed && is_leave && from_other && self.is_leader(&group) {
-            for o in self.rekey(&group)? {
-                out.outgoing.push(o);
+        let Ok(sender_vk) = VerifyingKey::from_bytes(origin.try_into().unwrap_or(&[0u8; 32])) else {
+            return Ok(());
+        };
+        let Ok(nonce) = <[u8; 12]>::try_from(d.nonce.as_slice()) else {
+            return Ok(());
+        };
+        let Ok(plain) =
+            p2pchat_crypto::pairwise_decrypt(&self.identity, &sender_vk, &nonce, &d.ciphertext)
+        else {
+            return Ok(());
+        };
+        let Ok(pw) = crate::proto::Pairwise::decode(plain.as_slice()) else {
+            return Ok(());
+        };
+        if let Some(body) = pw.body {
+            match body {
+                crate::proto::pairwise::Body::JoinRequest(req) => {
+                    self.on_join_request(req, origin, out)?;
+                }
+                crate::proto::pairwise::Body::JoinWelcome(w) => {
+                    let gid = self.mls.join(&w.welcome)?;
+                    self.remember_group(&gid);
+                    self.persist_mls();
+                }
             }
         }
         Ok(())
     }
 
-    /// Мы лидер группы (минимальный peer_id среди участников)?
-    fn is_leader(&self, group: &[u8]) -> bool {
-        let members = self.members(group);
-        match members.iter().map(|m| m.peer_id.clone()).min() {
-            Some(min_id) => min_id == self.peer_id(),
-            None => false,
-        }
-    }
-
-    /// Сменить ключ группы и раздать новый оставшимся (попарно зашифрованно).
-    pub fn rekey(&mut self, group: &[u8]) -> Result<Vec<Outgoing>, CoreError> {
-        let key = GroupKey::generate();
-        let key_bytes = key.export();
-        self.groups.insert(group.to_vec(), key);
-        let _ = self.log.store_group_key(group, &key_bytes);
-
-        let mut payload = group.to_vec();
-        payload.extend_from_slice(&key_bytes);
-
-        let mut out = Vec::new();
-        for m in self.members(group) {
-            if m.peer_id == self.peer_id() {
-                continue;
-            }
-            let Ok(vk) = VerifyingKey::from_bytes(
-                m.public_key.as_slice().try_into().unwrap_or(&[0u8; 32]),
-            ) else {
-                continue;
-            };
-            let (nonce, ct) = p2pchat_crypto::pairwise_encrypt(&self.identity, &vk, &payload)?;
-            let env = self.seal(Gossip {
-                body: Some(Body::Direct(Direct {
-                    to: m.public_key.clone(),
-                    nonce: nonce.to_vec(),
-                    ciphertext: ct,
-                })),
-            })?;
-            out.push(Outgoing { envelope: env, targets: vec![m.public_key] });
-        }
-        Ok(out)
-    }
-
-    /// Получили попарно зашифрованный прямой пакет (обычно — новый ключ группы).
-    fn on_direct(&mut self, d: Direct, origin: &[u8], _out: &mut Outcome) -> Result<(), CoreError> {
-        if d.to != self.public_key() {
-            return Ok(()); // не нам
-        }
-        let Ok(sender_vk) = VerifyingKey::from_bytes(
-            origin.try_into().unwrap_or(&[0u8; 32]),
-        ) else {
+    /// Заявка на вход: проверяем билет, добавляем участника, шлём Commit + Welcome.
+    fn on_join_request(
+        &mut self,
+        req: crate::proto::JoinRequest,
+        origin: &[u8],
+        out: &mut Outcome,
+    ) -> Result<(), CoreError> {
+        let Ok(inv) = crate::invite::Invite::parse(&req.ticket) else {
             return Ok(());
         };
-        let nonce: [u8; 12] = match d.nonce.as_slice().try_into() {
-            Ok(n) => n,
-            Err(_) => return Ok(()),
-        };
-        let Ok(plain) = p2pchat_crypto::pairwise_decrypt(&self.identity, &sender_vk, &nonce, &d.ciphertext)
-        else {
-            return Ok(());
-        };
-        if plain.len() <= 32 {
+        if inv.group_id != req.group_id
+            || inv.host != self.public_key()
+            || !inv.verify_sig()
+            || inv.is_expired(crate::unix_now())
+        {
             return Ok(());
         }
-        let (group, key_bytes) = plain.split_at(plain.len() - 32);
-        let Ok(key) = <[u8; 32]>::try_from(key_bytes) else {
-            return Ok(());
-        };
-        // отправитель должен быть участником группы
-        let sender_id = p2pchat_crypto::peer_id_of(&sender_vk);
-        let is_member = self
-            .membership
-            .get(group)
-            .map(|m| m.is_member(&sender_id))
-            .unwrap_or(false);
-        if !is_member {
+        let token = inv.use_token();
+        if self.log.get_meta(&format!("invite:{token}"))?.is_none() {
+            return Ok(()); // не наш билет
+        }
+        if self.log.get_meta(&format!("used:{token}"))?.is_some() {
+            return Ok(()); // одноразовый: уже использован
+        }
+        if !self.mls.has(&req.group_id) {
             return Ok(());
         }
-        self.groups.insert(group.to_vec(), GroupKey::from_bytes(key));
-        let _ = self.log.store_group_key(group, &key);
+        let (commit, welcome) = self.mls.add_member(&req.group_id, &req.key_package)?;
+        let _ = self.log.set_meta(&format!("used:{token}"), b"1");
+        let commit_env = self.seal(Gossip {
+            body: Some(Body::Mls(Mls { group_id: req.group_id.clone(), message: commit })),
+        })?;
+        out.outgoing
+            .push(Outgoing { envelope: commit_env, targets: self.member_keys(&req.group_id) });
+        let pw = crate::proto::Pairwise {
+            body: Some(crate::proto::pairwise::Body::JoinWelcome(crate::proto::JoinWelcome {
+                group_id: req.group_id.clone(),
+                welcome,
+            })),
+        };
+        let wel_env = self.seal_pairwise(origin, &pw.encode_to_vec())?;
+        out.outgoing.push(Outgoing { envelope: wel_env, targets: vec![origin.to_vec()] });
         Ok(())
     }
 
@@ -768,8 +739,29 @@ fn hex(bytes: &[u8]) -> String {
     s
 }
 
+fn unhex(s: &str) -> Result<Vec<u8>, CoreError> {
+    if !s.len().is_multiple_of(2) {
+        return Err(CoreError::BadEnvelope("odd hex".into()));
+    }
+    (0..s.len())
+        .step_by(2)
+        .map(|i| {
+            u8::from_str_radix(&s[i..i + 2], 16)
+                .map_err(|_| CoreError::BadEnvelope("bad hex".into()))
+        })
+        .collect()
+}
+
+/// id группы MLS-сообщения (для пересылки).
+fn mls_group_of(g: &Gossip) -> Option<GroupId> {
+    match &g.body {
+        Some(Body::Mls(m)) => Some(m.group_id.clone()),
+        _ => None,
+    }
+}
+
 /// Разобрать инвайт (совместимость). Подробнее — [`crate::invite`].
-pub fn parse_invite(invite: &str) -> Result<(GroupId, [u8; 32]), CoreError> {
+pub fn parse_invite(invite: &str) -> Result<(GroupId, Vec<u8>), CoreError> {
     let inv = crate::invite::Invite::parse(invite)?;
-    Ok((inv.group_id, inv.key))
+    Ok((inv.group_id, inv.host))
 }

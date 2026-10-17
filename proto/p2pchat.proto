@@ -144,6 +144,27 @@ message Mls {
   bytes message = 2;
 }
 
+// Сервисные сообщения впуска, которые едут ПОПАРНО (шифруются X25519).
+message Pairwise {
+  oneof body {
+    JoinRequest join_request = 1;   // новичок → хозяин: билет + KeyPackage
+    JoinWelcome join_welcome = 2;   // хозяин → новичок: Welcome
+  }
+}
+
+// Заявка на вход: одноразовый подписанный билет + KeyPackage новичка.
+message JoinRequest {
+  bytes group_id = 1;
+  string ticket = 2;
+  bytes key_package = 3;
+}
+
+// Ответ: Welcome для входа в MLS-группу.
+message JoinWelcome {
+  bytes group_id = 1;
+  bytes welcome = 2;
+}
+
 // Профиль участника (никнейм). Реплицируется по сети, LWW по lamport —
 // как события членства. У кого задан ник — показываем его, иначе идентификатор.
 message ProfileEvent {

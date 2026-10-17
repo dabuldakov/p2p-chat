@@ -63,7 +63,7 @@ fn gif_persists_and_is_queryable() {
         store.set_meta("identity", &identity.secret_bytes()).unwrap();
         let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
         e.load_state().unwrap();
-        e.create_group(g.clone());
+        e.create_group(g.clone()).unwrap();
         e.post_gif(g.clone(), att("g1")).unwrap();
 
         assert_eq!(e.log().gifs_for_group(&g, 50).unwrap().len(), 1, "выборка по группе");

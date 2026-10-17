@@ -210,28 +210,22 @@ object ChatRuntime {
             return
         }
         val g = n.toByteArray()
-        invite = core.createGroupInvite(g)
-        core.joinEnvelope(g)?.let { transport.sendTargets(it.envelope, it.targets) }
+        invite = runCatching { core.createGroupInvite(g) }.getOrNull()
         refresh()
         selectGroup(g)
         connectAll()
     }
 
     fun joinGroup(inviteStr: String) {
-        runCatching { core.joinFromInvite(inviteStr) }
+        runCatching { core.joinFromInvite(inviteStr.trim()) }
             .onSuccess { join ->
-                val g = join.groupId
                 val host = join.hostKey
-                if (host.isNotEmpty()) runCatching { transport.connectForce(host) }
-                core.joinEnvelope(g)?.let { transport.sendTargets(it.envelope, it.targets) }
                 if (host.isNotEmpty()) {
-                    runCatching { core.syncDigestTo(g, host) }.getOrNull()?.let {
-                        transport.sendTargets(it.envelope, it.targets)
-                    }
+                    runCatching { transport.connectForce(host) }
+                    // отправляем заявку (KeyPackage + билет) хозяину; ждём Welcome
+                    transport.sendTargets(join.request.envelope, join.request.targets)
+                    status = "ожидаю подтверждения…"
                 }
-                refresh()
-                selectGroup(g)
-                connectAll()
             }
             .onFailure { status = "плохой инвайт" }
     }

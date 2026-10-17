@@ -13,6 +13,9 @@ use std::sync::{Arc, Mutex};
 
 use p2pchat_core::{GossipEngine, GroupId, Log};
 
+/// Срок жизни инвайт-билета по умолчанию (сутки).
+const INVITE_TTL_SECS: u64 = 24 * 3600;
+
 /// Ошибка на границе FFI (UniFFI сам превратит в Kotlin-исключение).
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum FfiError {
@@ -77,6 +80,8 @@ pub struct FfiOutgoing {
 pub struct FfiJoin {
     pub group_id: Vec<u8>,
     pub host_key: Vec<u8>,
+    /// Заявка на впуск (KeyPackage + билет) — отправить хозяину после подключения.
+    pub request: FfiOutgoing,
 }
 
 /// Страница истории: сообщения (по возрастанию) и есть ли ещё более старые.
@@ -119,6 +124,7 @@ impl ChatCore {
         let log = Log::with_store(store)?;
         let mut engine = GossipEngine::new(identity, log);
         engine.load_state()?;
+        engine.load_mls(&db_path)?;
         Ok(Arc::new(Self { inner: Mutex::new(engine) }))
     }
 
@@ -185,40 +191,34 @@ impl ChatCore {
             .collect()
     }
 
-    /// Создать группу: возвращает групповой ключ для раздачи участникам.
-    pub fn create_group(&self, group_id: Vec<u8>) -> Vec<u8> {
+    /// Создать группу (MLS). Ключ раздаётся участникам попарно при впуске.
+    pub fn create_group(&self, group_id: Vec<u8>) -> Result<(), FfiError> {
         let mut engine = self.inner.lock().unwrap();
-        engine.create_group(group_id).to_vec()
-    }
-
-    /// Создать группу и сразу вернуть инвайт-строку (ссылка/QR).
-    pub fn create_group_invite(&self, group_id: Vec<u8>) -> String {
-        let mut engine = self.inner.lock().unwrap();
-        engine.create_group(group_id.clone());
-        engine.invite_for(&group_id).unwrap_or_default()
-    }
-
-    /// Инвайт существующей группы.
-    pub fn group_invite(&self, group_id: Vec<u8>) -> Option<String> {
-        self.inner.lock().unwrap().invite_for(&group_id)
-    }
-
-    /// Вступить в группу по инвайт-строке. Возвращает id группы и ключ хозяина.
-    pub fn join_from_invite(&self, invite: String) -> Result<FfiJoin, FfiError> {
-        let mut engine = self.inner.lock().unwrap();
-        let (group_id, host_key) = engine.join_from_invite_full(&invite)?;
-        Ok(FfiJoin { group_id, host_key })
-    }
-
-    /// Вступить в группу по ключу (получен по защищённому каналу).
-    pub fn join_group(&self, group_id: Vec<u8>, key: Vec<u8>) -> Result<(), FfiError> {
-        let key: [u8; 32] = key
-            .as_slice()
-            .try_into()
-            .map_err(|_| FfiError::Core { reason: "key must be 32 bytes".into() })?;
-        let mut engine = self.inner.lock().unwrap();
-        engine.join_group(group_id, key);
+        engine.create_group(group_id)?;
         Ok(())
+    }
+
+    /// Создать группу и сразу вернуть одноразовый инвайт-билет (ссылка/QR).
+    pub fn create_group_invite(&self, group_id: Vec<u8>) -> Result<String, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        engine.create_group(group_id.clone())?;
+        Ok(engine.create_invite(&group_id, INVITE_TTL_SECS)?)
+    }
+
+    /// Одноразовый инвайт-билет существующей группы (только владелец).
+    pub fn group_invite(&self, group_id: Vec<u8>) -> Result<Option<String>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        Ok(engine.create_invite(&group_id, INVITE_TTL_SECS).ok())
+    }
+
+    /// Начать впуск по билету: id группы, ключ хозяина и заявка для отправки.
+    pub fn join_from_invite(&self, invite: String) -> Result<FfiJoin, FfiError> {
+        let engine = self.inner.lock().unwrap();
+        let (group_id, o) = engine.join_request(&invite)?;
+        use prost::Message as _;
+        let host_key = o.targets.first().cloned().unwrap_or_default();
+        let request = FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets };
+        Ok(FfiJoin { group_id, host_key, request })
     }
 
     /// Список групп, в которых мы состоим.
@@ -337,12 +337,9 @@ impl ChatCore {
     }
 
     /// Конверт с нашим входом в группу — разослать соседям.
-    pub fn join_envelope(&self, group_id: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
-        let engine = self.inner.lock().unwrap();
-        use prost::Message as _;
-        Ok(engine
-            .join_envelope(&group_id)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    pub fn join_envelope(&self, _group_id: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
+        // Впуск теперь идёт через join_from_invite (MLS Add/Commit + Welcome).
+        Ok(None)
     }
 
     /// Обработать входящий конверт. Возвращает конверты для пересылки (с адресатами).

@@ -1,71 +1,37 @@
-//! Проверка Merkle-синка: две реплики разошлись, digest-протокол их сводит.
+//! Merkle-синк: две реплики разошлись, digest-протокол их сводит.
 
+mod common;
+
+use common::*;
 use prost::Message as _;
-
 use p2pchat_core::gossip::Outgoing;
-use p2pchat_core::{GossipEngine, Log};
-use p2pchat_crypto::Identity;
-
-fn enc(out: &Outgoing) -> Vec<u8> {
-    out.envelope.encode_to_vec()
-}
-
-/// Прогоняет конверты между двумя движками, пока не наступит тишина.
-fn pump(a: &mut GossipEngine, b: &mut GossipEngine, seed_to_b: Vec<Vec<u8>>) {
-    let mut to_b = seed_to_b;
-    let mut to_a: Vec<Vec<u8>> = Vec::new();
-
-    for _ in 0..20 {
-        let mut next_a = Vec::new();
-        let mut next_b = Vec::new();
-
-        for e in to_b.drain(..) {
-            let o = b.handle(&e).expect("b handle");
-            next_a.extend(o.outgoing.iter().map(enc));
-        }
-        for e in to_a.drain(..) {
-            let o = a.handle(&e).expect("a handle");
-            next_b.extend(o.outgoing.iter().map(enc));
-        }
-
-        to_a = next_a;
-        to_b = next_b;
-        if to_a.is_empty() && to_b.is_empty() {
-            return;
-        }
-    }
-    panic!("sync did not settle");
-}
 
 #[test]
 fn diverged_replicas_converge_via_merkle() {
-    let mut a = GossipEngine::new(Identity::generate(), Log::new());
-    let mut b = GossipEngine::new(Identity::generate(), Log::new());
-    let g = b"group".to_vec();
+    let (mut e, keys, g) = build_group(2);
 
-    let a1 = a.post(g.clone(), "a1".into()).unwrap();
-    b.handle(&enc(&a1)).unwrap();
+    // A пишет a1 и доставляет B; B пишет b1, но не доставляет.
+    let a1 = e[0].post(g.clone(), "a1".into()).unwrap();
+    pump(&mut e, &keys, vec![(0, a1)]);
+    let _b1 = e[1].post(g.clone(), "b1".into()).unwrap();
 
-    let _b1 = b.post(g.clone(), "b1".into()).unwrap();
+    // A инициирует синк (broadcast digest)
+    let digest = e[0].sync_digest(&g).unwrap();
+    pump(&mut e, &keys, vec![(0, Outgoing { envelope: digest, targets: vec![] })]);
 
-    let digest = a.sync_digest(&g).unwrap();
-    pump(&mut a, &mut b, vec![digest.encode_to_vec()]);
-
-    assert_eq!(a.log().len(), 2, "A добрал b1");
-    assert_eq!(b.log().len(), 2, "B уже имел оба");
-    assert_eq!(a.log().ordered(&g), b.log().ordered(&g), "порядок совпал");
+    assert_eq!(e[0].log().len(), 2, "A добрал b1");
+    assert_eq!(e[1].log().len(), 2, "B уже имел оба");
+    assert_eq!(e[0].log().ordered(&g), e[1].log().ordered(&g), "порядок совпал");
 }
 
 #[test]
 fn already_synced_is_noop() {
-    let mut a = GossipEngine::new(Identity::generate(), Log::new());
-    let mut b = GossipEngine::new(Identity::generate(), Log::new());
-    let g = b"group".to_vec();
+    let (mut e, keys, g) = build_group(2);
 
-    let a1 = a.post(g.clone(), "hi".into()).unwrap();
-    b.handle(&enc(&a1)).unwrap();
+    let a1 = e[0].post(g.clone(), "hi".into()).unwrap();
+    pump(&mut e, &keys, vec![(0, a1)]);
 
-    let digest = a.sync_digest(&g).unwrap();
-    let out = b.handle(&digest.encode_to_vec()).unwrap();
+    let digest = e[0].sync_digest(&g).unwrap();
+    let out = e[1].handle(&digest.encode_to_vec()).unwrap();
     assert!(out.outgoing.is_empty(), "корни совпали — синк не нужен");
 }

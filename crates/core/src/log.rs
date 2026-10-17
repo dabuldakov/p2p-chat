@@ -23,6 +23,8 @@ pub struct Log {
     /// id -> есть ли у него известный потомок
     has_child: HashSet<MessageId>,
     store: Option<Store>,
+    /// Мета в памяти (когда store нет — напр. в тестах).
+    mem_meta: std::sync::Mutex<HashMap<String, Vec<u8>>>,
 }
 
 impl Log {
@@ -33,6 +35,7 @@ impl Log {
             heads: HashMap::new(),
             has_child: HashSet::new(),
             store: None,
+            mem_meta: Default::default(),
         }
     }
 
@@ -187,6 +190,8 @@ impl Log {
     pub fn set_meta(&self, key: &str, value: &[u8]) -> Result<(), CoreError> {
         if let Some(s) = &self.store {
             s.set_meta(key, value)?;
+        } else {
+            self.mem_meta.lock().unwrap().insert(key.to_string(), value.to_vec());
         }
         Ok(())
     }
@@ -194,7 +199,7 @@ impl Log {
     pub fn get_meta(&self, key: &str) -> Result<Option<Vec<u8>>, CoreError> {
         Ok(match &self.store {
             Some(s) => s.get_meta(key)?,
-            None => None,
+            None => self.mem_meta.lock().unwrap().get(key).cloned(),
         })
     }
 

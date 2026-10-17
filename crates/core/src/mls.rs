@@ -47,6 +47,11 @@ impl MlsGroups {
         self.groups.contains_key(group_id)
     }
 
+    /// id всех известных групп.
+    pub fn group_ids(&self) -> Vec<GroupId> {
+        self.groups.keys().cloned().collect()
+    }
+
     /// Добавить участника по его KeyPackage: вернуть `(commit, welcome)`.
     pub fn add_member(
         &mut self,
@@ -110,10 +115,13 @@ impl MlsGroups {
         Ok(p2pchat_mls::save(&self.id, db_path)?)
     }
 
-    /// Поднять состояние и личность из SQLite.
+    /// Поднять состояние и личность из SQLite (или создать личность, если снапшота нет).
     pub fn load(account: &Identity, db_path: &str) -> Result<Self, CoreError> {
         let account_bytes = account.public_key().to_bytes();
-        let id = p2pchat_mls::load_identity(&account_bytes, db_path)?;
+        let id = match p2pchat_mls::load_identity(&account_bytes, db_path) {
+            Ok(id) => id,
+            Err(_) => identity_from(account)?,
+        };
         Ok(Self { id, groups: HashMap::new() })
     }
 
