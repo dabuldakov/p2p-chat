@@ -5,6 +5,7 @@ members = [
     "crates/core",
     "crates/crypto",
     "crates/storage",
+    "crates/mls",
     "crates/transport",
     "crates/signaling",
     "crates/server",
@@ -24,6 +25,7 @@ p2pchat-proto = { path = "crates/proto" }
 p2pchat-core = { path = "crates/core" }
 p2pchat-crypto = { path = "crates/crypto" }
 p2pchat-storage = { path = "crates/storage" }
+p2pchat-mls = { path = "crates/mls" }
 p2pchat-transport = { path = "crates/transport" }
 p2pchat-signaling = { path = "crates/signaling" }
 
@@ -66,3 +68,10 @@ futures-util = "0.3"
 hmac = "0.12"
 sha1 = "0.10"
 base64 = "0.22"
+
+# MLS (групповой E2EE: forward secrecy + post-compromise security)
+openmls = "0.9"
+openmls_rust_crypto = "0.6"
+openmls_traits = "0.6"
+openmls_basic_credential = "0.6"
+tls_codec = "0.5"

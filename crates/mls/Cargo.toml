@@ -1,0 +1,12 @@
+[package]
+name = "p2pchat-mls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+openmls = { workspace = true }
+openmls_rust_crypto = { workspace = true }
+openmls_traits = { workspace = true }
+openmls_basic_credential = { workspace = true }
+thiserror = { workspace = true }
