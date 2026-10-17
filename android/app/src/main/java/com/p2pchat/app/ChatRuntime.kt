@@ -313,7 +313,7 @@ object ChatRuntime {
         }
         val g = groups.firstOrNull { (unread[it] ?: 0UL) > 0UL } ?: groups.firstOrNull() ?: return
         val last = runCatching {
-            core.historyWindow(g.toByteArray(), null, 1).messages.lastOrNull()?.text
+            core.historyWindow(g.toByteArray(), null, 1u).messages.lastOrNull()?.text
         }.getOrNull()
         val text = if (last.isNullOrBlank()) "Новые сообщения" else last
         Notifier.showMessages(app, g, text, unreadGroups, g, silent)
