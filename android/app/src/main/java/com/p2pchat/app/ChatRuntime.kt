@@ -131,7 +131,7 @@ object ChatRuntime {
 
         signaling.connect()
         scope.launch {
-            signaling.incoming.collect { env -> transport.onSignal(env) }
+            signaling.incoming.collect { env -> runCatching { transport.onSignal(env) }.onFailure { Logs.w("signal error: $it") } }
         }
         refresh()
         connectAll()
@@ -349,12 +349,15 @@ object ChatRuntime {
         )
 
     private fun handleIncoming(envelope: ByteArray) {
-        val outs = core.receive(envelope)
+        val outs = runCatching { core.receive(envelope) }.getOrElse {
+            Logs.w("receive error: $it")
+            return
+        }
         Logs.d("incoming env -> out=${outs.size}")
         outs.forEach { out ->
-            transport.sendTargets(out.envelope, out.targets)
+            runCatching { transport.sendTargets(out.envelope, out.targets) }
         }
-        refresh()
+        runCatching { refresh() }
     }
 
     fun refresh() {

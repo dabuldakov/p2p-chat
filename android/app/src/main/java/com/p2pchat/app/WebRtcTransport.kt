@@ -227,21 +227,26 @@ class WebRtcTransport(
         dc.registerObserver(object : DataChannel.Observer {
             override fun onBufferedAmountChange(previousAmount: Long) = Unit
             override fun onStateChange() {
-                if (dc.state() == DataChannel.State.OPEN) {
-                    flushPending(conn)
-                    if (!conn.notified) {
-                        conn.notified = true
-                        Logs.i("dc OPEN ${keyHex(conn.remoteKey).take(8)}")
-                        onPeerConnected(conn.remoteKey)
+                // Никогда не даём исключению улететь в нативный колбэк (краш).
+                runCatching {
+                    if (dc.state() == DataChannel.State.OPEN) {
+                        flushPending(conn)
+                        if (!conn.notified) {
+                            conn.notified = true
+                            Logs.i("dc OPEN ${keyHex(conn.remoteKey).take(8)}")
+                            onPeerConnected(conn.remoteKey)
+                        }
                     }
-                }
-                onPeerChange(connectedCount())
+                    onPeerChange(connectedCount())
+                }.onFailure { Logs.w("dc state error: $it") }
             }
             override fun onMessage(buffer: DataChannel.Buffer) {
-                val bytes = ByteArray(buffer.data.remaining())
-                buffer.data.get(bytes)
-                Logs.d("dc recv ${bytes.size}b")
-                onIncoming(bytes)
+                runCatching {
+                    val bytes = ByteArray(buffer.data.remaining())
+                    buffer.data.get(bytes)
+                    Logs.d("dc recv ${bytes.size}b")
+                    onIncoming(bytes)
+                }.onFailure { Logs.w("dc recv error: $it") }
             }
         })
     }
@@ -302,27 +307,33 @@ class WebRtcTransport(
                 state == PeerConnection.IceConnectionState.DISCONNECTED ||
                 state == PeerConnection.IceConnectionState.CLOSED
             ) {
-                handleDisconnect(conn)
+                runCatching { handleDisconnect(conn) }.onFailure { Logs.w("ice state error: $it") }
             }
         }
         override fun onStandardizedIceConnectionChange(state: PeerConnection.IceConnectionState) = Unit
         override fun onConnectionChange(state: PeerConnection.PeerConnectionState) {
-            if (state == PeerConnection.PeerConnectionState.FAILED ||
-                state == PeerConnection.PeerConnectionState.CLOSED
-            ) {
-                handleDisconnect(conn)
-            }
-            onPeerChange(connectedCount())
+            runCatching {
+                if (state == PeerConnection.PeerConnectionState.FAILED ||
+                    state == PeerConnection.PeerConnectionState.CLOSED
+                ) {
+                    handleDisconnect(conn)
+                }
+                onPeerChange(connectedCount())
+            }.onFailure { Logs.w("conn change error: $it") }
         }
         override fun onIceConnectionReceivingChange(receiving: Boolean) = Unit
         override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) = Unit
         override fun onIceCandidate(candidate: IceCandidate) {
-            signaling.sendIce(conn.remoteKey, candidate.sdp, candidate.sdpMid, candidate.sdpMLineIndex)
+            runCatching {
+                signaling.sendIce(conn.remoteKey, candidate.sdp, candidate.sdpMid, candidate.sdpMLineIndex)
+            }.onFailure { Logs.w("send ice error: $it") }
         }
         override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>) = Unit
         override fun onAddStream(stream: MediaStream) = Unit
         override fun onRemoveStream(stream: MediaStream) = Unit
-        override fun onDataChannel(dc: DataChannel) = attachDataChannel(conn, dc)
+        override fun onDataChannel(dc: DataChannel) {
+            runCatching { attachDataChannel(conn, dc) }.onFailure { Logs.w("onDataChannel error: $it") }
+        }
         override fun onRenegotiationNeeded() = Unit
         override fun onAddTrack(receiver: RtpReceiver, mediaStreams: Array<out MediaStream>) = Unit
         override fun onRemoveTrack(receiver: RtpReceiver) = Unit
