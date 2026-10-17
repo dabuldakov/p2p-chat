@@ -88,6 +88,10 @@
   footer{border-top:1px solid var(--line); padding:28px 0; color:var(--muted); font-size:14px}
   footer .wrap{display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
   .lang{font-size:13px; color:var(--muted)}
+  .cap{color:var(--muted); font-size:13px; margin:8px 2px 0}
+  .scenario{margin-top:22px}
+  .scenario h3{margin:0 0 4px; font-size:17px}
+  .scenario .who{color:var(--muted); font-size:13px; margin:0 0 12px}
 </style>
 </head>
 <body>
@@ -99,6 +103,7 @@
       <a href="#how">Как работает</a>
       <a href="#start">Как начать</a>
       <a href="#group">Группы</a>
+      <a href="#crypto">Шифрование</a>
       <a href="#details">Подробности</a>
       <a href="#privacy">Приватность</a>
       <a href="#faq">Вопросы</a>
@@ -357,6 +362,193 @@
         <p>Если оператор связи мешает прямому соединению с соседом, на помощь приходит
            ретранслятор TURN — путь становится длиннее, но сообщение доходит.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="crypto">
+  <div class="wrap">
+    <h2>Шифрование и рукопожатия</h2>
+    <p class="sub">Групповое шифрование — по протоколу <b>MLS (RFC 9420)</b>: forward secrecy и post-compromise security.
+       Ниже — что у кого за ключи и все «рукопожатия» по шагам, с указанием задействованных сторон.</p>
+
+    <h3 class="blk">Ключи и роли</h3>
+    <div class="figure">
+      <svg viewBox="0 0 860 300" role="img" aria-label="Ключи: аккаунт, устройство, MLS-группа, сервер">
+        <rect x="50" y="24" width="300" height="150" rx="14" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+        <text x="72" y="52" fill="#e8edff" font-size="15" font-weight="600">Телефон A</text>
+        <text x="72" y="82" fill="#9aa7c7" font-size="12.5">Аккаунт — ключ личности (Ed25519)</text>
+        <text x="72" y="104" fill="#9aa7c7" font-size="12.5">Устройство — ключ подписи</text>
+        <text x="72" y="126" fill="#9aa7c7" font-size="12.5">Секреты эпохи MLS</text>
+        <text x="72" y="148" fill="#9aa7c7" font-size="12.5">Локальный лог сообщений</text>
+
+        <rect x="510" y="24" width="300" height="150" rx="14" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+        <text x="532" y="52" fill="#e8edff" font-size="15" font-weight="600">Телефон B</text>
+        <text x="532" y="82" fill="#9aa7c7" font-size="12.5">Аккаунт — ключ личности (Ed25519)</text>
+        <text x="532" y="104" fill="#9aa7c7" font-size="12.5">Устройство — ключ подписи</text>
+        <text x="532" y="126" fill="#9aa7c7" font-size="12.5">Секреты эпохи MLS</text>
+        <text x="532" y="148" fill="#9aa7c7" font-size="12.5">Локальный лог сообщений</text>
+
+        <line x1="358" y1="99" x2="502" y2="99" stroke="#43d6a0" stroke-width="3" marker-start="url(#k_g)" marker-end="url(#k_g)"/>
+        <text x="430" y="86" fill="#43d6a0" font-size="13" text-anchor="middle">общий секрет группы (MLS)</text>
+        <text x="430" y="120" fill="#9aa7c7" font-size="11.5" text-anchor="middle">меняется при входе/выходе</text>
+
+        <rect x="330" y="212" width="200" height="64" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2" stroke-dasharray="5 5"/>
+        <text x="430" y="240" fill="#e8edff" font-size="14" text-anchor="middle">Сервер знакомства</text>
+        <text x="430" y="260" fill="#9aa7c7" font-size="11.5" text-anchor="middle">публичные ключи, адреса, SDP/ICE</text>
+        <line x1="150" y1="174" x2="360" y2="212" stroke="#5b8cff" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <line x1="710" y1="174" x2="500" y2="212" stroke="#5b8cff" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <text x="430" y="198" fill="#9aa7c7" font-size="11.5" text-anchor="middle">контента не видит</text>
+
+        <defs>
+          <marker id="k_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker>
+        </defs>
+      </svg>
+    </div>
+    <p class="cap">У каждого — своя личность (подпись Ed25519). Секрет группы — общий, это <b>состояние MLS</b>, которое обновляется при каждой смене состава. Сервер видит только публичную часть.</p>
+
+    <div class="scenario">
+      <h3>1. Создание группы</h3>
+      <p class="who">Задействована: <b>только сторона-создатель</b>. Сервер не участвует.</p>
+      <div class="figure">
+        <svg viewBox="0 0 860 170" role="img" aria-label="Создание группы локально">
+          <rect x="60" y="40" width="230" height="60" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="175" y="68" fill="#e8edff" font-size="14.5" text-anchor="middle">Создатель (A)</text>
+          <text x="175" y="88" fill="#9aa7c7" font-size="11.5" text-anchor="middle">генерирует id и эпоху 0</text>
+          <line x1="292" y1="70" x2="470" y2="70" stroke="#43d6a0" stroke-width="2" marker-end="url(#c_g)"/>
+          <text x="381" y="60" fill="#43d6a0" font-size="12" text-anchor="middle">MLS: создать группу</text>
+          <rect x="472" y="40" width="220" height="60" rx="12" fill="#0e1733" stroke="#43d6a0" stroke-width="2"/>
+          <text x="582" y="68" fill="#e8edff" font-size="14.5" text-anchor="middle">Локальное состояние</text>
+          <text x="582" y="88" fill="#9aa7c7" font-size="11.5" text-anchor="middle">ключи эпохи 0 · мы — владелец</text>
+          <rect x="472" y="120" width="220" height="34" rx="10" fill="#0e1733" stroke="#5b8cff" stroke-width="1.6" stroke-dasharray="5 5"/>
+          <text x="582" y="141" fill="#9aa7c7" font-size="11.5" text-anchor="middle">сервер не задействован</text>
+          <defs><marker id="c_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker></defs>
+        </svg>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>2. Впуск нового участника (по одноразовому билету)</h3>
+      <p class="who">Задействованы: <b>хозяин</b> и <b>новичок</b>. Ключ группы в ссылке <b>не передаётся</b> — только подписанный билет.</p>
+      <div class="figure">
+        <svg viewBox="0 0 860 500" role="img" aria-label="Впуск: заявка и Welcome попарно">
+          <rect x="90" y="10" width="200" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="190" y="39" fill="#e8edff" font-size="14.5" text-anchor="middle">Хозяин (A)</text>
+          <line x1="190" y1="56" x2="190" y2="492" stroke="#26325a" stroke-dasharray="4 5"/>
+          <rect x="570" y="10" width="200" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="670" y="39" fill="#e8edff" font-size="14.5" text-anchor="middle">Новичок (B)</text>
+          <line x1="670" y1="56" x2="670" y2="492" stroke="#26325a" stroke-dasharray="4 5"/>
+
+          <rect x="96" y="84" width="188" height="40" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="190" y="101" fill="#e8edff" font-size="11.5" text-anchor="middle">создаёт билет</text>
+          <text x="190" y="116" fill="#9aa7c7" font-size="10.5" text-anchor="middle">nonce · срок · подпись</text>
+
+          <line x1="190" y1="150" x2="650" y2="150" stroke="#ffcf6b" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#j_m)"/>
+          <text x="430" y="142" fill="#ffcf6b" font-size="12" text-anchor="middle">ссылка/QR с билетом (вне канала)</text>
+
+          <line x1="650" y1="205" x2="210" y2="205" stroke="#5b8cff" stroke-width="2" marker-end="url(#j_b)"/>
+          <text x="430" y="197" fill="#5b8cff" font-size="12" text-anchor="middle">заявка: KeyPackage + билет — попарно (X25519)</text>
+
+          <rect x="96" y="234" width="188" height="40" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="190" y="251" fill="#e8edff" font-size="11.5" text-anchor="middle">проверяет билет</text>
+          <text x="190" y="266" fill="#9aa7c7" font-size="10.5" text-anchor="middle">подпись · срок · не использован</text>
+
+          <rect x="96" y="300" width="188" height="40" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="190" y="317" fill="#e8edff" font-size="11.5" text-anchor="middle">Add + Commit</text>
+          <text x="190" y="332" fill="#9aa7c7" font-size="10.5" text-anchor="middle">новая эпоха MLS</text>
+
+          <line x1="210" y1="376" x2="650" y2="376" stroke="#5b8cff" stroke-width="2" marker-end="url(#j_b)"/>
+          <text x="430" y="368" fill="#5b8cff" font-size="12" text-anchor="middle">Welcome — попарно</text>
+
+          <rect x="576" y="404" width="188" height="40" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="670" y="421" fill="#e8edff" font-size="11.5" text-anchor="middle">входит в группу</text>
+          <text x="670" y="436" fill="#9aa7c7" font-size="10.5" text-anchor="middle">та же эпоха MLS</text>
+
+          <line x1="210" y1="474" x2="650" y2="474" stroke="#43d6a0" stroke-width="2" marker-start="url(#j_g)" marker-end="url(#j_g)"/>
+          <text x="430" y="466" fill="#43d6a0" font-size="12" text-anchor="middle">дальше — сообщения по группе</text>
+
+          <defs>
+            <marker id="j_b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b8cff"/></marker>
+            <marker id="j_m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffcf6b"/></marker>
+            <marker id="j_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker>
+          </defs>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="dir"></i>сообщения/MLS-трафик</span>
+        <span><i></i>попарно (X25519)</span>
+        <span><i class="dash"></i>вне канала (ссылка/QR)</span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>3. Отправка сообщения</h3>
+      <p class="who">Задействованы: <b>отправитель</b>, <b>получатели</b> и (опционально) <b>релей</b>, который видит только шифртекст.</p>
+      <div class="figure">
+        <svg viewBox="0 0 860 250" role="img" aria-label="Путь сообщения: шифрование, релей, расшифровка">
+          <rect x="60" y="10" width="180" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="150" y="39" fill="#e8edff" font-size="14" text-anchor="middle">Отправитель</text>
+          <line x1="150" y1="56" x2="150" y2="240" stroke="#26325a" stroke-dasharray="4 5"/>
+          <rect x="340" y="10" width="180" height="46" rx="12" fill="#0e1733" stroke="#ffcf6b" stroke-width="2"/>
+          <text x="430" y="39" fill="#e8edff" font-size="14" text-anchor="middle">Релей (если нужен)</text>
+          <line x1="430" y1="56" x2="430" y2="240" stroke="#26325a" stroke-dasharray="4 5"/>
+          <rect x="620" y="10" width="180" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="710" y="39" fill="#e8edff" font-size="14" text-anchor="middle">Получатель</text>
+          <line x1="710" y1="56" x2="710" y2="240" stroke="#26325a" stroke-dasharray="4 5"/>
+
+          <rect x="62" y="82" width="176" height="38" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="150" y="99" fill="#e8edff" font-size="11" text-anchor="middle">шифрует в MLS-пакет</text>
+          <text x="150" y="113" fill="#9aa7c7" font-size="10.5" text-anchor="middle">ключом эпохи</text>
+
+          <line x1="240" y1="150" x2="420" y2="150" stroke="#43d6a0" stroke-width="2" marker-end="url(#m_g)"/>
+          <line x1="440" y1="170" x2="620" y2="170" stroke="#43d6a0" stroke-width="2" marker-end="url(#m_g)"/>
+          <text x="335" y="142" fill="#43d6a0" font-size="11.5" text-anchor="middle">шифртекст</text>
+          <text x="530" y="162" fill="#43d6a0" font-size="11.5" text-anchor="middle">пересылает как есть</text>
+
+          <rect x="622" y="196" width="176" height="38" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="710" y="213" fill="#e8edff" font-size="11" text-anchor="middle">расшифровывает</text>
+          <text x="710" y="227" fill="#9aa7c7" font-size="10.5" text-anchor="middle">ключом эпохи</text>
+
+          <text x="430" y="228" fill="#9aa7c7" font-size="11" text-anchor="middle">релей не может прочитать</text>
+          <defs><marker id="m_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker></defs>
+        </svg>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>4. Удаление участника</h3>
+      <p class="who">Задействованы: <b>владелец</b> и <b>оставшиеся</b>. Удалённый ключей новой эпохи не получает.</p>
+      <div class="figure">
+        <svg viewBox="0 0 860 300" role="img" aria-label="Удаление участника: Remove и Commit, forward secrecy">
+          <rect x="90" y="10" width="200" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="190" y="39" fill="#e8edff" font-size="14.5" text-anchor="middle">Владелец (A)</text>
+          <line x1="190" y1="56" x2="190" y2="290" stroke="#26325a" stroke-dasharray="4 5"/>
+          <rect x="570" y="10" width="200" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="670" y="39" fill="#e8edff" font-size="14.5" text-anchor="middle">Оставшиеся</text>
+          <line x1="670" y1="56" x2="670" y2="290" stroke="#26325a" stroke-dasharray="4 5"/>
+
+          <rect x="96" y="90" width="188" height="42" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="190" y="107" fill="#e8edff" font-size="11.5" text-anchor="middle">Remove (C) + Commit</text>
+          <text x="190" y="122" fill="#9aa7c7" font-size="10.5" text-anchor="middle">эпоха +1</text>
+
+          <line x1="210" y1="176" x2="650" y2="176" stroke="#43d6a0" stroke-width="2" marker-end="url(#r_g)"/>
+          <text x="430" y="168" fill="#43d6a0" font-size="12" text-anchor="middle">Commit — новой эпохи</text>
+
+          <rect x="576" y="204" width="188" height="42" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="670" y="221" fill="#e8edff" font-size="11.5" text-anchor="middle">применяют Commit</text>
+          <text x="670" y="236" fill="#9aa7c7" font-size="10.5" text-anchor="middle">читают новые сообщения</text>
+
+          <rect x="96" y="250" width="668" height="34" rx="10" fill="rgba(255,207,107,.08)" stroke="#ffcf6b" stroke-width="1.6"/>
+          <text x="430" y="271" fill="#e8edff" font-size="11.5" text-anchor="middle">Удалённый (C) не получает ключей новой эпохи → не читает новые сообщения (forward secrecy)</text>
+          <defs><marker id="r_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker></defs>
+        </svg>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:22px">
+      <b>Что даёт MLS.</b> Каждая смена состава и смена ключей сдвигает эпоху: старые секреты удаляются (forward secrecy),
+      после ротации система «заживает» даже при утечке ключа (post-compromise security). Кто в группе —
+      не подделать: handshake-сообщения подписаны участниками. Сервер и релей видят только шифртекст.
     </div>
   </div>
 </section>
