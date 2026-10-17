@@ -1,12 +1,17 @@
 package com.p2pchat.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -84,6 +89,9 @@ import uniffi.p2pchat_ffi.FfiMessage
 class MainActivity : ComponentActivity() {
     private val vm: ChatViewModel by viewModels()
 
+    private val notifPerm =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -93,7 +101,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        intent?.getStringExtra(EXTRA_SHARED_TEXT)?.let(vm::onSharedText)
+        handleIntent(intent)
+        maybeRequestNotifications()
     }
 
     override fun onStart() {
@@ -102,16 +111,37 @@ class MainActivity : ComponentActivity() {
         vm.onForeground()
     }
 
+    override fun onStop() {
+        super.onStop()
+        vm.setVisible(false)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // Поделились, пока приложение уже открыто.
-        intent.getStringExtra(EXTRA_SHARED_TEXT)?.let(vm::onSharedText)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent?.getStringExtra(EXTRA_SHARED_TEXT)?.let(vm::onSharedText)
+        intent?.getStringExtra(EXTRA_GROUP)?.let { vm.selectGroup(it.toByteArray()) }
+    }
+
+    private fun maybeRequestNotifications() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     companion object {
         /** Ссылка/текст, которым поделились с приложением (ACTION_SEND). */
         const val EXTRA_SHARED_TEXT = "extra_shared_text"
+
+        /** Группа, которую открыть (из уведомления). */
+        const val EXTRA_GROUP = "extra_group"
     }
 }
 

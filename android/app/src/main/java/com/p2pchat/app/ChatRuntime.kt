@@ -40,6 +40,10 @@ object ChatRuntime {
     @Volatile
     private var initialized = false
 
+    /** Виден ли UI сейчас (для бейджа: в фоне — со звуком, на экране — тихо). */
+    @Volatile
+    private var appVisible = false
+
     private lateinit var app: Application
     private lateinit var core: ChatCore
     private lateinit var signaling: SignalingClient
@@ -235,6 +239,12 @@ object ChatRuntime {
         invite = core.groupInvite(g)
         isOwner = runCatching { core.isOwner(g) }.getOrDefault(false)
         refresh()
+        updateBadge(silent = true)
+    }
+
+    /** UI показан/скрыт (для бейджа). */
+    fun setVisible(v: Boolean) {
+        appVisible = v
     }
 
     fun leaveGroup() {
@@ -287,9 +297,26 @@ object ChatRuntime {
     }
 
     fun onForeground() {
+        appVisible = true
         refresh()
         connectAll()
         syncAll()
+        updateBadge(silent = true)
+    }
+
+    /** Бейдж/уведомление: число = групп с непрочитанными. */
+    private fun updateBadge(silent: Boolean) {
+        val unreadGroups = groups.count { (unread[it] ?: 0UL) > 0UL }
+        if (unreadGroups == 0) {
+            Notifier.clear(app)
+            return
+        }
+        val g = groups.firstOrNull { (unread[it] ?: 0UL) > 0UL } ?: groups.firstOrNull() ?: return
+        val last = runCatching {
+            core.historyWindow(g.toByteArray(), null, 1).messages.lastOrNull()?.text
+        }.getOrNull()
+        val text = if (last.isNullOrBlank()) "Новые сообщения" else last
+        Notifier.showMessages(app, g, text, unreadGroups, g, silent)
     }
 
     // --- Сообщения -------------------------------------------------------
@@ -358,6 +385,7 @@ object ChatRuntime {
             runCatching { transport.sendTargets(out.envelope, out.targets) }
         }
         runCatching { refresh() }
+        runCatching { updateBadge(silent = appVisible) }
     }
 
     fun refresh() {

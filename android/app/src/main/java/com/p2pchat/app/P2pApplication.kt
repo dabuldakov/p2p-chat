@@ -11,5 +11,6 @@ class P2pApplication : Application() {
         ChatRuntime.init(this)
         CoilSetup.install(this)
         Media3Cache.install(this)
+        Notifier.ensureChannels(this)
     }
 }

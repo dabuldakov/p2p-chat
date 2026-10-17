@@ -47,6 +47,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun onSharedText(text: String) = ChatRuntime.onSharedText(text)
     fun consumeSharedDraft() = ChatRuntime.consumeSharedDraft()
     fun onForeground() = ChatRuntime.onForeground()
+    fun setVisible(v: Boolean) = ChatRuntime.setVisible(v)
     fun send(text: String) = ChatRuntime.send(text)
     fun loadOlder() = ChatRuntime.loadOlder()
     fun refresh() = ChatRuntime.refresh()
