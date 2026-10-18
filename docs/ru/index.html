@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>p2pchat — чат без сервера</title>
+<meta name="description" content="p2pchat — децентрализованный чат между телефонами напрямую, без центрального сервера для сообщений.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#111a33; --card:#151f3d; --line:#26325a;
+    --fg:#e8edff; --muted:#9aa7c7; --accent:#5b8cff; --accent2:#43d6a0;
+    --warn:#ffcf6b; --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #16224a 0%, var(--bg) 55%) fixed;
+    color:var(--fg); line-height:1.6;
+  }
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1040px; margin:0 auto; padding:0 20px}
+  header.nav{
+    position:sticky; top:0; z-index:10; backdrop-filter:blur(10px);
+    background:rgba(11,16,32,.75); border-bottom:1px solid var(--line);
+  }
+  .nav .wrap{display:flex; align-items:center; justify-content:space-between; height:60px}
+  .brand{font-weight:700; letter-spacing:.3px}
+  .brand span{color:var(--accent)}
+  .nav nav a{margin-left:18px; color:var(--muted); font-size:14px}
+  .nav nav a:hover{color:var(--fg)}
+  .btn{
+    display:inline-block; padding:12px 20px; border-radius:12px; font-weight:600;
+    background:var(--accent); color:#06122e; text-decoration:none; border:1px solid transparent;
+  }
+  .btn:hover{filter:brightness(1.08); text-decoration:none}
+  .btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--line)}
+  .hero{padding:64px 0 32px; text-align:center}
+  .hero h1{font-size:clamp(28px,5vw,46px); margin:0 0 12px; line-height:1.15}
+  .hero p{color:var(--muted); font-size:clamp(15px,2.2vw,19px); max-width:720px; margin:0 auto 26px}
+  .cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+  .meta{margin-top:14px; color:var(--muted); font-size:13px}
+  .badge{
+    display:inline-flex; align-items:center; gap:8px; margin-top:16px;
+    padding:6px 12px; border-radius:999px; font-size:13px; color:var(--muted);
+    background:rgba(91,140,255,.10); border:1px solid var(--line);
+  }
+  .badge b{color:var(--fg); font-weight:600}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--accent2); display:inline-block}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  .chip{padding:5px 11px; border-radius:999px; font-size:12.5px; color:var(--muted); background:rgba(91,140,255,.10); border:1px solid var(--line)}
+  h3.blk{font-size:18px; margin:26px 0 10px}
+  section{padding:40px 0; border-top:1px solid var(--line)}
+  h2{font-size:clamp(22px,3.4vw,30px); margin:0 0 8px}
+  .sub{color:var(--muted); margin:0 0 26px}
+  .grid{display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .card{
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line); border-radius:var(--radius); padding:20px;
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .card:hover{transform:translateY(-2px); border-color:#3a4c86}
+  .card h3{margin:0 0 6px; font-size:17px}
+  .card p{margin:0; color:var(--muted); font-size:14.5px}
+  .steps{counter-reset:s; display:grid; gap:14px}
+  .step{
+    display:flex; gap:16px; align-items:flex-start; background:var(--card);
+    border:1px solid var(--line); border-radius:14px; padding:16px 18px;
+  }
+  .step .n{
+    flex:0 0 34px; height:34px; width:34px; border-radius:50%;
+    display:grid; place-items:center; font-weight:700; color:#06122e; background:var(--accent);
+  }
+  .step h3{margin:2px 0 4px; font-size:16px}
+  .step p{margin:0; color:var(--muted); font-size:14.5px}
+  .figure{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; overflow:auto}
+  .figure svg{display:block; width:100%; height:auto; min-width:560px}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-top:10px}
+  .legend i{display:inline-block; width:26px; height:0; border-top:3px solid var(--accent); vertical-align:middle; margin-right:6px}
+  .legend i.dir{border-top-color:var(--accent2)}
+  .legend i.dash{border-top-style:dashed; border-top-color:var(--warn)}
+  .note{border-left:3px solid var(--warn); background:rgba(255,207,107,.08); padding:12px 16px; border-radius:10px; color:var(--fg)}
+  code{background:#0a1230; border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:13px}
+  .faq dt{font-weight:600; margin-top:16px}
+  .faq dd{margin:4px 0 0; color:var(--muted)}
+  footer{border-top:1px solid var(--line); padding:28px 0; color:var(--muted); font-size:14px}
+  footer .wrap{display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  .lang{font-size:13px; color:var(--muted)}
+  .cap{color:var(--muted); font-size:13px; margin:8px 2px 0}
+  .scenario{margin-top:22px}
+  .scenario h3{margin:0 0 4px; font-size:17px}
+  .scenario .who{color:var(--muted); font-size:13px; margin:0 0 12px}
+.langs{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+.langs a{font-size:16px; line-height:1; text-decoration:none; opacity:.55}
+.langs a:hover{opacity:1}
+.langs a.cur{opacity:1}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <div class="brand">p2p<span>chat</span></div>
+    <nav>
+      <a href="#how">Как работает</a>
+      <a href="#start">Как начать</a>
+      <a href="#group">Группы</a>
+      <a href="#crypto">Шифрование</a>
+      <a href="#details">Подробности</a>
+      <a href="#privacy">Приватность</a>
+      <a href="#faq">Вопросы</a>
+      <a href="https://github.com/dabuldakov/p2p-chat" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+      <div class="langs"><a href="../" title="English">🇬🇧</a><a href="../ru/" title="Русский" class="cur">🇷🇺</a></div>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <h1>Чат между телефонами — напрямую</h1>
+  <p>p2pchat соединяет устройства через интернет без центрального сервера для сообщений.
+     Создавайте несколько групп и приглашайте участников по QR или ссылке.
+     Сервер нужен только на несколько секунд — помочь телефонам найти друг друга.</p>
+  <div class="cta">
+    <a class="btn" id="download" href="https://github.com/dabuldakov/p2p-chat/releases/latest">Скачать APK (Android)</a>
+    <a class="btn ghost" href="https://github.com/dabuldakov/p2p-chat/releases" target="_blank" rel="noopener">Все сборки</a>
+  </div>
+  <div class="meta" id="dl-meta">Последняя сборка публикуется автоматически · Android 8.0+ · открытый исходный код</div>
+  <div class="badge" id="ver" title="Версия последней сборки">
+    <span class="dot"></span>
+    <span id="ver-text">версия: загрузка…</span>
+    <a id="ver-link" href="https://github.com/dabuldakov/p2p-chat/releases/latest" target="_blank" rel="noopener" style="display:none">что нового</a>
+  </div>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <h2>Как это работает</h2>
+    <p class="sub">Два телефона соединяются друг с другом напрямую. Посредник участвует только в «знакомстве».</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 860 340" role="img" aria-label="Схема: два телефона и сервер знакомства">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/>
+          </marker>
+          <marker id="arm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#ffcf6b"/>
+          </marker>
+          <marker id="arb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#5b8cff"/>
+          </marker>
+        </defs>
+
+        <!-- phones -->
+        <g>
+          <rect x="40" y="90" width="130" height="150" rx="16" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <rect x="58" y="112" width="94" height="106" rx="8" fill="#16224a"/>
+          <text x="105" y="270" fill="#e8edff" font-size="16" text-anchor="middle">Телефон A</text>
+        </g>
+        <g>
+          <rect x="690" y="90" width="130" height="150" rx="16" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <rect x="708" y="112" width="94" height="106" rx="8" fill="#16224a"/>
+          <text x="755" y="270" fill="#e8edff" font-size="16" text-anchor="middle">Телефон B</text>
+        </g>
+
+        <!-- direct p2p arrow -->
+        <line x1="176" y1="150" x2="684" y2="150" stroke="#43d6a0" stroke-width="3" marker-end="url(#ar)"/>
+        <line x1="684" y1="178" x2="176" y2="178" stroke="#43d6a0" stroke-width="3" marker-end="url(#ar)"/>
+        <text x="430" y="140" fill="#43d6a0" font-size="15" text-anchor="middle">сообщения идут напрямую</text>
+
+        <!-- signaling server -->
+        <rect x="345" y="20" width="170" height="60" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+        <text x="430" y="46" fill="#e8edff" font-size="15" text-anchor="middle">Сервер знакомства</text>
+        <text x="430" y="66" fill="#9aa7c7" font-size="12" text-anchor="middle">обмен адресами, пара секунд</text>
+        <line x1="375" y1="80" x2="150" y2="118" stroke="#5b8cff" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arb)"/>
+        <line x1="485" y1="80" x2="700" y2="118" stroke="#5b8cff" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arb)"/>
+        <text x="430" y="108" fill="#5b8cff" font-size="12" text-anchor="middle">только установка связи</text>
+
+        <!-- turn -->
+        <rect x="345" y="280" width="170" height="46" rx="12" fill="#0e1733" stroke="#ffcf6b" stroke-width="2"/>
+        <text x="430" y="300" fill="#e8edff" font-size="14" text-anchor="middle">Ретранслятор (TURN)</text>
+        <text x="430" y="317" fill="#9aa7c7" font-size="11" text-anchor="middle">запасной путь, если сеть мешает</text>
+        <line x1="150" y1="230" x2="380" y2="286" stroke="#ffcf6b" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arm)"/>
+        <line x1="700" y1="230" x2="480" y2="286" stroke="#ffcf6b" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arm)"/>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i class="dir"></i>прямое соединение (основной путь)</span>
+      <span><i></i>сервер знакомства (не видит сообщений)</span>
+      <span><i class="dash"></i>релей TURN (только при сложной сети)</span>
+    </div>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <h2>Как начать</h2>
+    <p class="sub">Нужен Android-телефон и интернет. Регистрация не нужна — можно с любого числа участников.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div>
+        <h3>Скачайте и установите приложение</h3>
+        <p>Нажмите «Скачать APK» и установите. Если система предупредит — разрешите
+           установку из этого источника.</p>
+      </div></div>
+      <div class="step"><div class="n">2</div><div>
+        <h3>Создайте группу</h3>
+        <p>Кнопка «+» внизу → введите название → «Создать». Приложение покажет
+           приглашение (QR и ссылку).</p>
+      </div></div>
+      <div class="step"><div class="n">3</div><div>
+        <h3>Пригласите участников</h3>
+        <p>Покажите QR или отправьте ссылку-инвайт. Собеседник нажимает «+» →
+           «Войти по инвайту» и сканирует/вставляет её.</p>
+      </div></div>
+      <div class="step"><div class="n">4</div><div>
+        <h3>Общайтесь</h3>
+        <p>Пишите сообщения — они идут напрямую между устройствами и зашифрованы.
+           Можно вести несколько групп; свой идентификатор и QR — в «Настройках».</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Путь сообщения</h2>
+    <p class="sub">Обычно напряжение уходит после нескольких шагов — дальше сервер не участвует.</p>
+    <div class="figure">
+      <svg viewBox="0 0 900 180" role="img" aria-label="Поток установки соединения">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#5b8cff"/>
+          </marker>
+        </defs>
+        <g font-size="13" text-anchor="middle">
+          <rect x="10" y="60" width="150" height="60" rx="12" fill="#16224a" stroke="#5b8cff"/>
+          <text x="85" y="85" fill="#e8edff">Оба онлайн</text>
+          <text x="85" y="104" fill="#9aa7c7">на сервере знакомства</text>
+
+          <rect x="190" y="60" width="150" height="60" rx="12" fill="#16224a" stroke="#5b8cff"/>
+          <text x="265" y="85" fill="#e8edff">Обмен ключами</text>
+          <text x="265" y="104" fill="#9aa7c7">и адресами</text>
+
+          <rect x="370" y="60" width="150" height="60" rx="12" fill="#16224a" stroke="#43d6a0"/>
+          <text x="445" y="85" fill="#e8edff">Прямое соединение</text>
+          <text x="445" y="104" fill="#9aa7c7">через STUN</text>
+
+          <rect x="550" y="60" width="150" height="60" rx="12" fill="#16224a" stroke="#ffcf6b"/>
+          <text x="625" y="85" fill="#e8edff">Если не вышло —</text>
+          <text x="625" y="104" fill="#9aa7c7">через TURN</text>
+
+          <rect x="730" y="60" width="160" height="60" rx="12" fill="#16224a" stroke="#43d6a0"/>
+          <text x="810" y="85" fill="#e8edff">Чат напрямую</text>
+          <text x="810" y="104" fill="#9aa7c7">сервер не участвует</text>
+        </g>
+        <g stroke="#5b8cff" stroke-width="2" marker-end="url(#ar2)" fill="none">
+          <line x1="160" y1="90" x2="188" y2="90"/>
+          <line x1="340" y1="90" x2="368" y2="90"/>
+          <line x1="520" y1="90" x2="548" y2="90"/>
+          <line x1="700" y1="90" x2="728" y2="90"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section id="group">
+  <div class="wrap">
+    <h2>Как ходят сообщения в группе на 30 человек</h2>
+    <p class="sub">Никто не рассылает всем сразу и не подключается ко всем. Каждый связан с несколькими
+       соседями, а сообщение расходится по сети как слух — и останавливается, как только его увидели все.</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 580" role="img" aria-label="Распространение сообщения по сети из 30 участников">
+        <!-- связи между участниками -->
+        <g stroke="#29345f" stroke-width="1.5">
+          <line x1="430" y1="280" x2="430" y2="140"/>
+          <line x1="430" y1="280" x2="600" y2="270"/>
+          <line x1="430" y1="280" x2="430" y2="420"/>
+          <line x1="430" y1="280" x2="265" y2="285"/>
+          <line x1="430" y1="140" x2="615" y2="130"/>
+          <line x1="430" y1="140" x2="265" y2="285"/>
+          <line x1="430" y1="140" x2="315" y2="65"/>
+          <line x1="600" y1="270" x2="615" y2="130"/>
+          <line x1="600" y1="270" x2="705" y2="375"/>
+          <line x1="430" y1="420" x2="705" y2="375"/>
+          <line x1="430" y1="420" x2="250" y2="435"/>
+          <line x1="265" y1="285" x2="155" y2="175"/>
+          <line x1="265" y1="285" x2="250" y2="435"/>
+          <line x1="615" y1="130" x2="775" y2="250"/>
+          <line x1="705" y1="375" x2="775" y2="250"/>
+          <line x1="250" y1="435" x2="100" y2="325"/>
+          <line x1="155" y1="175" x2="100" y2="325"/>
+          <line x1="315" y1="65" x2="155" y2="175"/>
+          <line x1="315" y1="65" x2="430" y2="20"/>
+        </g>
+
+        <!-- store-and-forward для офлайн-участника -->
+        <line x1="250" y1="435" x2="95" y2="530" stroke="#ffcf6b" stroke-width="2" stroke-dasharray="6 6"/>
+        <text x="150" y="500" fill="#ffcf6b" font-size="12">хранит и отдаст позже</text>
+
+        <!-- 1-й прыжок: соседи отправителя -->
+        <g fill="#43d6a0">
+          <circle cx="430" cy="140" r="12"/>
+          <circle cx="600" cy="270" r="12"/>
+          <circle cx="430" cy="420" r="12"/>
+          <circle cx="265" cy="285" r="12"/>
+        </g>
+        <!-- 2-й прыжок -->
+        <g fill="#3fb6d8">
+          <circle cx="615" cy="130" r="10"/>
+          <circle cx="705" cy="375" r="10"/>
+          <circle cx="250" cy="435" r="10"/>
+          <circle cx="155" cy="175" r="10"/>
+          <circle cx="315" cy="65" r="10"/>
+        </g>
+        <!-- 3-й прыжок -->
+        <g fill="#6b7fc0">
+          <circle cx="775" cy="250" r="9"/>
+          <circle cx="100" cy="325" r="9"/>
+          <circle cx="430" cy="20" r="9"/>
+        </g>
+
+        <!-- отправитель -->
+        <circle cx="430" cy="280" r="17" fill="#5b8cff"/>
+        <text x="430" y="285" fill="#06122e" font-size="13" font-weight="700" text-anchor="middle">вы</text>
+
+        <!-- офлайн-участник -->
+        <circle cx="95" cy="530" r="11" fill="none" stroke="#ffcf6b" stroke-width="2" stroke-dasharray="4 3"/>
+
+        <!-- подписи -->
+        <text x="470" y="430" fill="#43d6a0" font-size="13">1-й прыжок</text>
+        <text x="700" y="130" fill="#3fb6d8" font-size="13">2-й прыжок</text>
+        <text x="760" y="228" fill="#6b7fc0" font-size="13">3-й прыжок</text>
+        <text x="20" y="30" fill="#9aa7c7" font-size="13">30 участников · ~4–5 связей у каждого · ~70 соединений вместо 435</text>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i style="border-top-color:#5b8cff"></i>отправитель</span>
+      <span><i style="border-top-color:#43d6a0"></i>1-й прыжок (прямые соседи)</span>
+      <span><i style="border-top-color:#3fb6d8"></i>2-й прыжок</span>
+      <span><i style="border-top-color:#6b7fc0"></i>3-й прыжок</span>
+      <span><i class="dash"></i>офлайн — получит позже</span>
+    </div>
+
+    <div class="grid" style="margin-top:20px">
+      <div class="card">
+        <h3>Никакого «всем сразу»</h3>
+        <p>30 человек не держат 435 соединений. Каждый связан с 4–5 соседями — всего около 70 каналов.
+           Сообщение доходит за 3–4 «прыжка» за доли секунды.</p>
+      </div>
+      <div class="card">
+        <h3>Дубли отсекаются</h3>
+        <p>У каждого сообщения есть уникальный id. Кто увидел его повторно — дальше не пересылает.
+           Поэтому лавина не зацикливается и не затапливает сеть.</p>
+      </div>
+      <div class="card">
+        <h3>Офлайн не теряется</h3>
+        <p>Онлайн-соседи хранят сообщения для тех, кто ушёл. Вернувшись, участник сверяется по
+           «дереву контрольных сумм» (Merkle) и добирает только пропущенное.</p>
+      </div>
+      <div class="card">
+        <h3>Сложные сети</h3>
+        <p>Если оператор связи мешает прямому соединению с соседом, на помощь приходит
+           ретранслятор TURN — путь становится длиннее, но сообщение доходит.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="crypto">
+  <div class="wrap">
+    <h2>Шифрование и рукопожатия</h2>
+    <p class="sub">Групповое шифрование — по протоколу <b>MLS (RFC 9420)</b>: forward secrecy и post-compromise security.
+       Ниже — что у кого за ключи и все «рукопожатия» по шагам, с указанием задействованных сторон.</p>
+
+    <h3 class="blk">Ключи и роли</h3>
+    <div class="figure">
+      <svg viewBox="0 0 860 300" role="img" aria-label="Ключи: аккаунт, устройство, MLS-группа, сервер">
+        <rect x="50" y="24" width="300" height="150" rx="14" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+        <text x="72" y="52" fill="#e8edff" font-size="15" font-weight="600">Телефон A</text>
+        <text x="72" y="82" fill="#9aa7c7" font-size="12.5">Аккаунт — ключ личности (Ed25519)</text>
+        <text x="72" y="104" fill="#9aa7c7" font-size="12.5">Устройство — ключ подписи</text>
+        <text x="72" y="126" fill="#9aa7c7" font-size="12.5">Секреты эпохи MLS</text>
+        <text x="72" y="148" fill="#9aa7c7" font-size="12.5">Локальный лог сообщений</text>
+
+        <rect x="510" y="24" width="300" height="150" rx="14" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+        <text x="532" y="52" fill="#e8edff" font-size="15" font-weight="600">Телефон B</text>
+        <text x="532" y="82" fill="#9aa7c7" font-size="12.5">Аккаунт — ключ личности (Ed25519)</text>
+        <text x="532" y="104" fill="#9aa7c7" font-size="12.5">Устройство — ключ подписи</text>
+        <text x="532" y="126" fill="#9aa7c7" font-size="12.5">Секреты эпохи MLS</text>
+        <text x="532" y="148" fill="#9aa7c7" font-size="12.5">Локальный лог сообщений</text>
+
+        <line x1="358" y1="99" x2="502" y2="99" stroke="#43d6a0" stroke-width="3" marker-start="url(#k_g)" marker-end="url(#k_g)"/>
+        <text x="430" y="86" fill="#43d6a0" font-size="13" text-anchor="middle">общий секрет группы (MLS)</text>
+        <text x="430" y="120" fill="#9aa7c7" font-size="11.5" text-anchor="middle">меняется при входе/выходе</text>
+
+        <rect x="330" y="212" width="200" height="64" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2" stroke-dasharray="5 5"/>
+        <text x="430" y="240" fill="#e8edff" font-size="14" text-anchor="middle">Сервер знакомства</text>
+        <text x="430" y="260" fill="#9aa7c7" font-size="11.5" text-anchor="middle">публичные ключи, адреса, SDP/ICE</text>
+        <line x1="150" y1="174" x2="360" y2="212" stroke="#5b8cff" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <line x1="710" y1="174" x2="500" y2="212" stroke="#5b8cff" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <text x="430" y="198" fill="#9aa7c7" font-size="11.5" text-anchor="middle">контента не видит</text>
+
+        <defs>
+          <marker id="k_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker>
+        </defs>
+      </svg>
+    </div>
+    <p class="cap">У каждого — своя личность (подпись Ed25519). Секрет группы — общий, это <b>состояние MLS</b>, которое обновляется при каждой смене состава. Сервер видит только публичную часть.</p>
+
+    <div class="scenario">
+      <h3>1. Создание группы</h3>
+      <p class="who">Задействована: <b>только сторона-создатель</b>. Сервер не участвует.</p>
+      <div class="figure">
+        <svg viewBox="0 0 860 170" role="img" aria-label="Создание группы локально">
+          <rect x="60" y="40" width="230" height="60" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="175" y="68" fill="#e8edff" font-size="14.5" text-anchor="middle">Создатель (A)</text>
+          <text x="175" y="88" fill="#9aa7c7" font-size="11.5" text-anchor="middle">генерирует id и эпоху 0</text>
+          <line x1="292" y1="70" x2="470" y2="70" stroke="#43d6a0" stroke-width="2" marker-end="url(#c_g)"/>
+          <text x="381" y="60" fill="#43d6a0" font-size="12" text-anchor="middle">MLS: создать группу</text>
+          <rect x="472" y="40" width="220" height="60" rx="12" fill="#0e1733" stroke="#43d6a0" stroke-width="2"/>
+          <text x="582" y="68" fill="#e8edff" font-size="14.5" text-anchor="middle">Локальное состояние</text>
+          <text x="582" y="88" fill="#9aa7c7" font-size="11.5" text-anchor="middle">ключи эпохи 0 · мы — владелец</text>
+          <rect x="472" y="120" width="220" height="34" rx="10" fill="#0e1733" stroke="#5b8cff" stroke-width="1.6" stroke-dasharray="5 5"/>
+          <text x="582" y="141" fill="#9aa7c7" font-size="11.5" text-anchor="middle">сервер не задействован</text>
+          <defs><marker id="c_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker></defs>
+        </svg>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>2. Впуск нового участника (по одноразовому билету)</h3>
+      <p class="who">Задействованы: <b>хозяин</b> и <b>новичок</b>. Ключ группы в ссылке <b>не передаётся</b> — только подписанный билет.</p>
+      <div class="figure">
+        <svg viewBox="0 0 860 500" role="img" aria-label="Впуск: заявка и Welcome попарно">
+          <rect x="90" y="10" width="200" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="190" y="39" fill="#e8edff" font-size="14.5" text-anchor="middle">Хозяин (A)</text>
+          <line x1="190" y1="56" x2="190" y2="492" stroke="#26325a" stroke-dasharray="4 5"/>
+          <rect x="570" y="10" width="200" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="670" y="39" fill="#e8edff" font-size="14.5" text-anchor="middle">Новичок (B)</text>
+          <line x1="670" y1="56" x2="670" y2="492" stroke="#26325a" stroke-dasharray="4 5"/>
+
+          <rect x="96" y="84" width="188" height="40" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="190" y="101" fill="#e8edff" font-size="11.5" text-anchor="middle">создаёт билет</text>
+          <text x="190" y="116" fill="#9aa7c7" font-size="10.5" text-anchor="middle">nonce · срок · подпись</text>
+
+          <line x1="190" y1="150" x2="650" y2="150" stroke="#ffcf6b" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#j_m)"/>
+          <text x="430" y="142" fill="#ffcf6b" font-size="12" text-anchor="middle">ссылка/QR с билетом (вне канала)</text>
+
+          <line x1="650" y1="205" x2="210" y2="205" stroke="#5b8cff" stroke-width="2" marker-end="url(#j_b)"/>
+          <text x="430" y="197" fill="#5b8cff" font-size="12" text-anchor="middle">заявка: KeyPackage + билет — попарно (X25519)</text>
+
+          <rect x="96" y="234" width="188" height="40" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="190" y="251" fill="#e8edff" font-size="11.5" text-anchor="middle">проверяет билет</text>
+          <text x="190" y="266" fill="#9aa7c7" font-size="10.5" text-anchor="middle">подпись · срок · не использован</text>
+
+          <rect x="96" y="300" width="188" height="40" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="190" y="317" fill="#e8edff" font-size="11.5" text-anchor="middle">Add + Commit</text>
+          <text x="190" y="332" fill="#9aa7c7" font-size="10.5" text-anchor="middle">новая эпоха MLS</text>
+
+          <line x1="210" y1="376" x2="650" y2="376" stroke="#5b8cff" stroke-width="2" marker-end="url(#j_b)"/>
+          <text x="430" y="368" fill="#5b8cff" font-size="12" text-anchor="middle">Welcome — попарно</text>
+
+          <rect x="576" y="404" width="188" height="40" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="670" y="421" fill="#e8edff" font-size="11.5" text-anchor="middle">входит в группу</text>
+          <text x="670" y="436" fill="#9aa7c7" font-size="10.5" text-anchor="middle">та же эпоха MLS</text>
+
+          <line x1="210" y1="474" x2="650" y2="474" stroke="#43d6a0" stroke-width="2" marker-start="url(#j_g)" marker-end="url(#j_g)"/>
+          <text x="430" y="466" fill="#43d6a0" font-size="12" text-anchor="middle">дальше — сообщения по группе</text>
+
+          <defs>
+            <marker id="j_b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b8cff"/></marker>
+            <marker id="j_m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffcf6b"/></marker>
+            <marker id="j_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker>
+          </defs>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="dir"></i>сообщения/MLS-трафик</span>
+        <span><i></i>попарно (X25519)</span>
+        <span><i class="dash"></i>вне канала (ссылка/QR)</span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>3. Отправка сообщения</h3>
+      <p class="who">Задействованы: <b>отправитель</b>, <b>получатели</b> и (опционально) <b>релей</b>, который видит только шифртекст.</p>
+      <div class="figure">
+        <svg viewBox="0 0 860 250" role="img" aria-label="Путь сообщения: шифрование, релей, расшифровка">
+          <rect x="60" y="10" width="180" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="150" y="39" fill="#e8edff" font-size="14" text-anchor="middle">Отправитель</text>
+          <line x1="150" y1="56" x2="150" y2="240" stroke="#26325a" stroke-dasharray="4 5"/>
+          <rect x="340" y="10" width="180" height="46" rx="12" fill="#0e1733" stroke="#ffcf6b" stroke-width="2"/>
+          <text x="430" y="39" fill="#e8edff" font-size="14" text-anchor="middle">Релей (если нужен)</text>
+          <line x1="430" y1="56" x2="430" y2="240" stroke="#26325a" stroke-dasharray="4 5"/>
+          <rect x="620" y="10" width="180" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="710" y="39" fill="#e8edff" font-size="14" text-anchor="middle">Получатель</text>
+          <line x1="710" y1="56" x2="710" y2="240" stroke="#26325a" stroke-dasharray="4 5"/>
+
+          <rect x="62" y="82" width="176" height="38" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="150" y="99" fill="#e8edff" font-size="11" text-anchor="middle">шифрует в MLS-пакет</text>
+          <text x="150" y="113" fill="#9aa7c7" font-size="10.5" text-anchor="middle">ключом эпохи</text>
+
+          <line x1="240" y1="150" x2="420" y2="150" stroke="#43d6a0" stroke-width="2" marker-end="url(#m_g)"/>
+          <line x1="440" y1="170" x2="620" y2="170" stroke="#43d6a0" stroke-width="2" marker-end="url(#m_g)"/>
+          <text x="335" y="142" fill="#43d6a0" font-size="11.5" text-anchor="middle">шифртекст</text>
+          <text x="530" y="162" fill="#43d6a0" font-size="11.5" text-anchor="middle">пересылает как есть</text>
+
+          <rect x="622" y="196" width="176" height="38" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="710" y="213" fill="#e8edff" font-size="11" text-anchor="middle">расшифровывает</text>
+          <text x="710" y="227" fill="#9aa7c7" font-size="10.5" text-anchor="middle">ключом эпохи</text>
+
+          <text x="430" y="228" fill="#9aa7c7" font-size="11" text-anchor="middle">релей не может прочитать</text>
+          <defs><marker id="m_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker></defs>
+        </svg>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>4. Удаление участника</h3>
+      <p class="who">Задействованы: <b>владелец</b> и <b>оставшиеся</b>. Удалённый ключей новой эпохи не получает.</p>
+      <div class="figure">
+        <svg viewBox="0 0 860 300" role="img" aria-label="Удаление участника: Remove и Commit, forward secrecy">
+          <rect x="90" y="10" width="200" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="190" y="39" fill="#e8edff" font-size="14.5" text-anchor="middle">Владелец (A)</text>
+          <line x1="190" y1="56" x2="190" y2="290" stroke="#26325a" stroke-dasharray="4 5"/>
+          <rect x="570" y="10" width="200" height="46" rx="12" fill="#0e1733" stroke="#5b8cff" stroke-width="2"/>
+          <text x="670" y="39" fill="#e8edff" font-size="14.5" text-anchor="middle">Оставшиеся</text>
+          <line x1="670" y1="56" x2="670" y2="290" stroke="#26325a" stroke-dasharray="4 5"/>
+
+          <rect x="96" y="90" width="188" height="42" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="190" y="107" fill="#e8edff" font-size="11.5" text-anchor="middle">Remove (C) + Commit</text>
+          <text x="190" y="122" fill="#9aa7c7" font-size="10.5" text-anchor="middle">эпоха +1</text>
+
+          <line x1="210" y1="176" x2="650" y2="176" stroke="#43d6a0" stroke-width="2" marker-end="url(#r_g)"/>
+          <text x="430" y="168" fill="#43d6a0" font-size="12" text-anchor="middle">Commit — новой эпохи</text>
+
+          <rect x="576" y="204" width="188" height="42" rx="8" fill="#0e1733" stroke="#26325a"/>
+          <text x="670" y="221" fill="#e8edff" font-size="11.5" text-anchor="middle">применяют Commit</text>
+          <text x="670" y="236" fill="#9aa7c7" font-size="10.5" text-anchor="middle">читают новые сообщения</text>
+
+          <rect x="96" y="250" width="668" height="34" rx="10" fill="rgba(255,207,107,.08)" stroke="#ffcf6b" stroke-width="1.6"/>
+          <text x="430" y="271" fill="#e8edff" font-size="11.5" text-anchor="middle">Удалённый (C) не получает ключей новой эпохи → не читает новые сообщения (forward secrecy)</text>
+          <defs><marker id="r_g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#43d6a0"/></marker></defs>
+        </svg>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:22px">
+      <b>Что даёт MLS.</b> Каждая смена состава и смена ключей сдвигает эпоху: старые секреты удаляются (forward secrecy),
+      после ротации система «заживает» даже при утечке ключа (post-compromise security). Кто в группе —
+      не подделать: handshake-сообщения подписаны участниками. Сервер и релей видят только шифртекст.
+    </div>
+  </div>
+</section>
+
+<section id="privacy">
+  <div class="wrap">
+    <h2>Приватность и безопасность</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Сервер не читает переписку</h3>
+        <p>Через него проходит только техническая информация для соединения. Сообщения идут между телефонами.</p>
+      </div>
+      <div class="card">
+        <h3>Шифрование</h3>
+        <p>Сообщения зашифрованы групповым ключом — он есть только у участников.
+           При выходе или удалении участника ключ меняется (rekey), ключ доставляется
+           оставшимся лично, а вышедший новые сообщения прочитать уже не может.</p>
+      </div>
+      <div class="card">
+        <h3>Управление группами</h3>
+        <p>Несколько чатов, приглашение по QR/ссылке, выход из группы. Владелец может
+           удалить участника — и оставшиеся сразу меняют ключ, так что удалённый
+           больше не читает новые сообщения.</p>
+      </div>
+      <div class="card">
+        <h3>Без регистрации</h3>
+        <p>Ваш «аккаунт» — это ключ устройства. Ни телефона, ни почты, ни пароля.</p>
+      </div>
+      <div class="card">
+        <h3>Открытый код</h3>
+        <p>Исходники доступны — можно проверить, как всё работает, и собрать самому.</p>
+      </div>
+    </div>
+    <p class="note" style="margin-top:18px">
+      Связь устанавливается по защищённому <code>wss://</code> (TLS, сертификат Let's Encrypt).
+      TURN-креды выдаются приложению во время работы (TURN REST API) и живут всего час —
+      постоянных паролей в приложении нет.
+    </p>
+  </div>
+</section>
+
+<section id="details">
+  <div class="wrap">
+    <h2>Подробности и примеры</h2>
+    <p class="sub">Как это устроено под капотом и как этим пользоваться в жизни.</p>
+
+    <h3 class="blk">Что происходит при отправке сообщения</h3>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div>
+        <h3>Сообщение шифруется</h3>
+        <p>Текст зашифровывается групповым ключом (ChaCha20 + Poly1305). Ключ есть
+           только у участников чата.</p>
+      </div></div>
+      <div class="step"><div class="n">2</div><div>
+        <h3>Подписывается</h3>
+        <p>У каждого устройства свой ключ подписи (Ed25519) — получатель точно знает, кто автор,
+           и в сети никто не подделает сообщение.</p>
+      </div></div>
+      <div class="step"><div class="n">3</div><div>
+        <h3>Уходит напрямую</h3>
+        <p>Через открытый WebRTC-канал данные идут прямо собеседнику. В группе — расходится
+           по сети «как слух» (gossip), каждый пересылает соседям.</p>
+      </div></div>
+      <div class="step"><div class="n">4</div><div>
+        <h3>Складывается в общий лог</h3>
+        <p>У всех участников получается одинаковый порядок сообщений (CRDT), даже если кто-то
+           был офлайн и догнал позже.</p>
+      </div></div>
+    </div>
+
+    <h3 class="blk">Пример: подключить собеседника</h3>
+    <div class="grid">
+      <div class="card">
+        <h3>Через QR-код</h3>
+        <p>Откройте приложение — на экране ваш ключ и QR. Собеседник нажимает «Подключиться»
+           и сканирует код. Оба оказываются в одном чате.</p>
+      </div>
+      <div class="card">
+        <h3>Вручную</h3>
+        <p>Нажмите «Скопировать ключ» и передайте его любым способом (мессенджер, вслух).
+           Второй человек вставляет ключ и жмёт Connect.</p>
+      </div>
+      <div class="card">
+        <h3>Группа</h3>
+        <p>Один создаёт группу и получает групповой ключ для раздачи. Остальные вступают по нему —
+           дальше сообщения расходятся по всей группе.</p>
+      </div>
+    </div>
+
+    <h3 class="blk">Куда идут данные</h3>
+    <div class="grid">
+      <div class="card">
+        <h3>Сообщения</h3>
+        <p>Напрямую между телефонами. Ни на одном сервере не хранятся.</p>
+      </div>
+      <div class="card">
+        <h3>Сервер знакомства</h3>
+        <p>Видит только «кто с кем соединяется» секунду при установке связи. Переписку не читает.</p>
+      </div>
+      <div class="card">
+        <h3>TURN</h3>
+        <p>Ретранслятор только если оператор мешает прямому соединению. Через него идёт шифртекст.</p>
+      </div>
+      <div class="card">
+        <h3>Ключи</h3>
+        <p>Приватные ключи устройства не покидают телефон. Наружу уходят только открытые.</p>
+      </div>
+      <div class="card">
+        <h3>Обновления</h3>
+        <p>Приложение само проверяет новые версии: на шестерёнке настроек появится красная точка —
+           внутри можно посмотреть, что нового, и скачать обновление.</p>
+      </div>
+    </div>
+
+    <h3 class="blk">Технологии</h3>
+    <div class="chips">
+      <span class="chip">Rust-ядро</span>
+      <span class="chip">Kotlin / Jetpack Compose</span>
+      <span class="chip">UniFFI</span>
+      <span class="chip">WebRTC DataChannel</span>
+      <span class="chip">WebSocket signaling</span>
+      <span class="chip">coturn (STUN/TURN)</span>
+      <span class="chip">CRDT-лог</span>
+      <span class="chip">gossip</span>
+      <span class="chip">Ed25519</span>
+      <span class="chip">ChaCha20-Poly1305</span>
+      <span class="chip">Merkle-синк</span>
+      <span class="chip">protobuf</span>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2>Частые вопросы</h2>
+    <dl class="faq">
+      <dt>Нужен ли сервер?</dt>
+      <dd>Для самих сообщений — нет. Каждый участник сам является узлом: хранит свою копию
+          переписки и пересылает её соседям. Централизован только «сервер знакомства»
+          (пара секунд при подключении) и ретранслятор — если оператор связи мешает прямому
+          соединению.</dd>
+      <dt>Кто может прочитать мои сообщения?</dt>
+      <dd>Только участники чата, у которых есть групповой ключ.</dd>
+      <dt>Работает ли в мобильном интернете (LTE)?</dt>
+      <dd>Да. Операторы часто «прячут» устройства за общим адресом; тогда соединение идёт через ретранслятор TURN.</dd>
+      <dt>Можно ли в группы больше двух человек?</dt>
+      <dd>Ядро поддерживает группы; связь между участниками строится по принципу «каждый с соседями» и сообщения распространяются по сети.</dd>
+      <dt>Есть ли версия для iOS?</dt>
+      <dd>Пока только Android. Ядро кроссплатформенное, iOS — в планах.</dd>
+    </dl>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>p2pchat · децентрализованный чат</div>
+    <div>
+      <a href="https://github.com/dabuldakov/p2p-chat" target="_blank" rel="noopener">Исходный код</a> ·
+      <a href="https://github.com/dabuldakov/p2p-chat/releases/latest" target="_blank" rel="noopener">Последняя сборка</a> ·
+      <a href="https://github.com/dabuldakov/p2p-chat/actions" target="_blank" rel="noopener">Сборки CI</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(async () => {
+  const text = document.getElementById('ver-text');
+  if (!text) return;
+  try {
+    const res = await fetch('https://api.github.com/repos/dabuldakov/p2p-chat/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github+json' }
+    });
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+
+    // ссылка на версионированный APK (p2p-chat-<версия>.apk)
+    const dl = document.getElementById('download');
+    const assets = d.assets || [];
+    const apks = assets
+      .filter(a => /\.apk$/.test(a.name) && !/-debug\.apk$/.test(a.name))
+      .sort((x, y) => new Date(y.created_at || 0) - new Date(x.created_at || 0));
+    const rel = apks[0];
+    if (dl && rel) {
+      dl.href = rel.browser_download_url;
+      const mb = (rel.size / 1048576).toFixed(0);
+      const meta = document.getElementById('dl-meta');
+      if (meta) meta.textContent = rel.name + ' · ' + mb + ' МБ · Android 8.0+ · открытый исходный код';
+    }
+
+    const hay = (d.name || '') + ' ' + (d.body || '');
+    const vm = hay.match(/\b(\d+\.\d+\.\d+)\b/);
+    const version = vm ? vm[1]
+      : (d.tag_name && d.tag_name !== 'latest' ? d.tag_name.replace(/^v/, '') : '');
+    const sm = (d.body || '').match(/\b[0-9a-f]{7,40}\b/);
+    const sha = sm ? sm[0] : '';
+
+    let date = '';
+    if (sha) {
+      try {
+        const cr = await fetch('https://api.github.com/repos/dabuldakov/p2p-chat/commits/' + sha, {
+          headers: { 'Accept': 'application/vnd.github+json' }
+        });
+        if (cr.ok) {
+          const c = await cr.json();
+          const iso = c.commit && (c.commit.committer?.date || c.commit.author?.date);
+          if (iso) date = new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+      } catch (_) { /* дата необязательна */ }
+    }
+
+    const parts = [version ? ('v' + version) : 'latest'];
+    if (date) parts.push(date);
+    text.innerHTML = 'версия: <b>' + parts.join(' · ') + '</b>';
+    document.getElementById('ver').title = 'Сборка от ' + (date || '');
+    const link = document.getElementById('ver-link');
+    link.href = d.html_url || link.href;
+    link.style.display = '';
+  } catch (e) {
+    text.textContent = 'версия: н/д';
+  }
+})();
+</script>
+
+</body>
+</html>
