@@ -794,7 +794,12 @@ private fun MessageRow(mine: Boolean, name: String, message: FfiMessage, vm: Cha
                         vm = vm,
                     )
                 } else {
-                    MessageText(message.text)
+                    val url = singleUrl(message.text)
+                    if (url != null) {
+                        LinkPreviewCard(url) { MessageText(message.text) }
+                    } else {
+                        MessageText(message.text)
+                    }
                 }
             }
         }
@@ -814,6 +819,13 @@ private fun MessageText(text: String) {
             runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ann.item))) }
         }
     }
+}
+
+/** Если всё сообщение — одна ссылка (без текста), вернуть её; иначе null. */
+private fun singleUrl(text: String): String? {
+    val t = text.trim()
+    val spans = urlSpans(t)
+    return if (spans.size == 1 && spans[0].start == 0 && spans[0].end == t.length) spans[0].url else null
 }
 
 private fun linksAnnotated(text: String): AnnotatedString = buildAnnotatedString {
