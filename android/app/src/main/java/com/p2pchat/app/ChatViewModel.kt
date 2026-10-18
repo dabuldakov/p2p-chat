@@ -42,6 +42,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val lastSignalingTs get() = ChatRuntime.lastSignalingTs
     val nicknames get() = ChatRuntime.nicknames
     val myNickname get() = ChatRuntime.myNickname
+    val avatars get() = ChatRuntime.avatars
+    val groupAvatar get() = ChatRuntime.groupAvatarBytes
+    val myAvatar get() = ChatRuntime.avatars[ChatRuntime.peerId]
 
     fun createGroup(name: String) = ChatRuntime.createGroup(name)
     fun joinGroup(invite: String) = ChatRuntime.joinGroup(invite)
@@ -72,6 +75,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun myGifRefs(limit: Int = 60): List<GifRef> = ChatRuntime.myGifRefs(limit)
     fun groupGifRefs(limit: Int = 60): List<GifRef> = ChatRuntime.groupGifRefs(limit)
     fun setNickname(name: String) = ChatRuntime.setNickname(name)
+    fun setAvatar(b: ByteArray) = ChatRuntime.setAvatar(b)
+    fun setGroupAvatar(b: ByteArray) = ChatRuntime.setGroupAvatar(b)
 }
 
 internal fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

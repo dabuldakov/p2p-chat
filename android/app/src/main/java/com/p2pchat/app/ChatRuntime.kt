@@ -95,6 +95,14 @@ object ChatRuntime {
     var nicknames by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
+    /** Аватары участников (hex peer_id → изображение). */
+    var avatars by mutableStateOf<Map<String, ByteArray>>(emptyMap())
+        private set
+
+    /** Аватар текущей группы. */
+    var groupAvatarBytes by mutableStateOf<ByteArray?>(null)
+        private set
+
     var myNickname by mutableStateOf<String?>(null)
         private set
 
@@ -464,6 +472,29 @@ object ChatRuntime {
         memberCounts = ids.associate { String(it) to core.members(it).size }
         myNickname = core.myNickname()
         nicknames = core.allNicknames().associate { it.peerId.toHex() to it.nickname }
+        avatars = runCatching { core.avatars() }
+            .getOrDefault(emptyList())
+            .associate { it.peerId.toHex() to it.avatar }
+        currentGroup?.let { g ->
+            groupAvatarBytes = runCatching { core.groupAvatar(g) }.getOrNull()
+        }
+    }
+
+    /** Задать свой аватар и разослать профиль. */
+    fun setAvatar(bytes: ByteArray) {
+        runCatching { core.setAvatar(bytes) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
+        refresh()
+    }
+
+    /** Сменить аватар группы (владелец). */
+    fun setGroupAvatar(bytes: ByteArray) {
+        val g = currentGroup ?: return
+        runCatching { core.setGroupAvatar(g, bytes) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
+        refresh()
     }
 
     /** Задать свой никнейм и разослать его. */

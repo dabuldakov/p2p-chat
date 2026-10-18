@@ -74,4 +74,5 @@
     <string name="new_messages">Novas mensagens</string>
     <string name="remove_member">Remover membro</string>
     <string name="remove_member_confirm">Remover este membro do grupo?</string>
+    <string name="avatar">Avatar</string>
 </resources>

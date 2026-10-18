@@ -74,4 +74,5 @@
     <string name="new_messages">新着メッセージ</string>
     <string name="remove_member">メンバーを削除</string>
     <string name="remove_member_confirm">このメンバーをグループから削除しますか？</string>
+    <string name="avatar">アイコン</string>
 </resources>

@@ -74,4 +74,5 @@
     <string name="new_messages">Шинэ мессеж</string>
     <string name="remove_member">Гишүүнийг хасах</string>
     <string name="remove_member_confirm">Энэ гишүүнийг бүлгээс хасах уу?</string>
+    <string name="avatar">Профайл зураг</string>
 </resources>

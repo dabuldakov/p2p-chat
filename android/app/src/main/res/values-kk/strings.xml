@@ -74,4 +74,5 @@
     <string name="new_messages">Жаңа хабарламалар</string>
     <string name="remove_member">Қатысушыны өшіру</string>
     <string name="remove_member_confirm">Осы қатысушыны топтан өшіру керек пе?</string>
+    <string name="avatar">Аватар</string>
 </resources>

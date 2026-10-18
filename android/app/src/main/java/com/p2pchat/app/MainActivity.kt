@@ -10,11 +10,13 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Canvas
+import coil.compose.AsyncImage
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.Image
@@ -81,10 +83,14 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -327,6 +333,10 @@ private fun SettingsScreen(vm: ChatViewModel) {
     var editingNick by remember(vm.myNickname) { mutableStateOf(false) }
     val noneNick = stringResource(R.string.nickname_none)
     var showLang by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val pickAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { u -> scope.launch { downscaledJpeg(ctx, u)?.let { vm.setAvatar(it) } } }
+    }
     var explainKind by remember { mutableStateOf<String?>(null) }
 
     Column(
@@ -398,6 +408,25 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
+            }
+        }
+
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Avatar(vm.myAvatar, vm.peerId, 48.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.avatar), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        vm.myNickname ?: vm.peerId.take(8),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = { pickAvatar.launch("image/*") }) { Text(stringResource(R.string.change)) }
             }
         }
 
@@ -570,6 +599,40 @@ private fun ConnExplanation(kind: String) {
     }
 }
 
+@Composable
+private fun Avatar(bytes: ByteArray?, tag: String, size: Dp = 40.dp) {
+    val bg = remember(tag) { Color.hsl((tag.hashCode().absoluteValue % 360).toFloat(), 0.45f, 0.5f) }
+    Box(
+        Modifier.size(size).clip(RoundedCornerShape(size * 0.28f)).background(bg),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bytes != null && bytes.isNotEmpty()) {
+            AsyncImage(
+                model = bytes,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Text(tag.take(1).uppercase(), color = Color.White, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/** Прочитать картинку из Uri, уменьшить до [max] и сжать в JPEG. */
+private fun downscaledJpeg(ctx: Context, uri: Uri, max: Int = 128): ByteArray? = runCatching {
+    val src = ctx.contentResolver.openInputStream(uri)?.use {
+        android.graphics.BitmapFactory.decodeStream(it)
+    } ?: return null
+    val scale = (max.toFloat() / maxOf(src.width, src.height)).coerceAtMost(1f)
+    val w = (src.width * scale).toInt().coerceAtLeast(1)
+    val h = (src.height * scale).toInt().coerceAtLeast(1)
+    val bmp = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(src, w, h, true) else src
+    val bos = java.io.ByteArrayOutputStream()
+    bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, bos)
+    bos.toByteArray()
+}.getOrNull()
+
 /** Время последней активности сигналинга в виде «HH:mm:ss» (или «—»). */
 private fun fmtTime(ts: Long): String {
     if (ts <= 0L) return "—"
@@ -705,6 +768,10 @@ private fun GroupScreen(vm: ChatViewModel) {
     var showGifPicker by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val pickGroupAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { u -> scope.launch { downscaledJpeg(ctx, u)?.let { vm.setGroupAvatar(it) } } }
+    }
     val invite = vm.invite
     val inviteQr = remember(invite) { invite?.let { generateQrBitmap(it, 640) } }
 
@@ -750,6 +817,15 @@ private fun GroupScreen(vm: ChatViewModel) {
                 modifier = Modifier.fillMaxWidth().clickable { inviteExpanded = !inviteExpanded }.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val gname = vm.currentGroup?.let { String(it) } ?: ""
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .then(if (vm.isOwner) Modifier.clickable { pickGroupAvatar.launch("image/*") } else Modifier),
+                ) {
+                    Avatar(vm.groupAvatar, gname, 32.dp)
+                }
+                Spacer(Modifier.width(10.dp))
                 Text(stringResource(R.string.invite_to_group), style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.weight(1f))
                 Text(stringResource(R.string.members_count, vm.members.size), style = MaterialTheme.typography.labelSmall,
@@ -797,6 +873,8 @@ private fun GroupScreen(vm: ChatViewModel) {
                                 val hex = m.peerId.toHex()
                                 val label = (vm.nicknames[hex]?.takeIf { it.isNotBlank() }
                                     ?: hex.take(10)) + (if (hex == vm.peerId) stringResource(R.string.you) else "")
+                                Avatar(vm.avatars[hex], hex, 26.dp)
+                                Spacer(Modifier.width(8.dp))
                                 Text(label, style = MaterialTheme.typography.bodySmall)
                                 Spacer(Modifier.weight(1f))
                                 val conn = vm.peerKinds[m.publicKey.toHex()]
@@ -927,6 +1005,11 @@ private fun MessageRow(mine: Boolean, name: String, message: FfiMessage, vm: Cha
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
     ) {
+        if (!mine) {
+            val ahex = message.author.toHex()
+            Avatar(vm.avatars[ahex], ahex, 28.dp)
+            Spacer(Modifier.width(6.dp))
+        }
         Surface(
             color = if (mine) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.surface,

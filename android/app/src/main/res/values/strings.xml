@@ -91,4 +91,5 @@
     <string name="new_messages">New messages</string>
     <string name="remove_member">Remove member</string>
     <string name="remove_member_confirm">Remove this member from the group?</string>
+    <string name="avatar">Avatar</string>
 </resources>
