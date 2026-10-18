@@ -36,6 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.p2pchat.app.R
 import com.p2pchat.app.ChatViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -43,10 +44,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 
 private const val PAGE_SIZE = 30
 
-enum class GifTab(val title: String) {
-    MINE(stringResource(R.string.gif_mine)),
-    GROUP(stringResource(R.string.gif_group)),
-    SEARCH(stringResource(R.string.gif_search)),
+enum class GifTab(val labelRes: Int) {
+    MINE(R.string.gif_mine),
+    GROUP(R.string.gif_group),
+    SEARCH(R.string.gif_search),
 }
 
 /**
@@ -114,7 +115,7 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                     Tab(
                         selected = tab == t,
                         onClick = { if (tab != t) { tab = t; query = "" } },
-                        text = { Text(t.title) },
+                        text = { Text(stringResource(t.labelRes)) },
                     )
                 }
             }
