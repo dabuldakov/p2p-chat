@@ -459,15 +459,19 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.weight(1f))
-                    val kind = vm.connectionKind
-                    ConnTypeChip("STUN", active = kind == "direct", color = Color(0xFF2E9E6B)) {
+                    ConnTypeChip("STUN", active = vm.directCount > 0, color = Color(0xFF2E9E6B)) {
                         explainKind = if (explainKind == "stun") null else "stun"
                     }
                     Spacer(Modifier.width(10.dp))
-                    ConnTypeChip("TURN", active = kind == "turn", color = Color(0xFFE08A1E)) {
+                    ConnTypeChip("TURN", active = vm.turnCount > 0, color = Color(0xFFE08A1E)) {
                         explainKind = if (explainKind == "turn") null else "turn"
                     }
                 }
+                Text(
+                    "STUN ${vm.directCount} · TURN ${vm.turnCount}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 explainKind?.let { ConnExplanation(it) }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -726,6 +730,15 @@ private fun GroupScreen(vm: ChatViewModel) {
                                     ?: hex.take(10)) + (if (hex == vm.peerId) stringResource(R.string.you) else "")
                                 Text(label, style = MaterialTheme.typography.bodySmall)
                                 Spacer(Modifier.weight(1f))
+                                val conn = vm.peerKinds[m.publicKey.toHex()]
+                                if (conn == "turn" || conn == "direct") {
+                                    Text(
+                                        if (conn == "turn") "TURN" else "STUN",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (conn == "turn") Color(0xFFE08A1E) else Color(0xFF2E9E6B),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                }
                                 if (vm.isOwner && hex != vm.peerId) {
                                     IconButton(onClick = { vm.removeMember(m.peerId) }) {
                                         Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.remove))

@@ -35,7 +35,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val sharedDraft get() = ChatRuntime.sharedDraft
     val backgroundEnabled get() = ChatRuntime.backgroundEnabled
     val debugLogsEnabled get() = ChatRuntime.debugLogsEnabled
-    val connectionKind get() = ChatRuntime.connectionKind
+    val peerKinds get() = ChatRuntime.peerKinds
+    val directCount get() = ChatRuntime.directCount
+    val turnCount get() = ChatRuntime.turnCount
     val lastSignalingTs get() = ChatRuntime.lastSignalingTs
     val nicknames get() = ChatRuntime.nicknames
     val myNickname get() = ChatRuntime.myNickname

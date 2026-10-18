@@ -34,7 +34,7 @@ class WebRtcTransport(
     private val onEnvelope: (ByteArray) -> Unit,
     private val onPeerChange: (Int) -> Unit = {},
     private val onPeerConnected: (ByteArray) -> Unit = {},
-    private val onConnectionKind: (String) -> Unit = {},
+    private val onConnectionKind: (ByteArray, String) -> Unit = { _, _ -> },
 ) : ChatTransport {
 
     companion object {
@@ -197,6 +197,7 @@ class WebRtcTransport(
         conn.dead = true
         val id = keyHex(conn.remoteKey)
         Logs.w("disconnect ${id.take(8)}")
+        runCatching { onConnectionKind(conn.remoteKey, "offline") }
         // ВАЖНО: нельзя закрывать PeerConnection синхронно внутри native-callback
         // (реентрантность → SIGSEGV в libjingle). Откладываем на main-очередь.
         handler.post {
@@ -365,9 +366,9 @@ class WebRtcTransport(
                     }
                     val type = localId?.let { stats[it]?.members?.get("candidateType") as? String }
                     when (type) {
-                        "relay" -> onConnectionKind("turn")
+                        "relay" -> onConnectionKind(conn.remoteKey, "turn")
                         null -> {}
-                        else -> onConnectionKind("direct")
+                        else -> onConnectionKind(conn.remoteKey, "direct")
                     }
                 }
             }

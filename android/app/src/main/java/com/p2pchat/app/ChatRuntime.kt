@@ -102,9 +102,13 @@ object ChatRuntime {
     var debugLogsEnabled by mutableStateOf(false)
         private set
 
-    /** Тип активного соединения: «напрямую» / «через TURN» (или null). */
-    var connectionKind by mutableStateOf<String?>(null)
+    /** Тип соединения по каждому пиру (hex публичного ключа → "direct"/"turn"). */
+    var peerKinds by mutableStateOf<Map<String, String>>(emptyMap())
         private set
+
+    /** Сколько соединений «напрямую» и «через TURN» (для сводки). */
+    val directCount: Int get() = peerKinds.values.count { it == "direct" }
+    val turnCount: Int get() = peerKinds.values.count { it == "turn" }
 
     /** Время последней активности сигналинга (ms, unix). */
     var lastSignalingTs by mutableStateOf(0L)
@@ -139,7 +143,10 @@ object ChatRuntime {
             { env -> handleIncoming(env) },
             onPeerChange = { n -> connected = n },
             onPeerConnected = { key -> onPeerConnected(key) },
-            onConnectionKind = { kind -> connectionKind = kind },
+            onConnectionKind = { key, kind ->
+                val h = key.toHex()
+                peerKinds = if (kind == "offline") peerKinds - h else peerKinds + (h to kind)
+            },
         )
 
         signaling.connect()
