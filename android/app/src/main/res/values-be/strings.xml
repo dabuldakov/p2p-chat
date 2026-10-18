@@ -72,4 +72,6 @@
     <string name="messages_channel">Паведамленні</string>
     <string name="messages_channel_desc">Новыя паведамленні ў групах</string>
     <string name="new_messages">Новыя паведамленні</string>
+    <string name="remove_member">Выдаліць удзельніка</string>
+    <string name="remove_member_confirm">Выдаліць гэтага ўдзельніка з групы?</string>
 </resources>

@@ -72,4 +72,6 @@
     <string name="messages_channel">Хабарламалар</string>
     <string name="messages_channel_desc">Топтардағы жаңа хабарламалар</string>
     <string name="new_messages">Жаңа хабарламалар</string>
+    <string name="remove_member">Қатысушыны өшіру</string>
+    <string name="remove_member_confirm">Осы қатысушыны топтан өшіру керек пе?</string>
 </resources>

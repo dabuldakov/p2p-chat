@@ -72,4 +72,6 @@
     <string name="messages_channel">Messaggi</string>
     <string name="messages_channel_desc">Nuovi messaggi nei gruppi</string>
     <string name="new_messages">Nuovi messaggi</string>
+    <string name="remove_member">Rimuovi membro</string>
+    <string name="remove_member_confirm">Rimuovere questo membro dal gruppo?</string>
 </resources>

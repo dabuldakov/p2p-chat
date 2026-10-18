@@ -699,6 +699,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     var qrShown by remember { mutableStateOf(false) }
     var showGraph by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    var removeTarget by remember { mutableStateOf<ByteArray?>(null) }
     var showGifPicker by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
@@ -799,7 +800,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                                     Spacer(Modifier.width(8.dp))
                                 }
                                 if (vm.isOwner && hex != vm.peerId) {
-                                    IconButton(onClick = { vm.removeMember(m.peerId) }) {
+                                    IconButton(onClick = { removeTarget = m.peerId }) {
                                         Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.remove))
                                     }
                                 }
@@ -887,6 +888,22 @@ private fun GroupScreen(vm: ChatViewModel) {
             },
             dismissButton = {
                 TextButton(onClick = { confirmLeave = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    removeTarget?.let { pid ->
+        AlertDialog(
+            onDismissRequest = { removeTarget = null },
+            title = { Text(stringResource(R.string.remove_member)) },
+            text = { Text(stringResource(R.string.remove_member_confirm)) },
+            confirmButton = {
+                TextButton(onClick = { vm.removeMember(pid); removeTarget = null }) {
+                    Text(stringResource(R.string.remove), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { removeTarget = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }

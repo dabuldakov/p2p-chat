@@ -72,4 +72,6 @@
     <string name="messages_channel">メッセージ</string>
     <string name="messages_channel_desc">グループの新着メッセージ</string>
     <string name="new_messages">新着メッセージ</string>
+    <string name="remove_member">メンバーを削除</string>
+    <string name="remove_member_confirm">このメンバーをグループから削除しますか？</string>
 </resources>

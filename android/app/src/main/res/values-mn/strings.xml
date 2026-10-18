@@ -72,4 +72,6 @@
     <string name="messages_channel">Мессеж</string>
     <string name="messages_channel_desc">Бүлгүүдийн шинэ мессеж</string>
     <string name="new_messages">Шинэ мессеж</string>
+    <string name="remove_member">Гишүүнийг хасах</string>
+    <string name="remove_member_confirm">Энэ гишүүнийг бүлгээс хасах уу?</string>
 </resources>

@@ -72,4 +72,6 @@
     <string name="messages_channel">消息</string>
     <string name="messages_channel_desc">群组中的新消息</string>
     <string name="new_messages">新消息</string>
+    <string name="remove_member">移除成员</string>
+    <string name="remove_member_confirm">将该成员移出群组？</string>
 </resources>

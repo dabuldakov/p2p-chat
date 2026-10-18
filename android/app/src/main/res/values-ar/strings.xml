@@ -72,4 +72,6 @@
     <string name="messages_channel">الرسائل</string>
     <string name="messages_channel_desc">رسائل جديدة في المجموعات</string>
     <string name="new_messages">رسائل جديدة</string>
+    <string name="remove_member">إزالة عضو</string>
+    <string name="remove_member_confirm">إزالة هذا العضو من المجموعة؟</string>
 </resources>
