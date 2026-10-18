@@ -71,14 +71,14 @@
     <string name="conn_turn_title">TURN — via relay</string>
     <string name="conn_stun_scheme">Phone A  ⇄  Phone B</string>
     <string name="conn_turn_scheme">Phone A  →  [ TURN ]  →  Phone B</string>
-    <string name="conn_stun_desc">The fastest path. Devices learn each other\u2019s addresses via STUN and connect directly — data goes between the phones, not through a server.</string>
+    <string name="conn_stun_desc">The fastest path. Devices learn each other’s addresses via STUN and connect directly — data goes between the phones, not through a server.</string>
     <string name="conn_turn_desc">Direct connection failed (complex NAT / ISP). Traffic goes through a TURN relay: a bit slower, but it works almost always. Content is encrypted — the relay cannot read it.</string>
     <string name="language">Language</string>
 
     <!-- Проверка обновлений -->
     <string name="update_title">A new version is available</string>
     <string name="update_text">Version %1$s is available. Download and update?</string>
-    <string name="whats_new">What\u2019s new</string>
+    <string name="whats_new">What’s new</string>
     <string name="download">Download</string>
     <string name="later">Later</string>
     <string name="up_to_date">You have the latest version</string>
