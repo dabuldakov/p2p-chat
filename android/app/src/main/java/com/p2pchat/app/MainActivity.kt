@@ -71,6 +71,7 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -309,6 +310,7 @@ private fun SettingsScreen(vm: ChatViewModel) {
     val update = vm.update
     var nick by remember(vm.myNickname) { mutableStateOf(vm.myNickname ?: "") }
     var editingNick by remember(vm.myNickname) { mutableStateOf(false) }
+    var explainKind by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -436,8 +438,16 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.weight(1f))
-                    Text(vm.connectionKind ?: "—", style = MaterialTheme.typography.bodyMedium)
+                    val kind = vm.connectionKind
+                    ConnTypeChip("STUN", active = kind == "напрямую", color = Color(0xFF2E9E6B)) {
+                        explainKind = if (explainKind == "stun") null else "stun"
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    ConnTypeChip("TURN", active = kind == "через TURN", color = Color(0xFFE08A1E)) {
+                        explainKind = if (explainKind == "turn") null else "turn"
+                    }
                 }
+                explainKind?.let { ConnExplanation(it) }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "Последний сигналинг",
@@ -453,6 +463,48 @@ private fun SettingsScreen(vm: ChatViewModel) {
 
     if (showUpdate && update != null) {
         UpdateDialog(update, onDismiss = { showUpdate = false })
+    }
+}
+
+/** Кликабельная метка типа соединения (STUN/TURN). */
+@Composable
+private fun ConnTypeChip(label: String, active: Boolean, color: Color, onClick: () -> Unit) {
+    Text(
+        label,
+        style = MaterialTheme.typography.titleSmall,
+        color = if (active) color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+}
+
+/** Краткая схема и описание выбранного типа соединения. */
+@Composable
+private fun ConnExplanation(kind: String) {
+    val isStun = kind == "stun"
+    val title = if (isStun) "STUN — напрямую" else "TURN — через ретранслятор"
+    val scheme = if (isStun) "Телефон A  ⇄  Телефон B" else "Телефон A  →  [ TURN ]  →  Телефон B"
+    val desc = if (isStun) {
+        "Самый быстрый путь. Устройства узнают адреса через STUN и соединяются напрямую — данные идут между телефонами, не через сервер."
+    } else {
+        "Прямое соединение не удалось (сложный NAT/оператор). Трафик идёт через ретранслятор TURN: чуть медленнее, но работает почти всегда. Содержимое зашифровано — ретранслятор его не читает."
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(
+                scheme,
+                style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
