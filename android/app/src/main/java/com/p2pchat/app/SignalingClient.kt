@@ -38,6 +38,15 @@ class SignalingClient(
     private var ws: WebSocket? = null
     private var closed = false
 
+    /** Время последней активности (открытие/кадр/отправка) — для UI. */
+    @Volatile
+    var lastActivityMs: Long = 0L
+        private set
+
+    private fun touch() {
+        lastActivityMs = System.currentTimeMillis()
+    }
+
     private val _incoming = MutableSharedFlow<SignalEnvelope>(extraBufferCapacity = 128)
     val incoming = _incoming.asSharedFlow()
 
@@ -51,10 +60,12 @@ class SignalingClient(
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Logs.i("ws open: $url")
+                touch()
                 webSocket.send(registerEnvelope().toByteArray().toByteString())
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
+                touch()
                 Logs.d("ws recv ${bytes.size}b")
                 runCatching { SignalEnvelope.parseFrom(bytes.toByteArray()) }
                     .onSuccess { env ->
@@ -110,6 +121,7 @@ class SignalingClient(
     }
 
     fun send(env: SignalEnvelope) {
+        touch()
         ws?.send(env.toByteArray().toByteString())
     }
 

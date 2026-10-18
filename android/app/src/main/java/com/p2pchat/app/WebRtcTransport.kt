@@ -34,6 +34,7 @@ class WebRtcTransport(
     private val onEnvelope: (ByteArray) -> Unit,
     private val onPeerChange: (Int) -> Unit = {},
     private val onPeerConnected: (ByteArray) -> Unit = {},
+    private val onConnectionKind: (String) -> Unit = {},
 ) : ChatTransport {
 
     companion object {
@@ -338,7 +339,13 @@ class WebRtcTransport(
         override fun onAddTrack(receiver: RtpReceiver, mediaStreams: Array<out MediaStream>) = Unit
         override fun onRemoveTrack(receiver: RtpReceiver) = Unit
         override fun onTrack(transceiver: RtpTransceiver) = Unit
-        override fun onSelectedCandidatePairChanged(event: CandidatePairChangeEvent) = Unit
+        override fun onSelectedCandidatePairChanged(event: CandidatePairChangeEvent) {
+            runCatching {
+                val s = "${event.localCandidate} ${event.remoteCandidate}"
+                val kind = if (s.contains("typ relay")) "через TURN" else "напрямую"
+                onConnectionKind(kind)
+            }.onFailure { Logs.w("candidate pair error: $it") }
+        }
     }
 
     private fun sessionId(): String = "s" + System.currentTimeMillis().toString(16)

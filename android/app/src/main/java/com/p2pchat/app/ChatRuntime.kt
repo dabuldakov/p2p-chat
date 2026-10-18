@@ -102,6 +102,14 @@ object ChatRuntime {
     var debugLogsEnabled by mutableStateOf(false)
         private set
 
+    /** Тип активного соединения: «напрямую» / «через TURN» (или null). */
+    var connectionKind by mutableStateOf<String?>(null)
+        private set
+
+    /** Время последней активности сигналинга (ms, unix). */
+    var lastSignalingTs by mutableStateOf(0L)
+        private set
+
     /** Инициализация (идемпотентна). Вызывается из Application и ViewModel. */
     @Synchronized
     fun init(context: Application) {
@@ -131,6 +139,7 @@ object ChatRuntime {
             { env -> handleIncoming(env) },
             onPeerChange = { n -> connected = n },
             onPeerConnected = { key -> onPeerConnected(key) },
+            onConnectionKind = { kind -> connectionKind = kind },
         )
 
         signaling.connect()
@@ -145,6 +154,7 @@ object ChatRuntime {
                 kotlinx.coroutines.delay(15_000)
                 connectAll()
                 syncAll()
+                lastSignalingTs = signaling.lastActivityMs
             }
         }
 
@@ -298,6 +308,7 @@ object ChatRuntime {
 
     fun onForeground() {
         appVisible = true
+        lastSignalingTs = signaling.lastActivityMs
         refresh()
         connectAll()
         syncAll()

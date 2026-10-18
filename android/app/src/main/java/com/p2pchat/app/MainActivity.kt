@@ -172,14 +172,6 @@ fun Root(vm: ChatViewModel) {
                     }
                 }
             },
-            actions = {
-                Text(
-                    "v" + BuildConfig.VERSION_NAME,
-                    modifier = Modifier.padding(end = 16.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
         )
     }) { pad ->
         Box(modifier = Modifier.fillMaxSize().padding(pad)) {
@@ -312,12 +304,11 @@ private fun AddGroupDialog(vm: ChatViewModel, onClose: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsScreen(vm: ChatViewModel) {
-    val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
-    val qr = remember { generateQrBitmap(vm.publicKeyHex, 480) }
     var showUpdate by remember { mutableStateOf(false) }
     val update = vm.update
     var nick by remember(vm.myNickname) { mutableStateOf(vm.myNickname ?: "") }
+    var editingNick by remember(vm.myNickname) { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -345,42 +336,48 @@ private fun SettingsScreen(vm: ChatViewModel) {
             ) {
                 Text("Версия", style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.weight(1f))
+                Text(
+                    "v" + vm.version,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (update != null) {
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        update.version,
+                        "→ " + update.version,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(Modifier.width(8.dp))
                     Badge(containerColor = Color.Red)
-                } else {
-                    Text(
-                        vm.version,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
 
         Card {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Никнейм", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "Его увидят участники чата вместо идентификатора.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Никнейм", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.weight(1f))
+                    if (editingNick) {
+                        TextButton(onClick = { vm.setNickname(nick); editingNick = false }) { Text("Сохранить") }
+                    } else {
+                        TextButton(onClick = { nick = vm.myNickname ?: ""; editingNick = true }) { Text("Изменить") }
+                    }
+                }
+                if (editingNick) {
                     OutlinedTextField(
                         value = nick,
                         onValueChange = { nick = it },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("ваше имя") },
                         singleLine = true,
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { vm.setNickname(nick) }) { Text("Сохранить") }
+                } else {
+                    Text(
+                        nick.ifBlank { "не задан" },
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                 }
             }
         }
@@ -429,32 +426,41 @@ private fun SettingsScreen(vm: ChatViewModel) {
             }
         }
 
-        Text("Профиль", style = MaterialTheme.typography.titleMedium)
-        Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
-            Image(qr, "QR идентификатора", modifier = Modifier.size(240.dp).padding(12.dp))
+        Card {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Соединение", style = MaterialTheme.typography.titleSmall)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Тип",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(vm.connectionKind ?: "—", style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Последний сигналинг",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(fmtTime(vm.lastSignalingTs), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
-        Text(
-            "id: ${vm.peerId.take(24)}…",
-            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedButton(onClick = {
-            clipboard.setText(AnnotatedString(vm.publicKeyHex))
-            Toast.makeText(ctx, "Ключ скопирован", Toast.LENGTH_SHORT).show()
-        }) { Text("Скопировать ключ") }
-
-        Text(
-            vm.publicKeyHex,
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 8.dp),
-        )
     }
 
     if (showUpdate && update != null) {
         UpdateDialog(update, onDismiss = { showUpdate = false })
     }
+}
+
+/** Время последней активности сигналинга в виде «HH:mm:ss» (или «—»). */
+private fun fmtTime(ts: Long): String {
+    if (ts <= 0L) return "—"
+    return java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+        .format(java.util.Date(ts))
 }
 
 @Composable
