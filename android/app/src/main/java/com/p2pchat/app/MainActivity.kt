@@ -335,7 +335,7 @@ private fun SettingsScreen(vm: ChatViewModel) {
     var showLang by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val pickAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { u -> scope.launch { downscaledJpeg(ctx, u)?.let { vm.setAvatar(it) } } }
+        uri?.let { u -> scope.launch { withContext(Dispatchers.IO) { downscaledJpeg(ctx, u) }?.let { vm.setAvatar(it) } } }
     }
     var explainKind by remember { mutableStateOf<String?>(null) }
 
@@ -770,7 +770,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val pickGroupAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { u -> scope.launch { downscaledJpeg(ctx, u)?.let { vm.setGroupAvatar(it) } } }
+        uri?.let { u -> scope.launch { withContext(Dispatchers.IO) { downscaledJpeg(ctx, u) }?.let { vm.setGroupAvatar(it) } } }
     }
     val invite = vm.invite
     val inviteQr = remember(invite) { invite?.let { generateQrBitmap(it, 640) } }
