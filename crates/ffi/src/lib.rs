@@ -58,6 +58,13 @@ pub struct FfiPeerLink {
     pub kind: String,
 }
 
+/// Аватар участника.
+#[derive(uniffi::Record)]
+pub struct FfiAvatar {
+    pub peer_id: Vec<u8>,
+    pub avatar: Vec<u8>,
+}
+
 /// Связь для графа: автор → собеседник и тип ("direct"/"turn").
 #[derive(uniffi::Record)]
 pub struct FfiLink {
@@ -287,6 +294,49 @@ impl ChatCore {
         Ok(engine
             .set_nickname(&name)?
             .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    /// Задать свой аватар (маленькое изображение) и вернуть конверт для рассылки.
+    pub fn set_avatar(&self, avatar: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .set_avatar(avatar)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    /// Аватар участника (или None).
+    pub fn avatar_of(&self, peer_id: Vec<u8>) -> Option<Vec<u8>> {
+        self.inner.lock().unwrap().avatar_of(&peer_id)
+    }
+
+    /// Все аватары участников.
+    pub fn avatars(&self) -> Vec<FfiAvatar> {
+        self.inner
+            .lock()
+            .unwrap()
+            .avatars()
+            .into_iter()
+            .map(|(peer_id, avatar)| FfiAvatar { peer_id, avatar })
+            .collect()
+    }
+
+    /// Сменить аватар группы (только владелец). Возвращает конверт для рассылки.
+    pub fn set_group_avatar(
+        &self,
+        group_id: Vec<u8>,
+        avatar: Vec<u8>,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .set_group_avatar(&group_id, avatar)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    /// Аватар группы (или None).
+    pub fn group_avatar(&self, group_id: Vec<u8>) -> Option<Vec<u8>> {
+        self.inner.lock().unwrap().group_avatar(&group_id)
     }
 
     /// Конверт с нашим профилем для повторной рассылки (если ник задан).

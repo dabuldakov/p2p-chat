@@ -157,6 +157,13 @@ impl Store {
             self.conn.execute_batch("PRAGMA user_version = 4;")?;
         }
 
+        if version < 5 {
+            if !self.has_column("profiles", "avatar")? {
+                self.conn.execute_batch("ALTER TABLE profiles ADD COLUMN avatar BLOB;")?;
+            }
+            self.conn.execute_batch("PRAGMA user_version = 5;")?;
+        }
+
         Ok(())
     }
 
@@ -458,20 +465,28 @@ impl Store {
         peer_id: &[u8],
         nickname: &str,
         lamport: u64,
+        avatar: Option<&[u8]>,
     ) -> Result<(), StorageError> {
         self.conn.execute(
-            "INSERT INTO profiles (peer_id, nickname, lamport) VALUES (?1, ?2, ?3)
+            "INSERT INTO profiles (peer_id, nickname, lamport, avatar) VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(peer_id) DO UPDATE SET
                 nickname = excluded.nickname, lamport = excluded.lamport",
-            params![peer_id, nickname, lamport as i64],
+            params![peer_id, nickname, lamport as i64, avatar],
         )?;
         Ok(())
     }
 
-    pub fn all_profiles(&self) -> Result<Vec<(Vec<u8>, String, u64)>, StorageError> {
-        let mut stmt = self.conn.prepare("SELECT peer_id, nickname, lamport FROM profiles")?;
+    /// (peer_id, nickname, lamport, avatar)
+    pub fn all_profiles(&self) -> Result<Vec<(Vec<u8>, String, u64, Option<Vec<u8>>)>, StorageError> {
+        let mut stmt =
+            self.conn.prepare("SELECT peer_id, nickname, lamport, avatar FROM profiles")?;
         let rows = stmt.query_map([], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? as u64))
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get::<_, i64>(2)? as u64,
+                r.get::<_, Option<Vec<u8>>>(3)?,
+            ))
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
@@ -655,7 +670,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 4);
+        assert_eq!(v, 5);
     }
 
     #[test]
@@ -721,7 +736,7 @@ mod tests {
         assert_eq!(msgs[0].parents, vec![vec![1u8, 2, 3]], "родители перенесены");
         assert!(!store.has_column("messages", "parents").unwrap(), "старый столбец убран");
         let v: i64 = store.conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(v, 4);
+        assert_eq!(v, 5);
 
         let _ = std::fs::remove_file(&path);
     }

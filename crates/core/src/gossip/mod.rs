@@ -11,7 +11,7 @@ use crate::log::Log;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, Direct, Envelope, Gossip, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
+use crate::proto::{ChatMessage, Direct, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
 use crate::{CoreError, GroupId, PeerId};
 
 mod sync;
@@ -31,6 +31,10 @@ pub struct GossipEngine {
     owners: std::collections::HashMap<GroupId, PeerId>,
     /// Эфемерные публикации связей: group → author → (time, [(peer, kind)]).
     links: std::collections::HashMap<GroupId, std::collections::HashMap<PeerId, (u64, Vec<(Vec<u8>, String)>)>>,
+    /// Аватары участников (peer_id → изображение).
+    avatars: std::collections::HashMap<PeerId, Vec<u8>>,
+    /// Аватары групп (group → изображение).
+    group_avatars: std::collections::HashMap<GroupId, Vec<u8>>,
     /// Никнеймы участников (peer_id → (ник, lamport)).
     nicknames: std::collections::HashMap<PeerId, (String, u64)>,
     /// nonce уже обработанных конвертов (анти-реплей, дедуп лавины)
@@ -69,6 +73,8 @@ impl GossipEngine {
             mls_db: None,
             owners: Default::default(),
             links: Default::default(),
+            avatars: Default::default(),
+            group_avatars: Default::default(),
             nicknames: Default::default(),
             seen: Default::default(),
         }
@@ -197,8 +203,13 @@ impl GossipEngine {
 
     /// Восстановить профили и владельцев (MLS-состояние грузится через `load_mls`).
     pub fn load_state(&mut self) -> Result<(), CoreError> {
-        for (pid, nick, lamport) in self.log.load_profiles()? {
-            self.nicknames.insert(pid, (nick, lamport));
+        for (pid, nick, lamport, avatar) in self.log.load_profiles()? {
+            self.nicknames.insert(pid.clone(), (nick, lamport));
+            if let Some(a) = avatar {
+                if !a.is_empty() {
+                    self.avatars.insert(pid, a);
+                }
+            }
         }
         Ok(())
     }
@@ -482,6 +493,9 @@ impl GossipEngine {
             Some(Body::Links(l)) => {
                 self.on_links(l, &origin)?;
             }
+            Some(Body::GroupProfile(g)) => {
+                self.on_group_profile(g, &origin)?;
+            }
             None => {}
         }
 
@@ -736,8 +750,108 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         let pid = self.peer_id();
         let lamport = self.log.tick();
         self.nicknames.insert(pid.clone(), (name.to_string(), lamport));
-        let _ = self.log.store_profile(&pid, name, lamport);
+        let avatar = self.avatars.get(&pid).cloned().unwrap_or_default();
+        let av = if avatar.is_empty() { None } else { Some(avatar.as_slice()) };
+        let _ = self.log.store_profile(&pid, name, lamport, av);
         Ok(Some(self.profile_outgoing()?))
+    }
+
+    /// Задать свой аватар (маленькое изображение) и разослать профиль.
+    pub fn set_avatar(&mut self, avatar: Vec<u8>) -> Result<Option<Outgoing>, CoreError> {
+        let pid = self.peer_id();
+        let lamport = self.log.tick();
+        if avatar.is_empty() {
+            self.avatars.remove(&pid);
+        } else {
+            self.avatars.insert(pid.clone(), avatar.clone());
+        }
+        let name = self.nicknames.get(&pid).map(|(n, _)| n.clone()).unwrap_or_default();
+        self.nicknames.insert(pid.clone(), (name.clone(), lamport));
+        let av = if avatar.is_empty() { None } else { Some(avatar.as_slice()) };
+        let _ = self.log.store_profile(&pid, &name, lamport, av);
+        Ok(Some(self.profile_outgoing()?))
+    }
+
+    /// Аватар участника.
+    pub fn avatar_of(&self, peer_id: &[u8]) -> Option<Vec<u8>> {
+        self.avatars.get(peer_id).cloned().filter(|a| !a.is_empty())
+    }
+
+    /// Все аватары участников.
+    pub fn avatars(&self) -> Vec<(PeerId, Vec<u8>)> {
+        self.avatars.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
+
+    /// Аватар группы (из памяти или меты).
+    pub fn group_avatar(&self, group: &[u8]) -> Option<Vec<u8>> {
+        if let Some(a) = self.group_avatars.get(group) {
+            if !a.is_empty() {
+                return Some(a.clone());
+            }
+        }
+        self.log
+            .get_meta(&format!("gavatar:{}", hex(group)))
+            .ok()
+            .flatten()
+            .filter(|a| !a.is_empty())
+    }
+
+    /// Сменить аватар группы (только владелец). Возвращает конверт для рассылки.
+    pub fn set_group_avatar(
+        &mut self,
+        group: &[u8],
+        avatar: Vec<u8>,
+    ) -> Result<Option<Outgoing>, CoreError> {
+        if !self.is_owner(group)? {
+            return Ok(None);
+        }
+        let lamport = self.log.tick();
+        let me = self.peer_id();
+        if avatar.is_empty() {
+            self.group_avatars.remove(group);
+        } else {
+            self.group_avatars.insert(group.to_vec(), avatar.clone());
+        }
+        let _ = self.log.set_meta(&format!("gavatar:{}", hex(group)), &avatar);
+        let _ = self.log.set_meta(&format!("gavatar_l:{}", hex(group)), &lamport.to_le_bytes());
+        let mut id_h = Vec::new();
+        id_h.extend_from_slice(group);
+        id_h.extend_from_slice(&lamport.to_be_bytes());
+        id_h.extend_from_slice(&avatar);
+        let ev = GroupProfile {
+            group_id: group.to_vec(),
+            avatar,
+            lamport,
+            author: me,
+            id: p2pchat_crypto::content_id(&id_h).to_vec(),
+        };
+        let env = self.seal(Gossip { body: Some(Body::GroupProfile(ev)) })?;
+        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+    }
+
+    /// Принять аватар группы (только от владельца, LWW).
+    fn on_group_profile(&mut self, ev: GroupProfile, origin: &[u8]) -> Result<(), CoreError> {
+        // принимаем только от участника группы (ограничение «только владелец» —
+        // на стороне отправителя в set_group_avatar)
+        let is_member = self.members(&ev.group_id).iter().any(|m| m.public_key == origin);
+        if !is_member {
+            return Ok(());
+        }
+        let cur: u64 = self
+            .log
+            .get_meta(&format!("gavatar_l:{}", hex(&ev.group_id)))?
+            .and_then(|b| b.try_into().ok())
+            .map(u64::from_le_bytes)
+            .unwrap_or(0);
+        if ev.lamport < cur {
+            return Ok(());
+        }
+        self.group_avatars.insert(ev.group_id.clone(), ev.avatar.clone());
+        let _ = self.log.set_meta(&format!("gavatar:{}", hex(&ev.group_id)), &ev.avatar);
+        let _ = self
+            .log
+            .set_meta(&format!("gavatar_l:{}", hex(&ev.group_id)), &ev.lamport.to_le_bytes());
+        Ok(())
     }
 
     pub fn my_nickname(&self) -> Option<String> {
@@ -768,7 +882,8 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             .get(&pid)
             .cloned()
             .unwrap_or((String::new(), 0));
-        let ev = crate::membership::profile_event(&pid, &name, lamport, &pid);
+        let avatar = self.avatars.get(&pid).cloned().unwrap_or_default();
+        let ev = crate::membership::profile_event(&pid, &name, lamport, &pid, &avatar);
         let env = self.seal(Gossip { body: Some(Body::Profile(ev)) })?;
         Ok(self.out_all(env))
     }
@@ -781,7 +896,11 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         if wins {
             self.nicknames
                 .insert(ev.peer_id.clone(), (ev.nickname.clone(), ev.lamport));
-            let _ = self.log.store_profile(&ev.peer_id, &ev.nickname, ev.lamport);
+            if !ev.avatar.is_empty() {
+                self.avatars.insert(ev.peer_id.clone(), ev.avatar.clone());
+            }
+            let av = if ev.avatar.is_empty() { None } else { Some(ev.avatar.as_slice()) };
+            let _ = self.log.store_profile(&ev.peer_id, &ev.nickname, ev.lamport, av);
             let env = self.seal(Gossip { body: Some(Body::Profile(ev)) })?;
             out.outgoing.push(self.out_all(env));
         }
@@ -845,6 +964,7 @@ fn mls_group_of(g: &Gossip) -> Option<GroupId> {
     match &g.body {
         Some(Body::Mls(m)) => Some(m.group_id.clone()),
         Some(Body::Links(l)) => Some(l.group_id.clone()),
+        Some(Body::GroupProfile(g)) => Some(g.group_id.clone()),
         _ => None,
     }
 }

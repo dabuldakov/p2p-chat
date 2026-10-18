@@ -157,18 +157,26 @@ pub fn membership_event(
 }
 
 /// Собрать событие профиля (никнейм), id — контент-хеш.
-pub fn profile_event(peer_id: &[u8], nickname: &str, lamport: u64, author: &[u8]) -> ProfileEvent {
+pub fn profile_event(
+    peer_id: &[u8],
+    nickname: &str,
+    lamport: u64,
+    author: &[u8],
+    avatar: &[u8],
+) -> ProfileEvent {
     let mut ev = ProfileEvent {
         peer_id: peer_id.to_vec(),
         nickname: nickname.to_string(),
         lamport,
         author: author.to_vec(),
         id: Vec::new(),
+        avatar: avatar.to_vec(),
     };
     let mut h = Sha256::new();
     h.update(&ev.peer_id);
     h.update(nickname.as_bytes());
     h.update(ev.lamport.to_be_bytes());
+    h.update(&ev.avatar);
     ev.id = h.finalize().to_vec();
     ev
 }
