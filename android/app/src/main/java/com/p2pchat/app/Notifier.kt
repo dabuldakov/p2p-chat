@@ -27,15 +27,15 @@ object Notifier {
         val mgr = ctx.getSystemService(NotificationManager::class.java) ?: return
         if (mgr.getNotificationChannel(CH_MESSAGES) == null) {
             mgr.createNotificationChannel(
-                NotificationChannel(CH_MESSAGES, "Сообщения", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "Новые сообщения в группах"
+                NotificationChannel(CH_MESSAGES, ctx.getString(R.string.messages_channel), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = ctx.getString(R.string.messages_channel_desc)
                     setShowBadge(true)
                 },
             )
         }
         if (mgr.getNotificationChannel(CH_SERVICE) == null) {
             mgr.createNotificationChannel(
-                NotificationChannel(CH_SERVICE, "Соединение", NotificationManager.IMPORTANCE_LOW).apply {
+                NotificationChannel(CH_SERVICE, ctx.getString(R.string.service_channel), NotificationManager.IMPORTANCE_LOW).apply {
                     setShowBadge(false)
                 },
             )

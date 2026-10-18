@@ -1,0 +1,92 @@
+<resources>
+    <string name="app_name">p2pchat</string>
+
+    <!-- Навигация -->
+    <string name="back">Back</string>
+    <string name="settings">Settings</string>
+    <string name="add_group">Add group</string>
+
+    <!-- Список групп -->
+    <string name="groups_empty">No groups yet. Tap “+” to create or join by an invite.</string>
+    <string name="members_count">%1$d members</string>
+    <string name="group_exists">Group “%1$s” already exists</string>
+
+    <!-- Создание / вход -->
+    <string name="new_group">New group</string>
+    <string name="group_name_hint">group name</string>
+    <string name="create">Create</string>
+    <string name="or_paste_invite">or paste an invite</string>
+    <string name="join_by_invite">Join by invite</string>
+    <string name="close">Close</string>
+    <string name="bad_invite">bad invite</string>
+    <string name="joining">waiting for confirmation…</string>
+
+    <!-- Экран группы -->
+    <string name="invite_to_group">Invite to group</string>
+    <string name="participants">Participants</string>
+    <string name="you"> (you)</string>
+    <string name="remove">Remove</string>
+    <string name="leave_group">Leave group</string>
+    <string name="leave_group_title">Leave group</string>
+    <string name="leave_group_confirm">Are you sure you want to leave the group?</string>
+    <string name="leave">Leave</string>
+    <string name="cancel">Cancel</string>
+    <string name="invite_qr">Invite QR</string>
+    <string name="copy_invite">Copy invite</string>
+    <string name="invite_copied">Invite copied</string>
+    <string name="expand">Expand</string>
+    <string name="status_connected">%1$s · connected: %2$d</string>
+    <string name="neighbors">neighbors: %1$d</string>
+
+    <!-- Сообщения -->
+    <string name="show_earlier">Show earlier</string>
+    <string name="no_messages">No messages yet</string>
+    <string name="message_hint">message…</string>
+    <string name="send">Send</string>
+    <string name="gif">GIF</string>
+
+    <!-- GIF-пикер -->
+    <string name="gif_mine">Mine</string>
+    <string name="gif_group">This group</string>
+    <string name="gif_search">Search</string>
+    <string name="gif_search_hint">search GIFs…</string>
+    <string name="nothing_found">Nothing found</string>
+    <string name="empty">Empty</string>
+
+    <!-- Настройки -->
+    <string name="version">Version</string>
+    <string name="nickname">Nickname</string>
+    <string name="nickname_none">not set</string>
+    <string name="nickname_hint">your name</string>
+    <string name="change">Change</string>
+    <string name="save">Save</string>
+    <string name="keep_alive_title">Keep connection in background</string>
+    <string name="keep_alive_desc">Messages arrive with the app closed (persistent notification). Affects battery.</string>
+    <string name="debug_title">Debug logs</string>
+    <string name="debug_desc">Detailed connection logs in logcat (tag p2pchat). For diagnostics only.</string>
+    <string name="connection">Connection</string>
+    <string name="connection_type">Type</string>
+    <string name="connection_last_signaling">Last signaling</string>
+    <string name="conn_stun_title">STUN — direct</string>
+    <string name="conn_turn_title">TURN — via relay</string>
+    <string name="conn_stun_scheme">Phone A  ⇄  Phone B</string>
+    <string name="conn_turn_scheme">Phone A  →  [ TURN ]  →  Phone B</string>
+    <string name="conn_stun_desc">The fastest path. Devices learn each other\u2019s addresses via STUN and connect directly — data goes between the phones, not through a server.</string>
+    <string name="conn_turn_desc">Direct connection failed (complex NAT / ISP). Traffic goes through a TURN relay: a bit slower, but it works almost always. Content is encrypted — the relay cannot read it.</string>
+    <string name="language">Language</string>
+
+    <!-- Проверка обновлений -->
+    <string name="update_title">A new version is available</string>
+    <string name="update_text">Version %1$s is available. Download and update?</string>
+    <string name="whats_new">What\u2019s new</string>
+    <string name="download">Download</string>
+    <string name="later">Later</string>
+    <string name="up_to_date">You have the latest version</string>
+
+    <!-- Уведомления и служба -->
+    <string name="service_channel">Connection</string>
+    <string name="service_text">Keeping the connection in the background</string>
+    <string name="messages_channel">Messages</string>
+    <string name="messages_channel_desc">New messages in groups</string>
+    <string name="new_messages">New messages</string>
+</resources>

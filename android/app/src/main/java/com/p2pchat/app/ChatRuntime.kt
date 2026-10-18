@@ -220,7 +220,7 @@ object ChatRuntime {
         val n = name.trim()
         if (n.isEmpty()) return
         if (groups.contains(n)) {
-            status = "группа «$n» уже существует"
+            status = app.getString(R.string.group_exists, n)
             return
         }
         val g = n.toByteArray()
@@ -238,10 +238,10 @@ object ChatRuntime {
                     runCatching { transport.connectForce(host) }
                     // отправляем заявку (KeyPackage + билет) хозяину; ждём Welcome
                     transport.sendTargets(join.request.envelope, join.request.targets)
-                    status = "ожидаю подтверждения…"
+                    status = app.getString(R.string.joining)
                 }
             }
-            .onFailure { status = "плохой инвайт" }
+            .onFailure { status = app.getString(R.string.bad_invite) }
     }
 
     fun selectGroup(g: ByteArray) {
@@ -302,7 +302,7 @@ object ChatRuntime {
                 Logs.d("neighbor ${pk.toHex()}")
                 runCatching { transport.connect(pk) }
             }
-            status = "соседей: ${keys.size}"
+            status = app.getString(R.string.neighbors, keys.size)
         }
     }
 
@@ -326,7 +326,7 @@ object ChatRuntime {
         val last = runCatching {
             core.historyWindow(g.toByteArray(), null, 1u).messages.lastOrNull()?.text
         }.getOrNull()
-        val text = if (last.isNullOrBlank()) "Новые сообщения" else last
+        val text = if (last.isNullOrBlank()) app.getString(R.string.new_messages) else last
         Notifier.showMessages(app, g, text, unreadGroups, g, silent)
     }
 

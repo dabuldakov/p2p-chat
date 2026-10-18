@@ -37,7 +37,7 @@ class ChatService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, Notifier.CH_SERVICE)
             .setContentTitle("p2pchat")
-            .setContentText("Держим связь в фоне")
+            .setContentText(getString(R.string.service_text))
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

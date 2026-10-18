@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.p2pchat.app.ChatViewModel
@@ -43,9 +44,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 private const val PAGE_SIZE = 30
 
 enum class GifTab(val title: String) {
-    MINE("Мои"),
-    GROUP("Эта группа"),
-    SEARCH("Поиск"),
+    MINE(stringResource(R.string.gif_mine)),
+    GROUP(stringResource(R.string.gif_group)),
+    SEARCH(stringResource(R.string.gif_search)),
 }
 
 /**
@@ -125,7 +126,7 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        placeholder = { Text("поиск гифок…") },
+                        placeholder = { Text(stringResource(R.string.gif_search_hint)) },
                         singleLine = true,
                     )
                 }
@@ -133,7 +134,7 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                     when {
                         gifs.isEmpty() && loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                         gifs.isEmpty() -> Text(
-                            if (tab == GifTab.SEARCH && query.isBlank()) "Пусто" else "Ничего не найдено",
+                            if (tab == GifTab.SEARCH && query.isBlank()) stringResource(R.string.empty) else stringResource(R.string.nothing_found),
                             modifier = Modifier.align(Alignment.Center),
                         )
                         else -> LazyVerticalGrid(
@@ -160,7 +161,7 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Закрыть") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         },
     )
 }

@@ -1,6 +1,8 @@
 package com.p2pchat.app
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -75,6 +79,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -89,6 +94,10 @@ import uniffi.p2pchat_ffi.FfiMessage
 
 class MainActivity : ComponentActivity() {
     private val vm: ChatViewModel by viewModels()
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(Lang.wrap(newBase))
+    }
 
     private val notifPerm =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -153,7 +162,7 @@ fun Root(vm: ChatViewModel) {
     val group = vm.currentGroup
 
     val title = when {
-        settings -> "Настройки"
+        settings -> stringResource(R.string.settings)
         group != null -> String(group)
         else -> "p2pchat"
     }
@@ -169,7 +178,7 @@ fun Root(vm: ChatViewModel) {
             navigationIcon = {
                 if (onBack != null) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             },
@@ -199,7 +208,7 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
         ) {
             if (vm.groups.isEmpty()) {
                 Text(
-                    "Пока нет групп. Нажмите «+», чтобы создать или войти по инвайту.",
+                    stringResource(R.string.groups_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 24.dp),
@@ -214,7 +223,7 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                             Column {
                                 Text(name, style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    "${vm.memberCounts[name] ?: 1} участн.",
+                                    stringResource(R.string.members_count, vm.memberCounts[name] ?: 1),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -249,11 +258,11 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                     onClick = onSettings,
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Настройки")
+                    Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings))
                 }
             }
             FloatingActionButton(onClick = { showAdd = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Добавить группу")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_group))
             }
         }
     }
@@ -268,35 +277,35 @@ private fun AddGroupDialog(vm: ChatViewModel, onClose: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Новая группа") },
+        title = { Text(stringResource(R.string.new_group)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("название группы") },
+                    placeholder = { Text(stringResource(R.string.group_name_hint)) },
                     singleLine = true,
                 )
                 Button(
                     onClick = { vm.createGroup(name); onClose() },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Создать") }
+                ) { Text(stringResource(R.string.create)) }
                 OutlinedTextField(
                     value = inviteIn,
                     onValueChange = { inviteIn = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("или вставьте инвайт") },
+                    placeholder = { Text(stringResource(R.string.or_paste_invite)) },
                     maxLines = 3,
                 )
                 OutlinedButton(
                     onClick = { vm.joinGroup(inviteIn.trim()); onClose() },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Войти по инвайту") }
+                ) { Text(stringResource(R.string.join_by_invite)) }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onClose) { Text("Закрыть") } },
+        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.close)) } },
     )
 }
 
@@ -310,6 +319,8 @@ private fun SettingsScreen(vm: ChatViewModel) {
     val update = vm.update
     var nick by remember(vm.myNickname) { mutableStateOf(vm.myNickname ?: "") }
     var editingNick by remember(vm.myNickname) { mutableStateOf(false) }
+    val noneNick = stringResource(R.string.nickname_none)
+    var showLang by remember { mutableStateOf(false) }
     var explainKind by remember { mutableStateOf<String?>(null) }
 
     Column(
@@ -329,14 +340,14 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         } else {
                             vm.checkNow { has ->
                                 if (has) showUpdate = true
-                                else Toast.makeText(ctx, "Установлена последняя версия", Toast.LENGTH_SHORT).show()
+                                else Toast.makeText(ctx, ctx.getString(R.string.up_to_date), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Версия", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.version), style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.weight(1f))
                 Text(
                     "v" + vm.version,
@@ -359,12 +370,12 @@ private fun SettingsScreen(vm: ChatViewModel) {
         Card {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Никнейм", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.nickname), style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.weight(1f))
                     if (editingNick) {
-                        TextButton(onClick = { vm.setNickname(nick); editingNick = false }) { Text("Сохранить") }
+                        TextButton(onClick = { vm.setNickname(nick); editingNick = false }) { Text(stringResource(R.string.save)) }
                     } else {
-                        TextButton(onClick = { nick = vm.myNickname ?: ""; editingNick = true }) { Text("Изменить") }
+                        TextButton(onClick = { nick = vm.myNickname ?: ""; editingNick = true }) { Text(stringResource(R.string.change)) }
                     }
                 }
                 if (editingNick) {
@@ -372,12 +383,12 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         value = nick,
                         onValueChange = { nick = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("ваше имя") },
+                        placeholder = { Text(stringResource(R.string.nickname_hint)) },
                         singleLine = true,
                     )
                 } else {
                     Text(
-                        nick.ifBlank { "не задан" },
+                        nick.ifBlank { noneNick },
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
@@ -390,10 +401,9 @@ private fun SettingsScreen(vm: ChatViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Держать связь в фоне", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.keep_alive_title), style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "Сообщения приходят при закрытом приложении (постоянное уведомление). " +
-                            "Влияет на батарею.",
+                        stringResource(R.string.keep_alive_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -412,10 +422,9 @@ private fun SettingsScreen(vm: ChatViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Логи отладки", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.debug_title), style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "Подробные логи соединений в logcat (тег p2pchat). " +
-                            "Нужны только для диагностики.",
+                        stringResource(R.string.debug_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -429,28 +438,40 @@ private fun SettingsScreen(vm: ChatViewModel) {
         }
 
         Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { showLang = true }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.language), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.weight(1f))
+                val cur = Lang.LANGUAGES.firstOrNull { it.first == Lang.get(ctx) } ?: Lang.LANGUAGES.first()
+                Text("${cur.second}  ${cur.third}", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+
+        Card {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Соединение", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.connection), style = MaterialTheme.typography.titleSmall)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Тип",
+                        stringResource(R.string.connection_type),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.weight(1f))
                     val kind = vm.connectionKind
-                    ConnTypeChip("STUN", active = kind == "напрямую", color = Color(0xFF2E9E6B)) {
+                    ConnTypeChip("STUN", active = kind == "direct", color = Color(0xFF2E9E6B)) {
                         explainKind = if (explainKind == "stun") null else "stun"
                     }
                     Spacer(Modifier.width(10.dp))
-                    ConnTypeChip("TURN", active = kind == "через TURN", color = Color(0xFFE08A1E)) {
+                    ConnTypeChip("TURN", active = kind == "turn", color = Color(0xFFE08A1E)) {
                         explainKind = if (explainKind == "turn") null else "turn"
                     }
                 }
                 explainKind?.let { ConnExplanation(it) }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Последний сигналинг",
+                        stringResource(R.string.connection_last_signaling),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -459,6 +480,42 @@ private fun SettingsScreen(vm: ChatViewModel) {
                 }
             }
         }
+    }
+
+    if (showLang) {
+        AlertDialog(
+            onDismissRequest = { showLang = false },
+            title = { Text(stringResource(R.string.language)) },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    val cur = Lang.get(ctx)
+                    Lang.LANGUAGES.forEach { (code, flag, name) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable {
+                                    Lang.set(ctx, code)
+                                    showLang = false
+                                    (ctx as? Activity)?.recreate()
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "$flag  $name",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (code == cur) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (code == cur) Icon(Icons.Filled.Check, contentDescription = null)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLang = false }) { Text(stringResource(R.string.close)) }
+            },
+        )
     }
 
     if (showUpdate && update != null) {
@@ -484,12 +541,12 @@ private fun ConnTypeChip(label: String, active: Boolean, color: Color, onClick: 
 @Composable
 private fun ConnExplanation(kind: String) {
     val isStun = kind == "stun"
-    val title = if (isStun) "STUN — напрямую" else "TURN — через ретранслятор"
-    val scheme = if (isStun) "Телефон A  ⇄  Телефон B" else "Телефон A  →  [ TURN ]  →  Телефон B"
+    val title = if (isStun) stringResource(R.string.conn_stun_title) else stringResource(R.string.conn_turn_title)
+    val scheme = if (isStun) stringResource(R.string.conn_stun_scheme) else stringResource(R.string.conn_turn_scheme)
     val desc = if (isStun) {
-        "Самый быстрый путь. Устройства узнают адреса через STUN и соединяются напрямую — данные идут между телефонами, не через сервер."
+        stringResource(R.string.conn_stun_desc)
     } else {
-        "Прямое соединение не удалось (сложный NAT/оператор). Трафик идёт через ретранслятор TURN: чуть медленнее, но работает почти всегда. Содержимое зашифровано — ретранслятор его не читает."
+        stringResource(R.string.conn_turn_desc)
     }
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -522,20 +579,20 @@ private fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Появилась новая версия") },
+        title = { Text(stringResource(R.string.update_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Доступна версия ${info.version}. Скачать и обновить?")
+                Text(stringResource(R.string.update_text, info.version))
                 if (info.changelog.isNotEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Что нового", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.whats_new), style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.weight(1f))
                         Icon(
                             if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                            contentDescription = "Развернуть",
+                            contentDescription = stringResource(R.string.expand),
                         )
                     }
                     if (expanded) {
@@ -565,10 +622,10 @@ private fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl)))
                 }
                 onDismiss()
-            }) { Text("Скачать") }
+            }) { Text(stringResource(R.string.download)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Позже") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.later)) }
         },
     )
 }
@@ -628,14 +685,14 @@ private fun GroupScreen(vm: ChatViewModel) {
                 modifier = Modifier.fillMaxWidth().clickable { inviteExpanded = !inviteExpanded }.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Пригласить в группу", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.invite_to_group), style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.weight(1f))
-                Text("${vm.members.size} участн.", style = MaterialTheme.typography.labelSmall,
+                Text(stringResource(R.string.members_count, vm.members.size), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(8.dp))
                 Icon(
                     if (inviteExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                    contentDescription = "Развернуть",
+                    contentDescription = stringResource(R.string.expand),
                 )
             }
             if (inviteExpanded) {
@@ -646,32 +703,32 @@ private fun GroupScreen(vm: ChatViewModel) {
                 ) {
                     if (inviteQr != null) {
                         Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
-                            Image(inviteQr, "QR инвайта", modifier = Modifier.size(240.dp).padding(10.dp))
+                            Image(inviteQr, stringResource(R.string.invite_qr), modifier = Modifier.size(240.dp).padding(10.dp))
                         }
                     }
                     if (invite != null) {
                         OutlinedButton(onClick = {
                             clipboard.setText(AnnotatedString(invite))
-                            Toast.makeText(ctx, "Инвайт скопирован", Toast.LENGTH_SHORT).show()
-                        }) { Text("Скопировать инвайт") }
+                            Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
+                        }) { Text(stringResource(R.string.copy_invite)) }
                     }
                     Text(
-                        "${vm.status} · соединено: ${vm.connected}",
+                        stringResource(R.string.status_connected, vm.status, vm.connected),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("Участники", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.participants), style = MaterialTheme.typography.titleSmall)
                         vm.members.forEach { m ->
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 val hex = m.peerId.toHex()
                                 val label = (vm.nicknames[hex]?.takeIf { it.isNotBlank() }
-                                    ?: hex.take(10)) + (if (hex == vm.peerId) " (вы)" else "")
+                                    ?: hex.take(10)) + (if (hex == vm.peerId) stringResource(R.string.you) else "")
                                 Text(label, style = MaterialTheme.typography.bodySmall)
                                 Spacer(Modifier.weight(1f))
                                 if (vm.isOwner && hex != vm.peerId) {
                                     IconButton(onClick = { vm.removeMember(m.peerId) }) {
-                                        Icon(Icons.Filled.Close, contentDescription = "Удалить")
+                                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.remove))
                                     }
                                 }
                             }
@@ -681,7 +738,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                         onClick = { confirmLeave = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Выйти из группы", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.leave_group), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -692,7 +749,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
         ) {
             if (vm.messages.isEmpty()) {
-                Text("Пока нет сообщений", style = MaterialTheme.typography.bodySmall,
+                Text(stringResource(R.string.no_messages), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(12.dp))
             } else {
@@ -711,7 +768,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                     if (vm.hasMore) {
                         item {
                             TextButton(onClick = { vm.loadOlder() }, modifier = Modifier.fillMaxWidth()) {
-                                Text("Показать раньше")
+                                Text(stringResource(R.string.show_earlier))
                             }
                         }
                     }
@@ -722,18 +779,18 @@ private fun GroupScreen(vm: ChatViewModel) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (vm.gifEnabled) {
                 IconButton(onClick = { showGifPicker = true }) {
-                    Icon(Icons.Filled.GifBox, contentDescription = "Гифка")
+                    Icon(Icons.Filled.GifBox, contentDescription = stringResource(R.string.gif))
                 }
             }
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("сообщение…") },
+                placeholder = { Text(stringResource(R.string.message_hint)) },
                 singleLine = true,
             )
             Spacer(Modifier.width(8.dp))
-            Button(onClick = { vm.send(input); input = "" }) { Text("Отправить") }
+            Button(onClick = { vm.send(input); input = "" }) { Text(stringResource(R.string.send)) }
         }
     }
 
@@ -744,15 +801,15 @@ private fun GroupScreen(vm: ChatViewModel) {
     if (confirmLeave) {
         AlertDialog(
             onDismissRequest = { confirmLeave = false },
-            title = { Text("Выйти из группы") },
-            text = { Text("Вы уверены, что хотите выйти из группы?") },
+            title = { Text(stringResource(R.string.leave_group)) },
+            text = { Text(stringResource(R.string.leave_group_confirm)) },
             confirmButton = {
                 TextButton(onClick = { confirmLeave = false; vm.leaveGroup() }) {
-                    Text("Выйти", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.leave), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmLeave = false }) { Text("Отмена") }
+                TextButton(onClick = { confirmLeave = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }

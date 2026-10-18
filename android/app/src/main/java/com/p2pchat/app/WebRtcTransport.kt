@@ -365,9 +365,9 @@ class WebRtcTransport(
                     }
                     val type = localId?.let { stats[it]?.members?.get("candidateType") as? String }
                     when (type) {
-                        "relay" -> onConnectionKind("через TURN")
+                        "relay" -> onConnectionKind("turn")
                         null -> {}
-                        else -> onConnectionKind("напрямую")
+                        else -> onConnectionKind("direct")
                     }
                 }
             }
