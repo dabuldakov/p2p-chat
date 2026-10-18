@@ -14,6 +14,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,6 +28,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -572,6 +576,58 @@ private fun fmtTime(ts: Long): String {
 }
 
 @Composable
+private fun GraphDialog(vm: ChatViewModel, group: ByteArray, onClose: () -> Unit) {
+    val links = vm.links(group)
+    val members = vm.members
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.connection)) },
+        text = {
+            Canvas(Modifier.fillMaxWidth().height(340.dp)) {
+                val n = members.size.coerceAtLeast(1)
+                val cx = size.width / 2f
+                val cy = size.height / 2f
+                val r = minOf(cx, cy) - 44f
+                val pos = HashMap<String, Offset>()
+                members.forEachIndexed { i, m ->
+                    val a = -Math.PI / 2 + 2.0 * Math.PI * i / n
+                    pos[m.peerId.toHex()] = Offset(
+                        (cx + r * Math.cos(a)).toFloat(),
+                        (cy + r * Math.sin(a)).toFloat(),
+                    )
+                }
+                val green = Color(0xFF2E9E6B)
+                val orange = Color(0xFFE08A1E)
+                for (l in links) {
+                    val p1 = pos[l.from.toHex()] ?: continue
+                    val p2 = pos[l.to.toHex()] ?: continue
+                    val col = when (l.kind) {
+                        "turn" -> orange
+                        "direct" -> green
+                        else -> Color(0x559AA7C7)
+                    }
+                    drawLine(col, p1, p2, strokeWidth = 3f)
+                }
+                val paint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.argb(255, 200, 210, 230)
+                    textSize = 30f
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                members.forEach { m ->
+                    val p = pos[m.peerId.toHex()] ?: return@forEach
+                    drawCircle(Color(0xFF5B8CFF), radius = 14f, center = p)
+                    val nick = vm.nicknames[m.peerId.toHex()]?.takeIf { it.isNotBlank() }
+                        ?: m.peerId.toHex().take(6)
+                    drawContext.canvas.nativeCanvas.drawText(nick, p.x, p.y - 22f, paint)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.close)) } },
+    )
+}
+
+@Composable
 private fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
@@ -636,6 +692,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     var input by remember { mutableStateOf("") }
     var inviteExpanded by remember { mutableStateOf(false) }
     var qrShown by remember { mutableStateOf(false) }
+    var showGraph by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     var showGifPicker by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
@@ -744,6 +801,9 @@ private fun GroupScreen(vm: ChatViewModel) {
                             }
                         }
                     }
+                    OutlinedButton(onClick = { showGraph = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Граф соединений")
+                    }
                     OutlinedButton(
                         onClick = { confirmLeave = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -807,6 +867,8 @@ private fun GroupScreen(vm: ChatViewModel) {
     if (showGifPicker && vm.gifEnabled) {
         GifPickerDialog(vm = vm, onDismiss = { showGifPicker = false })
     }
+
+    vm.currentGroup?.let { g -> if (showGraph) GraphDialog(vm, g) { showGraph = false } }
 
     if (confirmLeave) {
         AlertDialog(

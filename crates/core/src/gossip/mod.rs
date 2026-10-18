@@ -11,7 +11,7 @@ use crate::log::Log;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, Direct, Envelope, Gossip, Mls, PeerInfo, Presence, ProfileEvent};
+use crate::proto::{ChatMessage, Direct, Envelope, Gossip, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
 use crate::{CoreError, GroupId, PeerId};
 
 mod sync;
@@ -29,6 +29,8 @@ pub struct GossipEngine {
     mls_db: Option<String>,
     /// Владельцы групп (кто создал) — для выдачи билетов и удаления участников.
     owners: std::collections::HashMap<GroupId, PeerId>,
+    /// Эфемерные публикации связей: group → author → (time, [(peer, kind)]).
+    links: std::collections::HashMap<GroupId, std::collections::HashMap<PeerId, (u64, Vec<(Vec<u8>, String)>)>>,
     /// Никнеймы участников (peer_id → (ник, lamport)).
     nicknames: std::collections::HashMap<PeerId, (String, u64)>,
     /// nonce уже обработанных конвертов (анти-реплей, дедуп лавины)
@@ -66,6 +68,7 @@ impl GossipEngine {
             mls,
             mls_db: None,
             owners: Default::default(),
+            links: Default::default(),
             nicknames: Default::default(),
             seen: Default::default(),
         }
@@ -453,6 +456,9 @@ impl GossipEngine {
             Some(Body::Mls(m)) => {
                 self.on_mls(m, &mut out)?;
             }
+            Some(Body::Links(l)) => {
+                self.on_links(l, &origin)?;
+            }
             None => {}
         }
 
@@ -641,6 +647,65 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         Ok(())
     }
 
+    /// Принять публикацию связей (эфемерно, LWW по времени автора).
+    fn on_links(&mut self, l: Links, origin: &[u8]) -> Result<(), CoreError> {
+        // принимаем только от участника группы и с корректным peer_id
+        let is_member = self.members(&l.group_id).iter().any(|m| m.public_key == origin);
+        if !is_member || p2pchat_crypto::content_id(origin).to_vec() != l.peer_id {
+            return Ok(());
+        }
+        let snap: Vec<(Vec<u8>, String)> =
+            l.links.iter().map(|k| (k.peer_id.clone(), k.kind.clone())).collect();
+        let e = self.links.entry(l.group_id).or_default();
+        let cur = e.get(&l.peer_id).map(|(t, _)| *t).unwrap_or(0);
+        if l.time >= cur {
+            e.insert(l.peer_id, (l.time, snap));
+        }
+        Ok(())
+    }
+
+    /// Опубликовать свои активные связи в группе (рассылается соседям).
+    pub fn post_links(
+        &mut self,
+        group: &[u8],
+        links: Vec<(Vec<u8>, String)>,
+    ) -> Result<Option<Outgoing>, CoreError> {
+        if !self.mls.has(group) {
+            return Ok(None);
+        }
+        let me = self.peer_id();
+        let msg = Links {
+            group_id: group.to_vec(),
+            peer_id: me.clone(),
+            time: crate::unix_now(),
+            links: links
+                .into_iter()
+                .map(|(p, k)| Link { peer_id: p, kind: k })
+                .collect(),
+        };
+        let snap: Vec<(Vec<u8>, String)> =
+            msg.links.iter().map(|k| (k.peer_id.clone(), k.kind.clone())).collect();
+        self.links
+            .entry(group.to_vec())
+            .or_default()
+            .insert(me, (msg.time, snap));
+        let env = self.seal(Gossip { body: Some(Body::Links(msg)) })?;
+        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+    }
+
+    /// Снимок связей группы: список (author, peer, kind).
+    pub fn links(&self, group: &[u8]) -> Vec<(Vec<u8>, Vec<u8>, String)> {
+        let mut out = Vec::new();
+        if let Some(authors) = self.links.get(group) {
+            for (author, (_t, ls)) in authors {
+                for (peer, kind) in ls {
+                    out.push((author.clone(), peer.clone(), kind.clone()));
+                }
+            }
+        }
+        out
+    }
+
     // --- Профиль (никнейм) ----------------------------------------------
 
     /// Задать свой никнейм и вернуть конверт для рассылки.
@@ -756,6 +821,7 @@ fn unhex(s: &str) -> Result<Vec<u8>, CoreError> {
 fn mls_group_of(g: &Gossip) -> Option<GroupId> {
     match &g.body {
         Some(Body::Mls(m)) => Some(m.group_id.clone()),
+        Some(Body::Links(l)) => Some(l.group_id.clone()),
         _ => None,
     }
 }

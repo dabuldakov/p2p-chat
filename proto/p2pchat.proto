@@ -133,7 +133,23 @@ message Gossip {
     Direct direct = 11;
     ProfileEvent profile = 12;
     Mls mls = 13;
+    Links links = 14;
   }
+}
+
+// Одна связь: с кем и как подключены.
+message Link {
+  bytes peer_id = 1;
+  string kind = 2;          // "direct" | "turn"
+}
+
+// Служебное ЭФЕМЕРНОЕ сообщение: «мои активные связи» в группе.
+// Рассылается раз в минуту, НЕ пишется в лог (как Presence).
+message Links {
+  bytes group_id = 1;
+  bytes peer_id = 2;             // автор (кто публикует)
+  uint64 time = 3;               // unix-время публикации
+  repeated Link links = 4;       // с кем соединён и как
 }
 
 // Сообщение MLS (RFC 9420): прикладное или handshake (Commit/Welcome/Proposal).

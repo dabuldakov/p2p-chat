@@ -51,6 +51,21 @@ pub struct FfiAttachment {
     pub url: String,
 }
 
+/// Вход для публикации своих связей: с кем и как подключены.
+#[derive(uniffi::Record)]
+pub struct FfiPeerLink {
+    pub peer_id: Vec<u8>,
+    pub kind: String,
+}
+
+/// Связь для графа: автор → собеседник и тип ("direct"/"turn").
+#[derive(uniffi::Record)]
+pub struct FfiLink {
+    pub from: Vec<u8>,
+    pub to: Vec<u8>,
+    pub kind: String,
+}
+
 /// Пир для UI.
 #[derive(uniffi::Record)]
 pub struct FfiPeer {
@@ -180,8 +195,7 @@ impl ChatCore {
     }
 
     /// Гифки текущей группы (вкладка «Эта группа»), свежие сверху.
-    pub fn group_gifs(&self, group_id: Vec<u8>, limit: u32) -> Vec<FfiAttachment> {
-        let engine = self.inner.lock().unwrap();
+    pub fn group_gifs(&self, group_id: Vec<u8>, limit: u32) -> Vec<FfiAttachment> {        let engine = self.inner.lock().unwrap();
         engine
             .log()
             .gifs_for_group(&group_id, limit as i64)
@@ -321,6 +335,31 @@ impl ChatCore {
     /// Публичные ключи соседей группы (кому соединяться/пересылать).
     pub fn neighbor_keys(&self, group_id: Vec<u8>) -> Vec<Vec<u8>> {
         self.inner.lock().unwrap().neighbor_keys(&group_id)
+    }
+
+    /// Опубликовать свои активные связи в группе (эфемерно). Вернуть конверт.
+    pub fn post_links(
+        &self,
+        group_id: Vec<u8>,
+        links: Vec<FfiPeerLink>,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        let ls = links.into_iter().map(|l| (l.peer_id, l.kind)).collect();
+        use prost::Message as _;
+        Ok(engine
+            .post_links(&group_id, ls)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    /// Снимок связей группы для графа: (from, to, kind).
+    pub fn links(&self, group_id: Vec<u8>) -> Vec<FfiLink> {
+        self.inner
+            .lock()
+            .unwrap()
+            .links(&group_id)
+            .into_iter()
+            .map(|(from, to, kind)| FfiLink { from, to, kind })
+            .collect()
     }
 
     /// Группы, где мы состоим и есть участник с таким публичным ключом.

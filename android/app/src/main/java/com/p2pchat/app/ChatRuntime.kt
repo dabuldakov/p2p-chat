@@ -17,7 +17,9 @@ import com.p2pchat.app.gif.GifRepository
 import com.p2pchat.app.gif.KlipyApi
 import uniffi.p2pchat_ffi.ChatCore
 import uniffi.p2pchat_ffi.FfiAttachment
+import uniffi.p2pchat_ffi.FfiLink
 import uniffi.p2pchat_ffi.FfiMember
+import uniffi.p2pchat_ffi.FfiPeerLink
 import uniffi.p2pchat_ffi.FfiMessage
 
 /**
@@ -164,6 +166,13 @@ object ChatRuntime {
                 lastSignalingTs = signaling.lastActivityMs
             }
         }
+        // публикация активных связей (эфемерно, раз в минуту)
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000)
+                runCatching { publishLinks() }
+            }
+        }
 
         // восстановить настройку фона
         backgroundEnabled = app.getSharedPreferences(PREFS, 0).getBoolean(KEY_BG, false)
@@ -220,6 +229,23 @@ object ChatRuntime {
             }
         }
     }
+
+    /** Опубликовать свои активные связи по группам (эфемерно, не в лог). */
+    fun publishLinks() {
+        for (name in groups) {
+            val g = name.toByteArray()
+            val links = runCatching { core.members(g) }.getOrDefault(emptyList())
+                .mapNotNull { m -> peerKinds[m.publicKey.toHex()]?.let { FfiPeerLink(m.peerId, it) } }
+            if (links.isEmpty()) continue
+            runCatching { core.postLinks(g, links) }.getOrNull()?.let {
+                transport.sendTargets(it.envelope, it.targets)
+            }
+        }
+    }
+
+    /** Связи группы для графа (from, to, kind). */
+    fun graphLinks(group: ByteArray): List<FfiLink> =
+        runCatching { core.links(group) }.getOrDefault(emptyList())
 
     // --- Группы ----------------------------------------------------------
 
