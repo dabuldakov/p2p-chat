@@ -17,6 +17,7 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Canvas
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.Image
@@ -610,8 +611,10 @@ private fun Avatar(bytes: ByteArray?, tag: String, size: Dp = 40.dp) {
         contentAlignment = Alignment.Center,
     ) {
         if (bytes != null && bytes.isNotEmpty()) {
+            val ctx = LocalContext.current
+            val key = "av:${tag}:${bytes.size}:${bytes.contentHashCode()}"
             AsyncImage(
-                model = bytes,
+                model = ImageRequest.Builder(ctx).data(bytes).memoryCacheKey(key).crossfade(false).build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

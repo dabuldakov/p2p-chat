@@ -440,6 +440,15 @@ object ChatRuntime {
         return core.groupGifs(g, limit.toUInt()).map(::toGifRef)
     }
 
+    private fun sameAvatars(a: Map<String, ByteArray>, b: Map<String, ByteArray>): Boolean {
+        if (a.size != b.size) return false
+        for ((k, v) in a) {
+            val w = b[k] ?: return false
+            if (!v.contentEquals(w)) return false
+        }
+        return true
+    }
+
     private fun toGifRef(a: FfiAttachment): GifRef =
         GifRef(
             providerId = a.id,
@@ -472,11 +481,16 @@ object ChatRuntime {
         memberCounts = ids.associate { String(it) to core.members(it).size }
         myNickname = core.myNickname()
         nicknames = core.allNicknames().associate { it.peerId.toHex() to it.nickname }
-        avatars = runCatching { core.avatars() }
+        val freshAvatars = runCatching { core.avatars() }
             .getOrDefault(emptyList())
             .associate { it.peerId.toHex() to it.avatar }
+        if (!sameAvatars(avatars, freshAvatars)) avatars = freshAvatars
         currentGroup?.let { g ->
-            groupAvatarBytes = runCatching { core.groupAvatar(g) }.getOrNull()
+            val fresh = runCatching { core.groupAvatar(g) }.getOrNull()
+            val cur = groupAvatarBytes
+            val same = (cur == null && fresh == null) ||
+                (cur != null && fresh != null && cur.contentEquals(fresh))
+            if (!same) groupAvatarBytes = fresh
         }
     }
 
