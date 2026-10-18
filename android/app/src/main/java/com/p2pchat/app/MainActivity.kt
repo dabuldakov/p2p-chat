@@ -48,6 +48,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -764,7 +766,14 @@ private fun GroupScreen(vm: ChatViewModel) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    OutlinedButton(onClick = { qrShown = !qrShown }) { Text("QRCode") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconButton(onClick = { qrShown = !qrShown }) {
+                            Icon(Icons.Filled.QrCode, contentDescription = stringResource(R.string.invite_qr))
+                        }
+                        IconButton(onClick = { showGraph = true }) {
+                            Icon(Icons.Filled.Hub, contentDescription = stringResource(R.string.connection))
+                        }
+                    }
                     if (qrShown && inviteQr != null) {
                         Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
                             Image(inviteQr, stringResource(R.string.invite_qr), modifier = Modifier.size(240.dp).padding(10.dp))
@@ -806,9 +815,6 @@ private fun GroupScreen(vm: ChatViewModel) {
                                 }
                             }
                         }
-                    }
-                    OutlinedButton(onClick = { showGraph = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Граф соединений")
                     }
                     OutlinedButton(
                         onClick = { confirmLeave = true },
