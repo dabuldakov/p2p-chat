@@ -12,15 +12,21 @@ import androidx.core.app.NotificationManagerCompat
 /**
  * Уведомления и бейдж на иконке.
  *
- * Точка/цифра на иконке рисуется launcher'ом по активным уведомлениям канала
- * с `setShowBadge(true)`. Число задаём через `setNumber(N)` — сейчас это число
- * групп с непрочитанными. Постоянное уведомление foreground-службы живёт на
- * канале без бейджа, чтобы не раздувать счётчик.
+ * Постим по одному уведомлению на каждую непрочитанную **группу** и одно
+ * сводное (group summary). Так число на иконке = числу непрочитанных групп
+ * на всех launcher'ах: те, что считают уведомления (Realme/ColorOS и др.),
+ * покажут количество уведомлений; Samsung, который уважает `setNumber`,
+ * возьмёт число из сводного уведомления.
+ *
+ * Постоянное уведомление foreground-службы живёт на канале без бейджа.
  */
 object Notifier {
     const val CH_MESSAGES = "p2pchat_messages"
     const val CH_SERVICE = "p2pchat_connection"
-    private const val ID_MESSAGES = 1001
+    private const val GROUP_KEY = "p2pchat"
+    private const val ID_SUMMARY = 1000
+
+    private val posted = mutableSetOf<Int>()
 
     fun ensureChannels(ctx: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -42,41 +48,61 @@ object Notifier {
         }
     }
 
-    /** Показать/обновить сводное уведомление. `badge` — число на иконке. */
-    fun showMessages(
-        ctx: Context,
-        title: String,
-        text: String,
-        badge: Int,
-        group: String?,
-        silent: Boolean,
-    ) {
-        val nm = NotificationManagerCompat.from(ctx)
-        if (!nm.areNotificationsEnabled()) return
+    private fun openIntent(ctx: Context, group: String?, id: Int): PendingIntent {
         val intent = Intent(ctx, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         if (group != null) intent.putExtra(MainActivity.EXTRA_GROUP, group)
-        val pi = PendingIntent.getActivity(
-            ctx,
-            0,
-            intent,
+        return PendingIntent.getActivity(
+            ctx, id, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val n = NotificationCompat.Builder(ctx, CH_MESSAGES)
-            .setSmallIcon(R.drawable.ic_notify)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setNumber(badge)
-            .setBadgeIconType(NotificationCompat.BADGE_ICON_SMALL)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setSilent(silent)
-            .setAutoCancel(true)
-            .setContentIntent(pi)
-            .build()
-        runCatching { nm.notify(ID_MESSAGES, n) }
     }
 
-    fun clear(ctx: Context) {
-        runCatching { NotificationManagerCompat.from(ctx).cancel(ID_MESSAGES) }
+    /** Показать/обновить уведомления по группам. `items` — (группа, текст). */
+    fun showGroups(ctx: Context, items: List<Pair<String, String>>, silent: Boolean) {
+        val nm = NotificationManagerCompat.from(ctx)
+        if (!nm.areNotificationsEnabled()) return
+
+        val newIds = mutableSetOf<Int>()
+        for ((group, text) in items) {
+            val id = (GROUP_KEY + group).hashCode()
+            newIds.add(id)
+            val n = NotificationCompat.Builder(ctx, CH_MESSAGES)
+                .setSmallIcon(R.drawable.ic_notify)
+                .setContentTitle(group)
+                .setContentText(text)
+                .setGroup(GROUP_KEY)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setSilent(silent)
+                .setAutoCancel(true)
+                .setContentIntent(openIntent(ctx, group, id))
+                .build()
+            runCatching { nm.notify(id, n) }
+        }
+
+        // сводное — задаёт число на иконке для launcher'ов, уважающих setNumber (Samsung)
+        val summary = NotificationCompat.Builder(ctx, CH_MESSAGES)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(ctx.getString(R.string.messages_channel))
+            .setGroup(GROUP_KEY)
+            .setGroupSummary(true)
+            .setNumber(items.size)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setSilent(true)
+            .setContentIntent(openIntent(ctx, null, ID_SUMMARY))
+            .build()
+        runCatching { nm.notify(ID_SUMMARY, summary) }
+
+        // убираем уведомления групп, которые уже не непрочитаны
+        for (old in posted - newIds) runCatching { nm.cancel(old) }
+        posted.clear()
+        posted.addAll(newIds)
+    }
+
+    fun clearAll(ctx: Context) {
+        val nm = NotificationManagerCompat.from(ctx)
+        for (id in posted) runCatching { nm.cancel(id) }
+        posted.clear()
+        runCatching { nm.cancel(ID_SUMMARY) }
     }
 }

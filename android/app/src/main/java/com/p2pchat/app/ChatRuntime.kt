@@ -322,19 +322,15 @@ object ChatRuntime {
         updateBadge(silent = true)
     }
 
-    /** Бейдж/уведомление: число = групп с непрочитанными. */
+    /** Бейдж/уведомления: по одному на непрочитанную группу + сводное. */
     private fun updateBadge(silent: Boolean) {
-        val unreadGroups = groups.count { (unread[it] ?: 0UL) > 0UL }
-        if (unreadGroups == 0) {
-            Notifier.clear(app)
-            return
+        val items = groups.filter { (unread[it] ?: 0UL) > 0UL }.map { g ->
+            val last = runCatching {
+                core.historyWindow(g.toByteArray(), null, 1u).messages.lastOrNull()?.text
+            }.getOrNull()
+            g to (if (last.isNullOrBlank()) app.getString(R.string.new_messages) else last)
         }
-        val g = groups.firstOrNull { (unread[it] ?: 0UL) > 0UL } ?: groups.firstOrNull() ?: return
-        val last = runCatching {
-            core.historyWindow(g.toByteArray(), null, 1u).messages.lastOrNull()?.text
-        }.getOrNull()
-        val text = if (last.isNullOrBlank()) app.getString(R.string.new_messages) else last
-        Notifier.showMessages(app, g, text, unreadGroups, g, silent)
+        if (items.isEmpty()) Notifier.clearAll(app) else Notifier.showGroups(app, items, silent)
     }
 
     // --- Сообщения -------------------------------------------------------
