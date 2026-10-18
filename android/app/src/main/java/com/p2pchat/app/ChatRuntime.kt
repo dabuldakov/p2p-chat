@@ -297,6 +297,7 @@ object ChatRuntime {
         }
         currentGroup = null
         refresh()
+        updateBadge(silent = true)
     }
 
     fun removeMember(peerId: ByteArray) {

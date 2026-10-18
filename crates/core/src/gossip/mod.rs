@@ -259,13 +259,36 @@ impl GossipEngine {
         Ok((inv.group_id, Outgoing { envelope: env, targets: vec![inv.host.clone()] }))
     }
 
-    /// Выйти из группы (локально). Удаление участника делает владелец.
+    /// Выйти из группы: убираем её из локального состояния (список групп).
     pub fn leave_group(&mut self, group: &[u8]) -> Result<Option<Outgoing>, CoreError> {
         if !self.has_group(group) {
             return Ok(None);
         }
-        let _ = self.log.set_meta(&format!("left:{}", hex(group)), &self.peer_id());
+        self.mls.remove(group);
+        self.forget_group(group);
         Ok(None)
+    }
+
+    /// Убрать id группы из списка для загрузки при старте.
+    fn forget_group(&self, group: &[u8]) {
+        let mut list: Vec<String> = self
+            .log
+            .get_meta("mls_groups")
+            .ok()
+            .flatten()
+            .map(|b| {
+                String::from_utf8_lossy(&b)
+                    .split('\n')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let h = hex(group);
+        if list.iter().any(|x| x == &h) {
+            list.retain(|x| x != &h);
+            let _ = self.log.set_meta("mls_groups", list.join("\n").as_bytes());
+        }
     }
 
     /// Участники группы (отсортированы по peer_id).

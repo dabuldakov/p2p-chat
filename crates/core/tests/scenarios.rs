@@ -109,3 +109,12 @@ fn three_nodes_converge_via_sync() {
         assert_eq!(e.log().ordered(&g).len(), 3, "у каждого все 3 сообщения");
     }
 }
+
+#[test]
+fn leave_removes_group_from_list() {
+    let (mut engines, _keys, g) = build_group(2);
+    assert!(engines[0].groups().contains(&g));
+    engines[1].leave_group(&g).unwrap();
+    assert!(!engines[1].groups().contains(&g), "вышедший больше не видит группу");
+    assert!(!engines[1].has_group(&g));
+}

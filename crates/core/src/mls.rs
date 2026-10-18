@@ -47,6 +47,11 @@ impl MlsGroups {
         self.groups.contains_key(group_id)
     }
 
+    /// Убрать группу из локального состояния (выход).
+    pub fn remove(&mut self, group_id: &[u8]) -> bool {
+        self.groups.remove(group_id).is_some()
+    }
+
     /// id всех известных групп.
     pub fn group_ids(&self) -> Vec<GroupId> {
         self.groups.keys().cloned().collect()
