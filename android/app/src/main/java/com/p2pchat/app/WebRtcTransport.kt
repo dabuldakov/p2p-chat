@@ -237,6 +237,7 @@ class WebRtcTransport(
                             Logs.i("dc OPEN ${keyHex(conn.remoteKey).take(8)}")
                             onPeerConnected(conn.remoteKey)
                         }
+                        probeConnectionKind(conn)
                     }
                     onPeerChange(connectedCount())
                 }.onFailure { Logs.w("dc state error: $it") }
@@ -340,15 +341,38 @@ class WebRtcTransport(
         override fun onRemoveTrack(receiver: RtpReceiver) = Unit
         override fun onTrack(transceiver: RtpTransceiver) = Unit
         override fun onSelectedCandidatePairChanged(event: CandidatePairChangeEvent) {
-            runCatching {
-                val s = "${event.localCandidate} ${event.remoteCandidate}"
-                val kind = if (s.contains("typ relay")) "через TURN" else "напрямую"
-                onConnectionKind(kind)
-            }.onFailure { Logs.w("candidate pair error: $it") }
+            probeConnectionKind(conn)
         }
     }
 
     private fun sessionId(): String = "s" + System.currentTimeMillis().toString(16)
+
+    /** Определить тип соединения (напрямую / через TURN) по выбранной ICE-паре. */
+    private fun probeConnectionKind(conn: Conn) {
+        val pc = conn.pc ?: return
+        runCatching {
+            pc.getStats { report ->
+                runCatching {
+                    val stats = report.statsMap
+                    var localId: String? = null
+                    for (s in stats.values) {
+                        if (s.type == "candidate-pair") {
+                            val m = s.members
+                            val selected = (m["selected"] as? Boolean) ?: false
+                            val succeeded = (m["state"] as? String) == "succeeded"
+                            if (selected || succeeded) localId = m["localCandidateId"] as? String
+                        }
+                    }
+                    val type = localId?.let { stats[it]?.members?.get("candidateType") as? String }
+                    when (type) {
+                        "relay" -> onConnectionKind("через TURN")
+                        null -> {}
+                        else -> onConnectionKind("напрямую")
+                    }
+                }
+            }
+        }.onFailure { Logs.w("stats error: $it") }
+    }
 
     private fun keyHex(k: ByteArray): String = PeerConnectionPolicy.keyHex(k)
 }
