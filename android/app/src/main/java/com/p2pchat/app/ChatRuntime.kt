@@ -29,6 +29,8 @@ import uniffi.p2pchat_ffi.FfiMessage
  * когда экран закрыт, а foreground-служба держала процесс живым. UI (ViewModel)
  * только читает состояние и вызывает методы.
  */
+data class GraphEdge(val from: String, val to: String, val kind: String)
+
 object ChatRuntime {
 
     private const val PAGE_SIZE = 50
@@ -246,6 +248,27 @@ object ChatRuntime {
     /** Связи группы для графа (from, to, kind). */
     fun graphLinks(group: ByteArray): List<FfiLink> =
         runCatching { core.links(group) }.getOrDefault(emptyList())
+
+    /**
+     * Рёбра графа: свои связи — по «живому» типу (как в списке участников),
+     * чужие — из опубликованных. Дедуп по паре; своё ребро приоритетно.
+     */
+    fun graphEdges(group: ByteArray): List<GraphEdge> {
+        val me = peerId
+        val out = LinkedHashMap<String, GraphEdge>()
+        runCatching { core.members(group) }.getOrDefault(emptyList()).forEach { m ->
+            val k = peerKinds[m.publicKey.toHex()] ?: return@forEach
+            out[pairKey(me, m.peerId.toHex())] = GraphEdge(me, m.peerId.toHex(), k)
+        }
+        graphLinks(group).forEach { l ->
+            val a = l.from.toHex(); val b = l.to.toHex()
+            if (a == me || b == me) return@forEach
+            out.putIfAbsent(pairKey(a, b), GraphEdge(a, b, l.kind))
+        }
+        return out.values.toList()
+    }
+
+    private fun pairKey(a: String, b: String) = if (a < b) "$a|$b" else "$b|$a"
 
     // --- Группы ----------------------------------------------------------
 

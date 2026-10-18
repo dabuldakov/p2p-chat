@@ -579,11 +579,11 @@ private fun fmtTime(ts: Long): String {
 
 @Composable
 private fun GraphDialog(vm: ChatViewModel, group: ByteArray, onClose: () -> Unit) {
-    var links by remember(group) { mutableStateOf(vm.links(group)) }
+    var edges by remember(group) { mutableStateOf(vm.graphEdges(group)) }
     LaunchedEffect(group) {
         vm.publishLinks()
         kotlinx.coroutines.delay(600)
-        links = vm.links(group)
+        edges = vm.graphEdges(group)
     }
     val members = vm.members
     AlertDialog(
@@ -605,15 +605,15 @@ private fun GraphDialog(vm: ChatViewModel, group: ByteArray, onClose: () -> Unit
                 }
                 val green = Color(0xFF2E9E6B)
                 val orange = Color(0xFFE08A1E)
-                for (l in links) {
-                    val p1 = pos[l.from.toHex()] ?: continue
-                    val p2 = pos[l.to.toHex()] ?: continue
-                    val col = when (l.kind) {
+                for (e in edges) {
+                    val p1 = pos[e.from] ?: continue
+                    val p2 = pos[e.to] ?: continue
+                    val col = when (e.kind) {
                         "turn" -> orange
                         "direct" -> green
                         else -> Color(0x559AA7C7)
                     }
-                    drawLine(col, p1, p2, strokeWidth = 3f)
+                    drawLine(col, p1, p2, strokeWidth = 6f)
                 }
                 val paint = android.graphics.Paint().apply {
                     color = android.graphics.Color.argb(255, 200, 210, 230)

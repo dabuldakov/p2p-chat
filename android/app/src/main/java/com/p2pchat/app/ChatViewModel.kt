@@ -55,6 +55,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun setVisible(v: Boolean) = ChatRuntime.setVisible(v)
     fun links(group: ByteArray): List<FfiLink> = ChatRuntime.graphLinks(group)
     fun publishLinks() = ChatRuntime.publishLinks()
+    fun graphEdges(group: ByteArray): List<GraphEdge> = ChatRuntime.graphEdges(group)
     fun send(text: String) = ChatRuntime.send(text)
     fun loadOlder() = ChatRuntime.loadOlder()
     fun refresh() = ChatRuntime.refresh()
