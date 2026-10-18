@@ -459,19 +459,14 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.weight(1f))
-                    ConnTypeChip("STUN", active = vm.directCount > 0, color = Color(0xFF2E9E6B)) {
+                    ConnTypeChip("STUN ${vm.directCount}", active = vm.directCount > 0, color = Color(0xFF2E9E6B)) {
                         explainKind = if (explainKind == "stun") null else "stun"
                     }
                     Spacer(Modifier.width(10.dp))
-                    ConnTypeChip("TURN", active = vm.turnCount > 0, color = Color(0xFFE08A1E)) {
+                    ConnTypeChip("TURN ${vm.turnCount}", active = vm.turnCount > 0, color = Color(0xFFE08A1E)) {
                         explainKind = if (explainKind == "turn") null else "turn"
                     }
                 }
-                Text(
-                    "STUN ${vm.directCount} · TURN ${vm.turnCount}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 explainKind?.let { ConnExplanation(it) }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
