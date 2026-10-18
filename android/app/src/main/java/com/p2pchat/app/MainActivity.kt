@@ -635,6 +635,7 @@ private fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
 private fun GroupScreen(vm: ChatViewModel) {
     var input by remember { mutableStateOf("") }
     var inviteExpanded by remember { mutableStateOf(false) }
+    var qrShown by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     var showGifPicker by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
@@ -700,7 +701,8 @@ private fun GroupScreen(vm: ChatViewModel) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    if (inviteQr != null) {
+                    OutlinedButton(onClick = { qrShown = !qrShown }) { Text("QRCode") }
+                    if (qrShown && inviteQr != null) {
                         Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
                             Image(inviteQr, stringResource(R.string.invite_qr), modifier = Modifier.size(240.dp).padding(10.dp))
                         }
