@@ -3,9 +3,8 @@ package com.p2pchat.app
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.p2pchat.app.gif.Gif
+import com.p2pchat.app.gif.GifRef
 import uniffi.p2pchat_ffi.FfiLink
-import com.p2pchat.app.gif.Gif
-import uniffi.p2pchat_ffi.FfiLinkRef
 
 /**
  * Тонкая обёртка над [ChatRuntime] для Compose. Вся логика и состояние —
