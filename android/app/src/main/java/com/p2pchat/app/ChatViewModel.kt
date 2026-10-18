@@ -54,6 +54,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun onForeground() = ChatRuntime.onForeground()
     fun setVisible(v: Boolean) = ChatRuntime.setVisible(v)
     fun links(group: ByteArray): List<FfiLink> = ChatRuntime.graphLinks(group)
+    fun publishLinks() = ChatRuntime.publishLinks()
     fun send(text: String) = ChatRuntime.send(text)
     fun loadOlder() = ChatRuntime.loadOlder()
     fun refresh() = ChatRuntime.refresh()

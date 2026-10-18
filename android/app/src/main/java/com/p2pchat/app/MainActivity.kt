@@ -577,7 +577,12 @@ private fun fmtTime(ts: Long): String {
 
 @Composable
 private fun GraphDialog(vm: ChatViewModel, group: ByteArray, onClose: () -> Unit) {
-    val links = vm.links(group)
+    var links by remember(group) { mutableStateOf(vm.links(group)) }
+    LaunchedEffect(group) {
+        vm.publishLinks()
+        kotlinx.coroutines.delay(600)
+        links = vm.links(group)
+    }
     val members = vm.members
     AlertDialog(
         onDismissRequest = onClose,
