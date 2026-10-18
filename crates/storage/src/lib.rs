@@ -470,7 +470,9 @@ impl Store {
         self.conn.execute(
             "INSERT INTO profiles (peer_id, nickname, lamport, avatar) VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(peer_id) DO UPDATE SET
-                nickname = excluded.nickname, lamport = excluded.lamport",
+                nickname = excluded.nickname,
+                lamport = excluded.lamport,
+                avatar = excluded.avatar",
             params![peer_id, nickname, lamport as i64, avatar],
         )?;
         Ok(())

@@ -95,3 +95,24 @@ fn nickname_persists() {
     assert_eq!(e.my_nickname().as_deref(), Some("Дмитрий"));
     let _ = std::fs::remove_file(&path);
 }
+
+#[test]
+fn avatar_persists_across_restart() {
+    let path = tmp("avatar");
+    let (pid, av) = {
+        let store = Store::open(&path).unwrap();
+        let identity = Identity::generate();
+        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
+        e.load_state().unwrap();
+        let av = vec![5u8, 6, 7, 8];
+        e.set_avatar(av.clone()).unwrap();
+        (e.peer_id(), av)
+    };
+    let store = Store::open(&path).unwrap();
+    let identity = Identity::from_secret_bytes(&store.get_meta("identity").unwrap().unwrap()).unwrap();
+    let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
+    e.load_state().unwrap();
+    assert_eq!(e.avatar_of(&pid), Some(av), "аватар профиля сохранился");
+    let _ = std::fs::remove_file(&path);
+}
