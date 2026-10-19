@@ -54,6 +54,7 @@ class WebRtcTransport(
         val pendingCandidates = mutableListOf<IceCandidate>()
         val pendingOutgoing = ArrayDeque<ByteArray>()
         val flushing = AtomicBoolean(false)
+        val gathered = mutableMapOf<String, Int>()
     }
 
     private val factory: PeerConnectionFactory
@@ -325,9 +326,24 @@ class WebRtcTransport(
             }.onFailure { Logs.w("conn change error: $it") }
         }
         override fun onIceConnectionReceivingChange(receiving: Boolean) = Unit
-        override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) = Unit
+        override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
+            if (state == PeerConnection.IceGatheringState.COMPLETE) {
+                val id = keyHex(conn.remoteKey).take(8)
+                val g = conn.gathered
+                Logs.i(
+                    "ice gathered $id: host=${g["host"] ?: 0} srflx=${g["srflx"] ?: 0} " +
+                        "prflx=${g["prflx"] ?: 0} relay=${g["relay"] ?: 0}",
+                )
+                if ((g["relay"] ?: 0) == 0 && !iceServers.any { s -> s.urls.any { it.startsWith("turn") } }) {
+                    Logs.w("ice $id: нет relay-кандидатов (TURN недоступен/не настроен)")
+                }
+            }
+        }
         override fun onIceCandidate(candidate: IceCandidate) {
             runCatching {
+                val t = candidateType(candidate.sdp)
+                if (t != null) conn.gathered[t] = (conn.gathered[t] ?: 0) + 1
+                Logs.d("ice cand ${keyHex(conn.remoteKey).take(8)}: $t ${candidate.sdp.take(60)}")
                 signaling.sendIce(conn.remoteKey, candidate.sdp, candidate.sdpMid, candidate.sdpMLineIndex)
             }.onFailure { Logs.w("send ice error: $it") }
         }
@@ -356,15 +372,24 @@ class WebRtcTransport(
                 runCatching {
                     val stats = report.statsMap
                     var localId: String? = null
+                    var remoteId: String? = null
                     for (s in stats.values) {
                         if (s.type == "candidate-pair") {
                             val m = s.members
                             val selected = (m["selected"] as? Boolean) ?: false
                             val succeeded = (m["state"] as? String) == "succeeded"
-                            if (selected || succeeded) localId = m["localCandidateId"] as? String
+                            if (selected || succeeded) {
+                                localId = m["localCandidateId"] as? String
+                                remoteId = m["remoteCandidateId"] as? String
+                            }
                         }
                     }
                     val type = localId?.let { stats[it]?.members?.get("candidateType") as? String }
+                    val rtype = remoteId?.let { stats[it]?.members?.get("candidateType") as? String }
+                    Logs.i(
+                        "conn ${keyHex(conn.remoteKey).take(8)}: " +
+                            "kind=${if (type == "relay") "turn" else type} local=$type remote=$rtype",
+                    )
                     when (type) {
                         "relay" -> onConnectionKind(conn.remoteKey, "turn")
                         null -> {}
@@ -373,6 +398,13 @@ class WebRtcTransport(
                 }
             }
         }.onFailure { Logs.w("stats error: $it") }
+    }
+
+    /** Тип ICE-кандидата из SDP-строки: host / srflx / prflx / relay. */
+    private fun candidateType(sdp: String): String? {
+        val i = sdp.indexOf(" typ ")
+        if (i < 0) return null
+        return sdp.substring(i + 5).trim().split(' ').firstOrNull()?.takeIf { it.isNotEmpty() }
     }
 
     private fun keyHex(k: ByteArray): String = PeerConnectionPolicy.keyHex(k)

@@ -379,6 +379,8 @@ object ChatRuntime {
         scope.launch {
             val ice = withContext(Dispatchers.IO) { TurnCredentials.fetch(TURN_CREDS_URL) }
             if (ice != null) transport.setIceServers(ice)
+            val turnN = ice?.count { s -> s.urls.any { it.startsWith("turn") } } ?: 0
+            Logs.i("ice: creds=${ice != null} servers=${ice?.size ?: 0} turn=$turnN")
             val keys = core.listGroups()
                 .flatMap { core.neighborKeys(it) }
                 .distinctBy { it.toHex() }
