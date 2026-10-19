@@ -78,4 +78,6 @@
     <string name="invite_single">Бір реттік</string>
     <string name="invite_5">5 кіру · 24 сағ</string>
     <string name="edit_message">Хабарламаны өңдеу</string>
+    <string name="invite_card_title">Топқа шақыру</string>
+    <string name="invite_card_hint">Қосылу үшін түртіңіз</string>
 </resources>

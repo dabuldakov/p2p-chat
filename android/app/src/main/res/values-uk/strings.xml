@@ -78,4 +78,6 @@
     <string name="invite_single">Одноразове</string>
     <string name="invite_5">5 входів · 24 год</string>
     <string name="edit_message">Редагувати повідомлення</string>
+    <string name="invite_card_title">Запрошення до групи</string>
+    <string name="invite_card_hint">Натисніть, щоб увійти</string>
 </resources>

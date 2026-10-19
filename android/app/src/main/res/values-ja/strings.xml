@@ -78,4 +78,6 @@
     <string name="invite_single">1回限り</string>
     <string name="invite_5">5回 · 24時間</string>
     <string name="edit_message">メッセージを編集</string>
+    <string name="invite_card_title">グループへの招待</string>
+    <string name="invite_card_hint">タップして参加</string>
 </resources>

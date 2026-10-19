@@ -78,4 +78,6 @@
     <string name="invite_single">Uso singolo</string>
     <string name="invite_5">5 usi · 24 h</string>
     <string name="edit_message">Modifica messaggio</string>
+    <string name="invite_card_title">Invito al gruppo</string>
+    <string name="invite_card_hint">Tocca per entrare</string>
 </resources>

@@ -105,6 +105,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
@@ -1133,11 +1134,13 @@ private fun MessageRow(
                         vm = vm,
                     )
                 } else {
+                    val inv = extractInvite(message.text)
                     val url = singleUrl(message.text)
-                    if (url != null) {
-                        LinkPreviewCard(url, onLongPress = onEdit) { MessageText(message.text, onEdit) }
-                    } else {
-                        MessageText(message.text, onEdit)
+                    when {
+                        inv != null -> InviteCard(inv.first, inv.second, vm)
+                        url != null ->
+                            LinkPreviewCard(url, onLongPress = onEdit) { MessageText(message.text, onEdit) }
+                        else -> MessageText(message.text, onEdit)
                     }
                 }
             }
@@ -1177,6 +1180,60 @@ private fun MessageText(text: String, onLongPress: () -> Unit = {}) {
             )
         },
     )
+}
+
+/** Карточка приглашения по ссылке в группу. Тап — войти. */
+@Composable
+private fun InviteCard(invite: String, groupName: String, vm: ChatViewModel) {
+    val ctx = LocalContext.current
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().clickable {
+            vm.joinGroup(invite)
+            Toast.makeText(ctx, ctx.getString(R.string.joining), Toast.LENGTH_SHORT).show()
+        },
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Hub, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(stringResource(R.string.invite_card_title), style = MaterialTheme.typography.labelMedium)
+                Text(groupName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    stringResource(R.string.invite_card_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Если сообщение целиком содержит одну ссылку-инвайт `p2pchat://join?…`,
+ * вернуть (ссылку, имя группы). Имя группы — это group_id (`g`), т.к. он
+ * совпадает с именем при создании группы.
+ */
+private fun extractInvite(text: String): Pair<String, String>? {
+    val t = text.trim()
+    val idx = t.indexOf("p2pchat://join?")
+    if (idx < 0) return null
+    var end = idx
+    while (end < t.length && !t[end].isWhitespace()) end++
+    val link = t.substring(idx, end)
+    if (t.removeRange(idx, end).isNotBlank()) return null
+    val g = link.substringAfter('?', "")
+        .split('&')
+        .firstOrNull { it.startsWith("g=") }
+        ?.substringAfter("g=")
+        ?: return null
+    if (g.isEmpty() || g.length % 2 != 0) return null
+    val name = runCatching {
+        String(ByteArray(g.length / 2) { i -> g.substring(i * 2, i * 2 + 2).toInt(16).toByte() }, Charsets.UTF_8)
+    }.getOrNull()
+    if (name.isNullOrBlank()) return null
+    return link to name
 }
 
 /** Если всё сообщение — одна ссылка (без текста), вернуть её; иначе null. */

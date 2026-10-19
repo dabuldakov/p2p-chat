@@ -78,4 +78,6 @@
     <string name="invite_single">1회용</string>
     <string name="invite_5">5회 · 24시간</string>
     <string name="edit_message">메시지 편집</string>
+    <string name="invite_card_title">그룹 초대</string>
+    <string name="invite_card_hint">탭하여 참가</string>
 </resources>

@@ -78,4 +78,6 @@
     <string name="invite_single">Нэг удаа</string>
     <string name="invite_5">5 удаа · 24 цаг</string>
     <string name="edit_message">Мессеж засах</string>
+    <string name="invite_card_title">Бүлгийн урилга</string>
+    <string name="invite_card_hint">Нэгдэхийн тулд товшино уу</string>
 </resources>

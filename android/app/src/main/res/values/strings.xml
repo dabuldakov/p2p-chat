@@ -95,4 +95,6 @@
     <string name="invite_single">Single-use</string>
     <string name="invite_5">5 uses · 24h</string>
     <string name="edit_message">Edit message</string>
+    <string name="invite_card_title">Group invite</string>
+    <string name="invite_card_hint">Tap to join</string>
 </resources>

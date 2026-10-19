@@ -78,4 +78,6 @@
     <string name="invite_single">Einmalig</string>
     <string name="invite_5">5 Nutzungen · 24 Std.</string>
     <string name="edit_message">Nachricht bearbeiten</string>
+    <string name="invite_card_title">Gruppeneinladung</string>
+    <string name="invite_card_hint">Tippen zum Beitreten</string>
 </resources>
