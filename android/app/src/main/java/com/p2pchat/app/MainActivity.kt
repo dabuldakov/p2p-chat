@@ -861,15 +861,19 @@ private fun GroupScreen(vm: ChatViewModel) {
                             Image(inviteQr, stringResource(R.string.invite_qr), modifier = Modifier.size(240.dp).padding(10.dp))
                         }
                     }
-                    if (invite != null) {
-                        OutlinedButton(onClick = {
-                            clipboard.setText(AnnotatedString(invite))
-                            Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
-                        }) { Text(stringResource(R.string.copy_invite)) }
-                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { vm.regenInvite(1) }) { Text(stringResource(R.string.invite_single)) }
-                        OutlinedButton(onClick = { vm.regenInvite(5) }) { Text(stringResource(R.string.invite_5)) }
+                        OutlinedButton(onClick = {
+                            vm.regenInvite(1)?.let {
+                                clipboard.setText(AnnotatedString(it))
+                                Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
+                            }
+                        }) { Text(stringResource(R.string.invite_single)) }
+                        OutlinedButton(onClick = {
+                            vm.regenInvite(5)?.let {
+                                clipboard.setText(AnnotatedString(it))
+                                Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
+                            }
+                        }) { Text(stringResource(R.string.invite_5)) }
                     }
                     Text(
                         stringResource(R.string.status_connected, vm.status, vm.connected),

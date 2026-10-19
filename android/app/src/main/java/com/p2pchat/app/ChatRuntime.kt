@@ -308,10 +308,12 @@ object ChatRuntime {
             .onFailure { status = app.getString(R.string.bad_invite) }
     }
 
-    /** Пересоздать инвайт: maxUses=1 — одноразовый, 5 — «5 входов». */
-    fun regenInvite(maxUses: Int) {
-        val g = currentGroup ?: return
-        invite = runCatching { core.groupInvite(g, maxUses.toUInt()) }.getOrNull()
+    /** Пересоздать инвайт (maxUses=1 — одноразовый, 5 — «5 входов») и вернуть его. */
+    fun regenInvite(maxUses: Int): String? {
+        val g = currentGroup ?: return null
+        val t = runCatching { core.groupInvite(g, maxUses.toUInt()) }.getOrNull()
+        invite = t
+        return t
     }
 
     fun selectGroup(g: ByteArray) {
