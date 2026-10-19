@@ -990,9 +990,22 @@ private fun GroupScreen(vm: ChatViewModel) {
             onDismissRequest = { qrShown = false },
             title = { Text(stringResource(R.string.invite_qr)) },
             text = {
-                inviteQr?.let { bmp ->
-                    Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
-                        Image(bmp, stringResource(R.string.invite_qr), modifier = Modifier.size(260.dp).padding(8.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    inviteQr?.let { bmp ->
+                        Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
+                            Image(bmp, stringResource(R.string.invite_qr), modifier = Modifier.size(260.dp).padding(8.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    val kindLabel = if (vm.inviteMaxUses == 5) stringResource(R.string.invite_5)
+                    else stringResource(R.string.invite_single)
+                    Text(kindLabel, style = MaterialTheme.typography.bodyMedium)
+                    vm.inviteAt?.let {
+                        Text(
+                            fmtTime(it),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             },

@@ -84,6 +84,12 @@ object ChatRuntime {
         private set
     var invite by mutableStateOf<String?>(null)
         private set
+
+    /** Лимит входов текущего инвайта (1 — одноразовый, 5 — ссылка) и время генерации. */
+    var inviteMaxUses by mutableStateOf<Int?>(null)
+        private set
+    var inviteAt by mutableStateOf<Long?>(null)
+        private set
     var isOwner by mutableStateOf(false)
         private set
     var update by mutableStateOf<AppUpdate?>(null)
@@ -289,6 +295,8 @@ object ChatRuntime {
         }
         val g = n.toByteArray()
         invite = runCatching { core.createGroupInvite(g) }.getOrNull()
+        inviteMaxUses = 1
+        inviteAt = System.currentTimeMillis()
         refresh()
         selectGroup(g)
         connectAll()
@@ -313,12 +321,16 @@ object ChatRuntime {
         val g = currentGroup ?: return null
         val t = runCatching { core.groupInvite(g, maxUses.toUInt()) }.getOrNull()
         invite = t
+        inviteMaxUses = maxUses
+        inviteAt = System.currentTimeMillis()
         return t
     }
 
     fun selectGroup(g: ByteArray) {
         currentGroup = g
         invite = runCatching { core.groupInvite(g, 1u) }.getOrNull()
+        inviteMaxUses = 1
+        inviteAt = System.currentTimeMillis()
         isOwner = runCatching { core.isOwner(g) }.getOrDefault(false)
         refresh()
         updateBadge(silent = true)
