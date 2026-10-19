@@ -849,16 +849,11 @@ private fun GroupScreen(vm: ChatViewModel) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        IconButton(onClick = { qrShown = !qrShown }) {
+                        IconButton(onClick = { qrShown = true }) {
                             Icon(Icons.Filled.QrCode, contentDescription = stringResource(R.string.invite_qr))
                         }
                         IconButton(onClick = { showGraph = true }) {
                             Icon(Icons.Filled.Hub, contentDescription = stringResource(R.string.connection))
-                        }
-                    }
-                    if (qrShown && inviteQr != null) {
-                        Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
-                            Image(inviteQr, stringResource(R.string.invite_qr), modifier = Modifier.size(240.dp).padding(10.dp))
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -986,6 +981,23 @@ private fun GroupScreen(vm: ChatViewModel) {
             },
             dismissButton = {
                 TextButton(onClick = { confirmLeave = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    if (qrShown) {
+        AlertDialog(
+            onDismissRequest = { qrShown = false },
+            title = { Text(stringResource(R.string.invite_qr)) },
+            text = {
+                inviteQr?.let { bmp ->
+                    Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
+                        Image(bmp, stringResource(R.string.invite_qr), modifier = Modifier.size(260.dp).padding(8.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { qrShown = false }) { Text(stringResource(R.string.close)) }
             },
         )
     }
