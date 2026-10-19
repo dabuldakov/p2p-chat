@@ -75,4 +75,6 @@
     <string name="remove_member">Қатысушыны өшіру</string>
     <string name="remove_member_confirm">Осы қатысушыны топтан өшіру керек пе?</string>
     <string name="avatar">Аватар</string>
+    <string name="invite_single">Бір реттік</string>
+    <string name="invite_5">5 кіру · 24 сағ</string>
 </resources>

@@ -25,25 +25,34 @@ pub struct Invite {
     pub nonce: [u8; 16],
     /// Срок действия (unix seconds); 0 — без срока.
     pub expiry: u64,
+    /// Сколько раз можно войти (1 — одноразовый).
+    pub max_uses: u32,
     pub sig: Vec<u8>,
 }
 
 impl Invite {
     /// Создать одноразовый билет (подписывает хозяин).
-    pub fn ticket(group_id: &[u8], host: &[u8], expiry: u64, signer: &Identity) -> Self {
+    pub fn ticket(
+        group_id: &[u8],
+        host: &[u8],
+        expiry: u64,
+        max_uses: u32,
+        signer: &Identity,
+    ) -> Self {
         let mut nonce = [0u8; 16];
         rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
-        let sig = signer.sign(&signing_msg(group_id, host, &nonce, expiry));
-        Self { group_id: group_id.to_vec(), host: host.to_vec(), nonce, expiry, sig }
+        let sig = signer.sign(&signing_msg(group_id, host, &nonce, expiry, max_uses));
+        Self { group_id: group_id.to_vec(), host: host.to_vec(), nonce, expiry, max_uses, sig }
     }
 
     pub fn encode(&self) -> String {
         format!(
-            "{SCHEME}?g={}&h={}&n={}&e={}&s={}",
+            "{SCHEME}?g={}&h={}&n={}&e={}&u={}&s={}",
             hex(&self.group_id),
             hex(&self.host),
             hex(&self.nonce),
             self.expiry,
+            self.max_uses,
             hex(&self.sig)
         )
     }
@@ -54,7 +63,7 @@ impl Invite {
             .map(|(_, q)| q)
             .ok_or_else(|| CoreError::BadEnvelope("invite: no query".into()))?;
 
-        let (mut g, mut h, mut n, mut e, mut sig) = (None, None, None, None, None);
+        let (mut g, mut h, mut n, mut e, mut u, mut sig) = (None, None, None, None, None, None);
         for part in query.split('&') {
             let mut it = part.splitn(2, '=');
             match (it.next(), it.next()) {
@@ -62,6 +71,7 @@ impl Invite {
                 (Some("h"), Some(v)) => h = Some(v.to_string()),
                 (Some("n"), Some(v)) => n = Some(v.to_string()),
                 (Some("e"), Some(v)) => e = Some(v.to_string()),
+                (Some("u"), Some(v)) => u = Some(v.to_string()),
                 (Some("s"), Some(v)) => sig = Some(v.to_string()),
                 _ => {}
             }
@@ -78,9 +88,10 @@ impl Invite {
             .ok_or_else(|| CoreError::BadEnvelope("invite: no expiry".into()))?
             .parse()
             .map_err(|_| CoreError::BadEnvelope("invite: bad expiry".into()))?;
+        let max_uses: u32 = u.unwrap_or_else(|| "1".into()).parse().unwrap_or(1);
         let sig = unhex(&sig.ok_or_else(|| CoreError::BadEnvelope("invite: no sig".into()))?)?;
 
-        Ok(Self { group_id, host, nonce, expiry, sig })
+        Ok(Self { group_id, host, nonce, expiry, max_uses, sig })
     }
 
     /// Проверить подпись хозяина.
@@ -91,7 +102,7 @@ impl Invite {
         let Ok(vk) = VerifyingKey::from_bytes(&pk_arr) else {
             return false;
         };
-        verify(&vk, &signing_msg(&self.group_id, &self.host, &self.nonce, self.expiry), &self.sig).is_ok()
+        verify(&vk, &signing_msg(&self.group_id, &self.host, &self.nonce, self.expiry, self.max_uses), &self.sig).is_ok()
     }
 
     /// Истёк ли билет (0 = без срока).
@@ -105,12 +116,19 @@ impl Invite {
     }
 }
 
-fn signing_msg(group_id: &[u8], host: &[u8], nonce: &[u8; 16], expiry: u64) -> Vec<u8> {
+fn signing_msg(
+    group_id: &[u8],
+    host: &[u8],
+    nonce: &[u8; 16],
+    expiry: u64,
+    max_uses: u32,
+) -> Vec<u8> {
     let mut m = DOMAIN.to_vec();
     m.extend_from_slice(group_id);
     m.extend_from_slice(host);
     m.extend_from_slice(nonce);
     m.extend_from_slice(&expiry.to_be_bytes());
+    m.extend_from_slice(&max_uses.to_be_bytes());
     m
 }
 

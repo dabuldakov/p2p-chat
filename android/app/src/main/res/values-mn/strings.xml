@@ -75,4 +75,6 @@
     <string name="remove_member">Гишүүнийг хасах</string>
     <string name="remove_member_confirm">Энэ гишүүнийг бүлгээс хасах уу?</string>
     <string name="avatar">Профайл зураг</string>
+    <string name="invite_single">Нэг удаа</string>
+    <string name="invite_5">5 удаа · 24 цаг</string>
 </resources>

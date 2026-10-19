@@ -75,4 +75,6 @@
     <string name="remove_member">Mitglied entfernen</string>
     <string name="remove_member_confirm">Dieses Mitglied aus der Gruppe entfernen?</string>
     <string name="avatar">Avatar</string>
+    <string name="invite_single">Einmalig</string>
+    <string name="invite_5">5 Nutzungen · 24 Std.</string>
 </resources>

@@ -24,7 +24,7 @@ fn groups_are_isolated() {
 
     for g in [g1.clone(), g2.clone()] {
         a.create_group(g.clone()).unwrap();
-        let invite = a.create_invite(&g, 3600).unwrap();
+        let invite = a.create_invite(&g, 3600, 1).unwrap();
         let (_gid, req) = b.join_request(&invite).unwrap();
         let out = a.handle(&enc(&req)).unwrap();
         for o in out.outgoing {
@@ -66,7 +66,7 @@ fn membership_persists_across_restart() {
         a.create_group(g.clone()).unwrap();
 
         let mut b = engine();
-        let invite = a.create_invite(&g, 3600).unwrap();
+        let invite = a.create_invite(&g, 3600, 1).unwrap();
         let (_gid, req) = b.join_request(&invite).unwrap();
         let out = a.handle(&enc(&req)).unwrap();
         for o in out.outgoing {

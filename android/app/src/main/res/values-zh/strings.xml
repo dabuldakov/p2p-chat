@@ -75,4 +75,6 @@
     <string name="remove_member">移除成员</string>
     <string name="remove_member_confirm">将该成员移出群组？</string>
     <string name="avatar">头像</string>
+    <string name="invite_single">一次性</string>
+    <string name="invite_5">5 次 · 24 小时</string>
 </resources>

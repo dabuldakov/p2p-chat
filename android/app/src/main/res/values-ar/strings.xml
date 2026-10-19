@@ -75,4 +75,6 @@
     <string name="remove_member">إزالة عضو</string>
     <string name="remove_member_confirm">إزالة هذا العضو من المجموعة؟</string>
     <string name="avatar">الصورة</string>
+    <string name="invite_single">استخدام واحد</string>
+    <string name="invite_5">5 استخدامات · 24 ساعة</string>
 </resources>

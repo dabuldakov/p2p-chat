@@ -77,6 +77,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun setNickname(name: String) = ChatRuntime.setNickname(name)
     fun setAvatar(b: ByteArray) = ChatRuntime.setAvatar(b)
     fun setGroupAvatar(b: ByteArray) = ChatRuntime.setGroupAvatar(b)
+    fun regenInvite(maxUses: Int) = ChatRuntime.regenInvite(maxUses)
 }
 
 internal fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

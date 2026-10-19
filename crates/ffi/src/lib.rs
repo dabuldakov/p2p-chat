@@ -223,13 +223,18 @@ impl ChatCore {
     pub fn create_group_invite(&self, group_id: Vec<u8>) -> Result<String, FfiError> {
         let mut engine = self.inner.lock().unwrap();
         engine.create_group(group_id.clone())?;
-        Ok(engine.create_invite(&group_id, INVITE_TTL_SECS)?)
+        Ok(engine.create_invite(&group_id, INVITE_TTL_SECS, 1)?)
     }
 
-    /// Одноразовый инвайт-билет существующей группы (только владелец).
-    pub fn group_invite(&self, group_id: Vec<u8>) -> Result<Option<String>, FfiError> {
+    /// Инвайт-билет существующей группы (только владелец).
+    /// `max_uses` — сколько раз можно войти (1 — одноразовый), срок — сутки.
+    pub fn group_invite(
+        &self,
+        group_id: Vec<u8>,
+        max_uses: u32,
+    ) -> Result<Option<String>, FfiError> {
         let mut engine = self.inner.lock().unwrap();
-        Ok(engine.create_invite(&group_id, INVITE_TTL_SECS).ok())
+        Ok(engine.create_invite(&group_id, INVITE_TTL_SECS, max_uses).ok())
     }
 
     /// Начать впуск по билету: id группы, ключ хозяина и заявка для отправки.

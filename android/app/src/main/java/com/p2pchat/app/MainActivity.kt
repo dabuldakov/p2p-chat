@@ -867,6 +867,10 @@ private fun GroupScreen(vm: ChatViewModel) {
                             Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
                         }) { Text(stringResource(R.string.copy_invite)) }
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { vm.regenInvite(1) }) { Text(stringResource(R.string.invite_single)) }
+                        OutlinedButton(onClick = { vm.regenInvite(5) }) { Text(stringResource(R.string.invite_5)) }
+                    }
                     Text(
                         stringResource(R.string.status_connected, vm.status, vm.connected),
                         style = MaterialTheme.typography.labelSmall,

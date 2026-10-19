@@ -241,13 +241,19 @@ impl GossipEngine {
     }
 
     /// Создать одноразовый инвайт-билет (только владелец). `ttl_secs=0` — без срока.
-    pub fn create_invite(&mut self, group: &[u8], ttl_secs: u64) -> Result<String, CoreError> {
+    pub fn create_invite(
+        &mut self,
+        group: &[u8],
+        ttl_secs: u64,
+        max_uses: u32,
+    ) -> Result<String, CoreError> {
         if !self.is_owner(group)? {
             return Err(CoreError::BadEnvelope("invite: только владелец".into()));
         }
         let now = crate::unix_now();
         let expiry = if ttl_secs == 0 { 0 } else { now + ttl_secs };
-        let inv = crate::invite::Invite::ticket(group, &self.public_key(), expiry, &self.identity);
+        let max = max_uses.max(1);
+        let inv = crate::invite::Invite::ticket(group, &self.public_key(), expiry, max, &self.identity);
         let _ = self.log.set_meta(&format!("invite:{}", inv.use_token()), b"1");
         Ok(inv.encode())
     }
@@ -660,14 +666,20 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         if self.log.get_meta(&format!("invite:{token}"))?.is_none() {
             return Ok(()); // не наш билет
         }
-        if self.log.get_meta(&format!("used:{token}"))?.is_some() {
-            return Ok(()); // одноразовый: уже использован
+        let used: u32 = self
+            .log
+            .get_meta(&format!("used:{token}"))?
+            .and_then(|b| b.try_into().ok())
+            .map(u32::from_le_bytes)
+            .unwrap_or(0);
+        if used >= inv.max_uses {
+            return Ok(()); // лимит входов исчерпан
         }
         if !self.mls.has(&req.group_id) {
             return Ok(());
         }
         let (commit, welcome) = self.mls.add_member(&req.group_id, &req.key_package)?;
-        let _ = self.log.set_meta(&format!("used:{token}"), b"1");
+        let _ = self.log.set_meta(&format!("used:{token}"), &(used + 1).to_le_bytes());
         let commit_env = self.seal(Gossip {
             body: Some(Body::Mls(Mls { group_id: req.group_id.clone(), message: commit })),
         })?;

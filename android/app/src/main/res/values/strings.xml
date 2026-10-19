@@ -92,4 +92,6 @@
     <string name="remove_member">Remove member</string>
     <string name="remove_member_confirm">Remove this member from the group?</string>
     <string name="avatar">Avatar</string>
+    <string name="invite_single">Single-use</string>
+    <string name="invite_5">5 uses · 24h</string>
 </resources>

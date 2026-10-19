@@ -21,7 +21,7 @@ fn invite_ticket_roundtrip() {
     let mut a = engine();
     let g = b"x".to_vec();
     a.create_group(g.clone()).unwrap();
-    let invite = a.create_invite(&g, 3600).unwrap();
+    let invite = a.create_invite(&g, 3600, 1).unwrap();
     assert!(invite.starts_with("p2pchat://join?g="));
 
     let (gid, host) = parse_invite(&invite).unwrap();

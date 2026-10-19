@@ -54,7 +54,7 @@ pub fn build_group(n: usize) -> (Vec<GossipEngine>, Vec<Vec<u8>>, Vec<u8>) {
     let keys: Vec<Vec<u8>> = engines.iter().map(|e| e.public_key()).collect();
     engines[0].create_group(g.clone()).unwrap();
     for j in 1..n {
-        let invite = engines[0].create_invite(&g, 3600).unwrap();
+        let invite = engines[0].create_invite(&g, 3600, 1).unwrap();
         let (_gid, req) = engines[j].join_request(&invite).unwrap();
         pump(&mut engines, &keys, vec![(j, req)]);
     }

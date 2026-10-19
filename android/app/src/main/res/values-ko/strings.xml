@@ -75,4 +75,6 @@
     <string name="remove_member">멤버 제거</string>
     <string name="remove_member_confirm">이 멤버를 그룹에서 제거할까요?</string>
     <string name="avatar">아바타</string>
+    <string name="invite_single">1회용</string>
+    <string name="invite_5">5회 · 24시간</string>
 </resources>

@@ -75,4 +75,6 @@
     <string name="remove_member">Видалити учасника</string>
     <string name="remove_member_confirm">Видалити цього учасника з групи?</string>
     <string name="avatar">Аватар</string>
+    <string name="invite_single">Одноразове</string>
+    <string name="invite_5">5 входів · 24 год</string>
 </resources>
