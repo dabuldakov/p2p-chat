@@ -25,7 +25,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -88,6 +88,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
@@ -100,6 +101,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.absoluteValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -1127,9 +1129,9 @@ private fun MessageRow(
                 } else {
                     val url = singleUrl(message.text)
                     if (url != null) {
-                        LinkPreviewCard(url) { MessageText(message.text) }
+                        LinkPreviewCard(url, onLongPress = onEdit) { MessageText(message.text, onEdit) }
                     } else {
-                        MessageText(message.text)
+                        MessageText(message.text, onEdit)
                     }
                 }
             }
@@ -1146,19 +1148,29 @@ private fun MessageRow(
     }
 }
 
-/** Текст сообщения с кликабельными ссылками http(s)://… */
+/** Текст сообщения: тап по ссылке открывает её, долгий тап — редактирование. */
 @Composable
-private fun MessageText(text: String) {
+private fun MessageText(text: String, onLongPress: () -> Unit = {}) {
     val ctx = LocalContext.current
     val annotated = remember(text) { linksAnnotated(text) }
-    ClickableText(
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    Text(
         text = annotated,
         style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-    ) { offset ->
-        annotated.getStringAnnotations(URL_TAG, offset, offset).firstOrNull()?.let { ann ->
-            runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ann.item))) }
-        }
-    }
+        onTextLayout = { layout = it },
+        modifier = Modifier.pointerInput(text) {
+            detectTapGestures(
+                onLongPress = { onLongPress() },
+                onTap = { pos ->
+                    val l = layout ?: return@detectTapGestures
+                    val offset = l.getOffsetForPosition(pos)
+                    annotated.getStringAnnotations(URL_TAG, offset, offset).firstOrNull()?.let { ann ->
+                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ann.item))) }
+                    }
+                },
+            )
+        },
+    )
 }
 
 /** Если всё сообщение — одна ссылка (без текста), вернуть её; иначе null. */

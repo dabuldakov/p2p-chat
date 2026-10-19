@@ -3,7 +3,8 @@ package com.p2pchat.app
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -158,8 +159,9 @@ object LinkPreviews {
 }
 
 /** Карточка-превью ссылки. Если превью не удалось — обычный текст ссылки. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun LinkPreviewCard(url: String, onFallback: @Composable () -> Unit) {
+fun LinkPreviewCard(url: String, onLongPress: () -> Unit = {}, onFallback: @Composable () -> Unit) {
     val ctx = LocalContext.current
     var preview by remember(url) { mutableStateOf(LinkPreviews.cached(ctx, url)) }
 
@@ -184,7 +186,7 @@ fun LinkPreviewCard(url: String, onFallback: @Composable () -> Unit) {
         modifier = Modifier
             .widthIn(max = 260.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable { open() },
+            .combinedClickable(onClick = { open() }, onLongClick = onLongPress),
     ) {
         Column {
             p.image?.let { img ->
