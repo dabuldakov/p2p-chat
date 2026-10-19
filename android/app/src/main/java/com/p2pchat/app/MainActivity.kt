@@ -156,6 +156,12 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         intent?.getStringExtra(EXTRA_SHARED_TEXT)?.let(vm::onSharedText)
         intent?.getStringExtra(EXTRA_GROUP)?.let { vm.selectGroup(it.toByteArray()) }
+        // Переход по ссылке-инвайту p2pchat://join?…
+        val data = intent?.data
+        if (intent?.action == Intent.ACTION_VIEW && data?.scheme == "p2pchat" && data.host == "join") {
+            vm.joinGroup(data.toString())
+            intent.data = null // чтобы не повторять вход при пересоздании Activity
+        }
     }
 
     private fun maybeRequestNotifications() {
