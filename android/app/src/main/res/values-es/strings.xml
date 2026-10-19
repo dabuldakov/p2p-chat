@@ -77,4 +77,5 @@
     <string name="avatar">Avatar</string>
     <string name="invite_single">Un solo uso</string>
     <string name="invite_5">5 usos · 24 h</string>
+    <string name="edit_message">Editar mensaje</string>
 </resources>

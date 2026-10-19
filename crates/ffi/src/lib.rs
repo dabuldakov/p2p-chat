@@ -38,6 +38,7 @@ pub struct FfiMessage {
     pub text: String,
     pub lamport: u64,
     pub wall_time: u64,
+    pub edited: bool,
     pub attachment: Option<FfiAttachment>,
 }
 
@@ -187,6 +188,20 @@ impl ChatCore {
         )?;
         use prost::Message as _;
         Ok(FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+    }
+
+    /// Отредактировать своё сообщение (только автор). Возвращает конверт.
+    pub fn edit_message(
+        &self,
+        group_id: Vec<u8>,
+        target_id: Vec<u8>,
+        text: String,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .post_edit(&group_id, &target_id, text)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
     }
 
     /// Гифки, которые отправлял я (вкладка «Мои»), свежие сверху.
@@ -451,7 +466,7 @@ impl ChatCore {
     /// Вся история группы в причинном порядке (для тестов/утилит).
     pub fn history(&self, group_id: Vec<u8>) -> Vec<FfiMessage> {
         let engine = self.inner.lock().unwrap();
-        engine.log().ordered(&group_id).into_iter().map(to_ffi_msg).collect()
+        engine.log().ordered(&group_id).into_iter().map(|m| to_ffi_msg(m, &engine)).collect()
     }
 
     /// Окно истории: не более `limit` сообщений до `before_id` (не включая его).
@@ -471,7 +486,7 @@ impl ChatCore {
         let limit = limit as usize;
         let start = end.saturating_sub(limit);
         let has_more = start > 0;
-        let messages = all[start..end].iter().cloned().map(to_ffi_msg).collect();
+        let messages = all[start..end].iter().cloned().map(|m| to_ffi_msg(m, &engine)).collect();
         FfiHistoryPage { messages, has_more }
     }
 
@@ -548,14 +563,16 @@ fn io_err<E: std::fmt::Display>(e: E) -> FfiError {
     FfiError::Core { reason: e.to_string() }
 }
 
-fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage) -> FfiMessage {
+fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage, engine: &GossipEngine) -> FfiMessage {
+    let (text, edited) = engine.effective_text(&m.id, &m.text);
     FfiMessage {
         id: m.id,
         group_id: m.group_id,
         author: m.author,
-        text: m.text,
+        text,
         lamport: m.lamport,
         wall_time: m.wall_time,
+        edited,
         attachment: m.attachment.map(to_ffi_attachment),
     }
 }
@@ -610,7 +627,7 @@ mod tests {
     fn history_window_paginates() {
         let core = ChatCore::new(":memory:".into()).unwrap();
         let g = b"g".to_vec();
-        core.create_group_invite(g.clone());
+        let _ = core.create_group_invite(g.clone());
         for i in 0..120 {
             core.post(g.clone(), format!("m{i}")).unwrap();
         }

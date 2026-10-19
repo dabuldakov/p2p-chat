@@ -77,4 +77,5 @@
     <string name="avatar">Аватар</string>
     <string name="invite_single">Одноразове</string>
     <string name="invite_5">5 входів · 24 год</string>
+    <string name="edit_message">Редагувати повідомлення</string>
 </resources>

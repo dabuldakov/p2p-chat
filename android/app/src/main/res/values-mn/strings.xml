@@ -77,4 +77,5 @@
     <string name="avatar">Профайл зураг</string>
     <string name="invite_single">Нэг удаа</string>
     <string name="invite_5">5 удаа · 24 цаг</string>
+    <string name="edit_message">Мессеж засах</string>
 </resources>

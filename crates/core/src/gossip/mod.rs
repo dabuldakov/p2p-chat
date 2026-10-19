@@ -11,8 +11,8 @@ use crate::log::Log;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, Direct, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
-use crate::{CoreError, GroupId, PeerId};
+use crate::proto::{ChatMessage, Direct, EditEvent, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
+use crate::{CoreError, GroupId, MessageId, PeerId};
 
 mod sync;
 
@@ -31,6 +31,8 @@ pub struct GossipEngine {
     owners: std::collections::HashMap<GroupId, PeerId>,
     /// Эфемерные публикации связей: group → author → (time, [(peer, kind)]).
     links: std::collections::HashMap<GroupId, std::collections::HashMap<PeerId, (u64, Vec<(Vec<u8>, String)>)>>,
+    /// Правки сообщений: target_id → (новый текст, lamport).
+    edits: std::collections::HashMap<MessageId, (String, u64)>,
     /// Аватары участников (peer_id → изображение).
     avatars: std::collections::HashMap<PeerId, Vec<u8>>,
     /// Аватары групп (group → изображение).
@@ -73,6 +75,7 @@ impl GossipEngine {
             mls_db: None,
             owners: Default::default(),
             links: Default::default(),
+            edits: Default::default(),
             avatars: Default::default(),
             group_avatars: Default::default(),
             nicknames: Default::default(),
@@ -203,6 +206,9 @@ impl GossipEngine {
 
     /// Восстановить профили и владельцев (MLS-состояние грузится через `load_mls`).
     pub fn load_state(&mut self) -> Result<(), CoreError> {
+        for (id, text, lamport, _wt) in self.log.load_edits()? {
+            self.edits.insert(id, (text, lamport));
+        }
         for (pid, nick, lamport, avatar) in self.log.load_profiles()? {
             self.nicknames.insert(pid.clone(), (nick, lamport));
             if let Some(a) = avatar {
@@ -444,6 +450,7 @@ impl GossipEngine {
         let origin = env.sender.clone();
         let gossip = self.open(&env)?;
         let forward_group = mls_group_of(&gossip);
+        let forward_broadcast = matches!(gossip.body, Some(Body::Profile(_)));
         let mut out = Outcome::default();
 
         match gossip.body {
@@ -488,7 +495,7 @@ impl GossipEngine {
                 self.on_direct(d, &origin, &mut out)?;
             }
             Some(Body::Profile(p)) => {
-                self.on_profile(p, &mut out)?;
+                self.on_profile(p)?;
             }
             Some(Body::Presence(p)) => {
                 self.on_presence(p);
@@ -502,6 +509,9 @@ impl GossipEngine {
             Some(Body::GroupProfile(g)) => {
                 self.on_group_profile(g, &origin)?;
             }
+            Some(Body::Edit(e)) => {
+                self.on_edit(e, &origin)?;
+            }
             None => {}
         }
 
@@ -512,6 +522,8 @@ impl GossipEngine {
             if !targets.is_empty() {
                 out.outgoing.push(Outgoing { envelope: env.clone(), targets });
             }
+        } else if forward_broadcast {
+            out.outgoing.push(Outgoing { envelope: env.clone(), targets: Vec::new() });
         }
 
         // если не хватает родителей — инициируем Merkle-синк по группе
@@ -755,6 +767,67 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         out
     }
 
+    /// Отредактировать своё сообщение (только автор). Возвращает конверт.
+    pub fn post_edit(
+        &mut self,
+        group: &[u8],
+        target_id: &[u8],
+        text: String,
+    ) -> Result<Option<Outgoing>, CoreError> {
+        if !self.mls.has(group) {
+            return Ok(None);
+        }
+        let me = self.peer_id();
+        let Some(m) = self.log.get(target_id) else {
+            return Ok(None);
+        };
+        if m.author != me {
+            return Ok(None); // править можно только свои
+        }
+        let lamport = self.log.tick();
+        let wt = crate::unix_now();
+        self.edits.insert(target_id.to_vec(), (text.clone(), lamport));
+        let _ = self.log.store_edit(target_id, &text, lamport, wt);
+        let ev = EditEvent {
+            group_id: group.to_vec(),
+            target_id: target_id.to_vec(),
+            text,
+            lamport,
+            wall_time: wt,
+            author: me,
+        };
+        let env = self.seal(Gossip { body: Some(Body::Edit(ev)) })?;
+        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+    }
+
+    /// Принять правку: только от автора исходного сообщения, LWW.
+    fn on_edit(&mut self, ev: EditEvent, origin: &[u8]) -> Result<(), CoreError> {
+        if p2pchat_crypto::content_id(origin).to_vec() != ev.author {
+            return Ok(());
+        }
+        let Some(m) = self.log.get(&ev.target_id) else {
+            return Ok(());
+        };
+        if m.author != ev.author {
+            return Ok(());
+        }
+        let cur = self.edits.get(&ev.target_id).map(|(_, l)| *l).unwrap_or(0);
+        if ev.lamport >= cur {
+            self.edits
+                .insert(ev.target_id.clone(), (ev.text.clone(), ev.lamport));
+            let _ = self.log.store_edit(&ev.target_id, &ev.text, ev.lamport, ev.wall_time);
+        }
+        Ok(())
+    }
+
+    /// Эффективный текст сообщения и признак правки.
+    pub fn effective_text(&self, id: &[u8], base: &str) -> (String, bool) {
+        match self.edits.get(id) {
+            Some((t, _)) => (t.clone(), true),
+            None => (base.to_string(), false),
+        }
+    }
+
     // --- Профиль (никнейм) ----------------------------------------------
 
     /// Задать свой никнейм и вернуть конверт для рассылки.
@@ -900,7 +973,7 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         Ok(self.out_all(env))
     }
 
-    fn on_profile(&mut self, ev: ProfileEvent, out: &mut Outcome) -> Result<(), CoreError> {
+    fn on_profile(&mut self, ev: ProfileEvent) -> Result<(), CoreError> {
         let wins = match self.nicknames.get(&ev.peer_id) {
             None => true,
             Some((_, l)) => ev.lamport > *l,
@@ -913,8 +986,6 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             }
             let av = if ev.avatar.is_empty() { None } else { Some(ev.avatar.as_slice()) };
             let _ = self.log.store_profile(&ev.peer_id, &ev.nickname, ev.lamport, av);
-            let env = self.seal(Gossip { body: Some(Body::Profile(ev)) })?;
-            out.outgoing.push(self.out_all(env));
         }
         Ok(())
     }
@@ -977,6 +1048,7 @@ fn mls_group_of(g: &Gossip) -> Option<GroupId> {
         Some(Body::Mls(m)) => Some(m.group_id.clone()),
         Some(Body::Links(l)) => Some(l.group_id.clone()),
         Some(Body::GroupProfile(g)) => Some(g.group_id.clone()),
+        Some(Body::Edit(e)) => Some(e.group_id.clone()),
         _ => None,
     }
 }

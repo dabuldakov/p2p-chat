@@ -77,4 +77,5 @@
     <string name="avatar">아바타</string>
     <string name="invite_single">1회용</string>
     <string name="invite_5">5회 · 24시간</string>
+    <string name="edit_message">메시지 편집</string>
 </resources>

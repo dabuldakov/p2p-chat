@@ -77,4 +77,5 @@
     <string name="avatar">アイコン</string>
     <string name="invite_single">1回限り</string>
     <string name="invite_5">5回 · 24時間</string>
+    <string name="edit_message">メッセージを編集</string>
 </resources>

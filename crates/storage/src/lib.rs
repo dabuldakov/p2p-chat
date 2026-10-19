@@ -4,6 +4,11 @@
 //! циклических зависимостей. `core` сериализует/десериализует свои типы поверх.
 
 use rusqlite::{params, Connection, OptionalExtension};
+
+/// Строка профиля: (peer_id, nickname, lamport, avatar).
+pub type ProfileRow = (Vec<u8>, String, u64, Option<Vec<u8>>);
+/// Строка правки: (message_id, text, lamport, wall_time).
+pub type EditRow = (Vec<u8>, String, u64, u64);
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -162,6 +167,20 @@ impl Store {
                 self.conn.execute_batch("ALTER TABLE profiles ADD COLUMN avatar BLOB;")?;
             }
             self.conn.execute_batch("PRAGMA user_version = 5;")?;
+        }
+
+        if version < 6 {
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS message_edits (
+                    message_id BLOB PRIMARY KEY,
+                    text       TEXT NOT NULL,
+                    lamport    INTEGER NOT NULL,
+                    wall_time  INTEGER NOT NULL
+                );
+                "#,
+            )?;
+            self.conn.execute_batch("PRAGMA user_version = 6;")?;
         }
 
         Ok(())
@@ -479,7 +498,7 @@ impl Store {
     }
 
     /// (peer_id, nickname, lamport, avatar)
-    pub fn all_profiles(&self) -> Result<Vec<(Vec<u8>, String, u64, Option<Vec<u8>>)>, StorageError> {
+    pub fn all_profiles(&self) -> Result<Vec<ProfileRow>, StorageError> {
         let mut stmt =
             self.conn.prepare("SELECT peer_id, nickname, lamport, avatar FROM profiles")?;
         let rows = stmt.query_map([], |r| {
@@ -488,6 +507,39 @@ impl Store {
                 r.get(1)?,
                 r.get::<_, i64>(2)? as u64,
                 r.get::<_, Option<Vec<u8>>>(3)?,
+            ))
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Сохранить правку сообщения (LWW по lamport).
+    pub fn set_edit(
+        &self,
+        message_id: &[u8],
+        text: &str,
+        lamport: u64,
+        wall_time: u64,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            "INSERT INTO message_edits (message_id, text, lamport, wall_time) VALUES (?1,?2,?3,?4)
+             ON CONFLICT(message_id) DO UPDATE SET
+                text = excluded.text, lamport = excluded.lamport, wall_time = excluded.wall_time
+             WHERE excluded.lamport >= message_edits.lamport",
+            params![message_id, text, lamport as i64, wall_time as i64],
+        )?;
+        Ok(())
+    }
+
+    /// Все правки: (message_id, text, lamport, wall_time).
+    pub fn all_edits(&self) -> Result<Vec<EditRow>, StorageError> {
+        let mut stmt =
+            self.conn.prepare("SELECT message_id, text, lamport, wall_time FROM message_edits")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get::<_, i64>(2)? as u64,
+                r.get::<_, i64>(3)? as u64,
             ))
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -672,7 +724,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 5);
+        assert_eq!(v, 6);
     }
 
     #[test]
@@ -738,7 +790,7 @@ mod tests {
         assert_eq!(msgs[0].parents, vec![vec![1u8, 2, 3]], "родители перенесены");
         assert!(!store.has_column("messages", "parents").unwrap(), "старый столбец убран");
         let v: i64 = store.conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(v, 5);
+        assert_eq!(v, 6);
 
         let _ = std::fs::remove_file(&path);
     }

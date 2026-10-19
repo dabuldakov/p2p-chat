@@ -239,6 +239,27 @@ impl Log {
         })
     }
 
+    pub fn store_edit(
+        &self,
+        message_id: &[u8],
+        text: &str,
+        lamport: u64,
+        wall_time: u64,
+    ) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.set_edit(message_id, text, lamport, wall_time)?;
+        }
+        Ok(())
+    }
+
+    /// (message_id, text, lamport, wall_time)
+    pub fn load_edits(&self) -> Result<Vec<p2pchat_storage::EditRow>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s.all_edits()?,
+            None => Vec::new(),
+        })
+    }
+
     pub fn load_group_keys(&self) -> Result<Vec<p2pchat_storage::GroupKeyRow>, CoreError> {
         Ok(match &self.store {
             Some(s) => s.all_group_keys()?,

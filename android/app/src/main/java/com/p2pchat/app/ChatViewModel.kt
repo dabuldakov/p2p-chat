@@ -62,6 +62,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun publishLinks() = ChatRuntime.publishLinks()
     fun graphEdges(group: ByteArray): List<GraphEdge> = ChatRuntime.graphEdges(group)
     fun send(text: String) = ChatRuntime.send(text)
+    fun editMessage(id: ByteArray, text: String) = ChatRuntime.editMessage(id, text)
     fun loadOlder() = ChatRuntime.loadOlder()
     fun refresh() = ChatRuntime.refresh()
     fun checkNow(onDone: (Boolean) -> Unit) = ChatRuntime.checkNow(onDone)

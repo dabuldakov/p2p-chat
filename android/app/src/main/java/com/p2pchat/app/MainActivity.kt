@@ -21,7 +21,9 @@ import coil.request.ImageRequest
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +50,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -772,6 +775,8 @@ private fun GroupScreen(vm: ChatViewModel) {
     var confirmLeave by remember { mutableStateOf(false) }
     var removeTarget by remember { mutableStateOf<ByteArray?>(null) }
     var showGifPicker by remember { mutableStateOf(false) }
+    var editTarget by remember { mutableStateOf<FfiMessage?>(null) }
+    var editText by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -932,7 +937,10 @@ private fun GroupScreen(vm: ChatViewModel) {
                         val mine = m.author.toHex() == vm.peerId
                         val name = vm.nicknames[m.author.toHex()]?.takeIf { it.isNotBlank() }
                             ?: m.author.toHexShort()
-                        MessageRow(mine = mine, name = name, message = m, vm = vm)
+                        MessageRow(
+                            mine = mine, name = name, message = m, vm = vm,
+                            onEdit = { if (mine) { editText = m.text; editTarget = m } },
+                        )
                     }
                     if (vm.hasMore) {
                         item {
@@ -1030,6 +1038,31 @@ private fun GroupScreen(vm: ChatViewModel) {
             },
         )
     }
+    editTarget?.let { em ->
+        AlertDialog(
+            onDismissRequest = { editTarget = null },
+            title = { Text(stringResource(R.string.edit_message)) },
+            text = {
+                OutlinedTextField(
+                    value = editText,
+                    onValueChange = { editText = it },
+                    singleLine = false,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.editMessage(em.id, editText.trim())
+                        editTarget = null
+                    },
+                ) { Text(stringResource(R.string.save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { editTarget = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
 }
 
 private fun ByteArray.toHexShort(): String =
@@ -1039,22 +1072,41 @@ private const val URL_TAG = "url"
 
 /** Пузырь сообщения: владелец — справа, собеседник — слева. */
 @Composable
-private fun MessageRow(mine: Boolean, name: String, message: FfiMessage, vm: ChatViewModel) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun MessageRow(
+    mine: Boolean,
+    name: String,
+    message: FfiMessage,
+    vm: ChatViewModel,
+    onEdit: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         if (!mine) {
             val ahex = message.author.toHex()
             Avatar(vm.avatars[ahex], ahex, 28.dp)
             Spacer(Modifier.width(6.dp))
         }
+        if (mine && message.edited) {
+            Icon(
+                Icons.Filled.Edit,
+                contentDescription = stringResource(R.string.edit_message),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(13.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+        }
         Surface(
             color = if (mine) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(12.dp),
             tonalElevation = 1.dp,
-            modifier = Modifier.widthIn(max = 260.dp),
+            modifier = Modifier
+                .widthIn(max = 260.dp)
+                .combinedClickable(onClick = {}, onLongClick = onEdit),
         ) {
             Column(Modifier.padding(8.dp)) {
                 if (!mine) {
@@ -1081,6 +1133,15 @@ private fun MessageRow(mine: Boolean, name: String, message: FfiMessage, vm: Cha
                     }
                 }
             }
+        }
+        if (!mine && message.edited) {
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                Icons.Filled.Edit,
+                contentDescription = stringResource(R.string.edit_message),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(13.dp),
+            )
         }
     }
 }

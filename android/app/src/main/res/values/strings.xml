@@ -94,4 +94,5 @@
     <string name="avatar">Avatar</string>
     <string name="invite_single">Single-use</string>
     <string name="invite_5">5 uses · 24h</string>
+    <string name="edit_message">Edit message</string>
 </resources>

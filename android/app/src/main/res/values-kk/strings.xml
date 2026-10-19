@@ -77,4 +77,5 @@
     <string name="avatar">Аватар</string>
     <string name="invite_single">Бір реттік</string>
     <string name="invite_5">5 кіру · 24 сағ</string>
+    <string name="edit_message">Хабарламаны өңдеу</string>
 </resources>

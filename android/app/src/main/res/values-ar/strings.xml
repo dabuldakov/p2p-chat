@@ -77,4 +77,5 @@
     <string name="avatar">الصورة</string>
     <string name="invite_single">استخدام واحد</string>
     <string name="invite_5">5 استخدامات · 24 ساعة</string>
+    <string name="edit_message">تعديل الرسالة</string>
 </resources>

@@ -422,6 +422,16 @@ object ChatRuntime {
         refresh()
     }
 
+    /** Отредактировать своё сообщение (только автор). */
+    fun editMessage(id: ByteArray, text: String) {
+        val g = currentGroup ?: return
+        if (text.isBlank()) return
+        runCatching { core.editMessage(g, id, text) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
+        refresh()
+    }
+
     /** Отправить гифку: между клиентами едет только ссылка (kind+id). */
     fun sendGif(gif: Gif) {
         val g = currentGroup ?: return

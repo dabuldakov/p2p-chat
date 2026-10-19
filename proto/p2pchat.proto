@@ -135,7 +135,19 @@ message Gossip {
     Mls mls = 13;
     Links links = 14;
     GroupProfile group_profile = 15;
+    EditEvent edit = 16;
   }
+}
+
+// Правка сообщения. Само сообщение неизменяемо (контент-адресация); правка —
+// отдельное событие, ссылающееся на исходное. Правит только автор, LWW.
+message EditEvent {
+  bytes group_id = 1;
+  bytes target_id = 2;     // id исходного сообщения
+  string text = 3;         // новый текст
+  uint64 lamport = 4;
+  uint64 wall_time = 5;
+  bytes author = 6;        // автор (должен совпадать с автором исходного)
 }
 
 // Аватар группы (меняет владелец). Эфемерный контрольный месседж, не в лог.
