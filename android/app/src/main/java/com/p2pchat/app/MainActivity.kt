@@ -684,6 +684,7 @@ private fun GraphDialog(vm: ChatViewModel, group: ByteArray?, onClose: () -> Uni
         members = if (group != null) vm.members else vm.allMembers()
         edges = if (group != null) vm.graphEdges(group) else vm.graphEdgesAll()
     }
+    val model = buildGraphModel(members, edges, vm.nicknames)
     AlertDialog(
         onDismissRequest = onClose,
         title = {
@@ -691,21 +692,22 @@ private fun GraphDialog(vm: ChatViewModel, group: ByteArray?, onClose: () -> Uni
         },
         text = {
             Canvas(Modifier.fillMaxWidth().height(340.dp)) {
-                val n = members.size.coerceAtLeast(1)
+                val nodes = model.nodes
+                val n = nodes.size.coerceAtLeast(1)
                 val cx = size.width / 2f
                 val cy = size.height / 2f
                 val r = minOf(cx, cy) - 44f
                 val pos = HashMap<String, Offset>()
-                members.forEachIndexed { i, m ->
+                nodes.forEachIndexed { i, node ->
                     val a = -Math.PI / 2 + 2.0 * Math.PI * i / n
-                    pos[m.peerId.toHex()] = Offset(
+                    pos[node.id] = Offset(
                         (cx + r * Math.cos(a)).toFloat(),
                         (cy + r * Math.sin(a)).toFloat(),
                     )
                 }
                 val green = Color(0xFF2E9E6B)
                 val orange = Color(0xFFE08A1E)
-                for (e in edges) {
+                for (e in model.edges) {
                     val p1 = pos[e.from] ?: continue
                     val p2 = pos[e.to] ?: continue
                     val col = when (e.kind) {
@@ -721,12 +723,10 @@ private fun GraphDialog(vm: ChatViewModel, group: ByteArray?, onClose: () -> Uni
                     textAlign = android.graphics.Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                members.forEach { m ->
-                    val p = pos[m.peerId.toHex()] ?: return@forEach
+                nodes.forEach { node ->
+                    val p = pos[node.id] ?: return@forEach
                     drawCircle(Color(0xFF5B8CFF), radius = 14f, center = p)
-                    val nick = vm.nicknames[m.peerId.toHex()]?.takeIf { it.isNotBlank() }
-                        ?: m.peerId.toHex().take(6)
-                    drawContext.canvas.nativeCanvas.drawText(nick, p.x, p.y - 22f, paint)
+                    drawContext.canvas.nativeCanvas.drawText(node.label, p.x, p.y - 22f, paint)
                 }
             }
         },
@@ -904,10 +904,21 @@ private fun GroupScreen(vm: ChatViewModel) {
                         }) { Text(stringResource(R.string.invite_5)) }
                     }
                     Text(
-                        stringResource(R.string.status_connected, vm.status, vm.groupConnected),
+                        stringResource(
+                            R.string.status_connected,
+                            stringResource(R.string.neighbors, vm.groupNeighbors),
+                            vm.groupConnected,
+                        ),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (vm.status.isNotBlank()) {
+                        Text(
+                            vm.status,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(stringResource(R.string.participants), style = MaterialTheme.typography.titleSmall)
                         vm.members.forEach { m ->

@@ -24,6 +24,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     val connected get() = ChatRuntime.connected
     val groupConnected get() = ChatRuntime.groupConnected
+    val groupNeighbors get() = ChatRuntime.groupNeighbors
     val groupInfos get() = ChatRuntime.groupInfos
     val unread get() = ChatRuntime.unread
     val memberCounts get() = ChatRuntime.memberCounts

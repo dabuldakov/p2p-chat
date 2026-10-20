@@ -1,6 +1,7 @@
 package com.p2pchat.app
 
 import android.app.Application
+import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -85,7 +86,7 @@ object ChatRuntime {
         private set
     var members by mutableStateOf<List<FfiMember>>(emptyList())
         private set
-    var status by mutableStateOf("signaling…")
+    var status by mutableStateOf("")
         private set
     var invite by mutableStateOf<String?>(null)
         private set
@@ -132,6 +133,13 @@ object ChatRuntime {
     /** Сколько соединений «напрямую» и «через TURN» (для сводки). */
     val directCount: Int get() = peerKinds.values.count { it == "direct" }
     val turnCount: Int get() = peerKinds.values.count { it == "turn" }
+
+    /** Соседи ТЕКУЩЕЙ группы (только её участники). */
+    val groupNeighbors: Int
+        get() {
+            val g = currentGroup ?: return 0
+            return runCatching { core.neighborKeys(g).distinctBy { it.toHex() }.size }.getOrDefault(0)
+        }
 
     /** Сколько участников ТЕКУЩЕЙ группы реально подключено. */
     val groupConnected: Int
@@ -320,7 +328,9 @@ object ChatRuntime {
         val n = name.trim()
         if (n.isEmpty()) return
         if (groupInfos.any { it.name.equals(n, ignoreCase = true) }) {
-            status = app.getString(R.string.group_exists, n)
+            val msg = app.getString(R.string.group_exists, n)
+            status = msg
+            Toast.makeText(app, msg, Toast.LENGTH_SHORT).show()
             return
         }
         val g = runCatching { core.createNamedGroup(n) }.getOrNull() ?: return
@@ -341,9 +351,13 @@ object ChatRuntime {
                     // отправляем заявку (KeyPackage + билет) хозяину; ждём Welcome
                     transport.sendTargets(join.request.envelope, join.request.targets)
                     status = app.getString(R.string.joining)
+                    Toast.makeText(app, R.string.joining, Toast.LENGTH_SHORT).show()
                 }
             }
-            .onFailure { status = app.getString(R.string.bad_invite) }
+            .onFailure {
+                status = app.getString(R.string.bad_invite)
+                Toast.makeText(app, R.string.bad_invite, Toast.LENGTH_SHORT).show()
+            }
     }
 
     /** Пересоздать инвайт (maxUses=1 — одноразовый, 5 — «5 входов») и вернуть его. */
@@ -358,6 +372,7 @@ object ChatRuntime {
 
     fun selectGroup(g: ByteArray) {
         currentGroup = g
+        status = ""
         currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
         invite = runCatching { core.groupInvite(g, 1u) }.getOrNull()
         inviteMaxUses = 1
@@ -428,7 +443,7 @@ object ChatRuntime {
                 Logs.d("neighbor ${pk.toHex()}")
                 runCatching { transport.connect(pk) }
             }
-            status = app.getString(R.string.neighbors, curCount)
+            Logs.d("group neighbors: $curCount")
         }
     }
 
@@ -555,7 +570,9 @@ object ChatRuntime {
         unread = ids.associate { it.toHex() to core.unreadCount(it) }
         memberCounts = ids.associate { it.toHex() to core.members(it).size }
         myNickname = core.myNickname()
-        nicknames = core.allNicknames().associate { it.peerId.toHex() to it.nickname }
+        val nicks = core.allNicknames().associate { it.peerId.toHex() to it.nickname }.toMutableMap()
+        myNickname?.takeIf { it.isNotBlank() }?.let { nicks[peerId] = it }
+        nicknames = nicks
         val freshAvatars = runCatching { core.avatars() }
             .getOrDefault(emptyList())
             .associate { it.peerId.toHex() to it.avatar }
