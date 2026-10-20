@@ -197,7 +197,6 @@ object ChatRuntime {
         }
         refresh()
         connectAll()
-        checkForUpdate()
         scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(15_000)
@@ -231,21 +230,15 @@ object ChatRuntime {
         debugLogsEnabled = enabled
     }
 
-    private var lastUpdateCheck = 0L
+    private var updateChecked = false
 
     private fun checkForUpdate() {
-        lastUpdateCheck = System.currentTimeMillis()
+        updateChecked = true
         scope.launch {
             val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
             if (result.ok) update = result.update
             Logs.i("update: installed=$version ok=${result.ok} latest=${result.update?.version}")
         }
-    }
-
-    /** Повторная проверка при возврате в приложение (не чаще раза в 10 минут). */
-    private fun maybeCheckUpdate() {
-        if (System.currentTimeMillis() - lastUpdateCheck < 10 * 60_000) return
-        checkForUpdate()
     }
 
     fun checkNow(onDone: (Boolean) -> Unit) {
@@ -470,7 +463,8 @@ object ChatRuntime {
         connectAll()
         syncAll()
         updateBadge(silent = true)
-        maybeCheckUpdate()
+        // Проверяем обновления один раз за запуск приложения (и вручную — тап по версии).
+        if (!updateChecked) checkForUpdate()
     }
 
     /** Бейдж/уведомления: по одному на непрочитанную группу + сводное. */
