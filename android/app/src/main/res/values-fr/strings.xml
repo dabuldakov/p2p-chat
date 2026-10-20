@@ -94,9 +94,9 @@
     <string name="seed_title">Phrase de récupération (24 mots)</string>
     <string name="restore_seed">Restaurer depuis la phrase</string>
     <string name="restore_hint">Saisissez les 24 mots séparés par des espaces</string>
-    <string name="restore_ok_restart">Compte restauré. L'application va redémarrer.</string>
+    <string name="restore_ok_restart">Compte restauré. L\'application va redémarrer.</string>
     <string name="restore_failed">Impossible de restaurer le compte</string>
-    <string name="restore_blocked">La restauration n'est disponible que sur un profil vide. Quittez les groupes ou réinitialisez les données d'abord.</string>
+    <string name="restore_blocked">La restauration n\'est disponible que sur un profil vide. Quittez les groupes ou réinitialisez les données d\'abord.</string>
     <string name="copy">Copier</string>
     <string name="seed_copied">Phrase copiée</string>
 </resources>
