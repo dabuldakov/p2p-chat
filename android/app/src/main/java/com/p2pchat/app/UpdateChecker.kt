@@ -19,13 +19,29 @@ data class AppUpdate(
  * «что нового» (от старой версии к новой). Так, если между установленной и
  * последней версией было несколько релизов, пользователь увидит изменения всех.
  */
+/** Результат проверки: найденное обновление и признак успешной проверки. */
+data class UpdateCheck(val update: AppUpdate?, val ok: Boolean)
+
 object UpdateChecker {
     private val client = OkHttpClient()
     private const val LIST_API =
         "https://api.github.com/repos/dabuldakov/p2p-chat/releases?per_page=30"
 
-    fun check(installed: String): AppUpdate? {
-        val releases = fetchReleases() ?: return null
+    fun check(installed: String): UpdateCheck {
+        val releases = fetchReleases()
+        if (releases == null) {
+            // API недоступен/лимит — пробуем лёгкий fallback через github.com.
+            val latest = latestFromRedirect()
+            val update = if (latest != null && isNewerVersion(latest, installed)) {
+                AppUpdate(
+                    latest,
+                    "https://github.com/dabuldakov/p2p-chat/releases/download/v$latest/p2p-chat-$latest.apk",
+                )
+            } else {
+                null
+            }
+            return UpdateCheck(update, ok = latest != null)
+        }
 
         // все релизы новее установленной, с их версией
         val newer = mutableListOf<Pair<String, JSONObject>>()
@@ -35,13 +51,13 @@ object UpdateChecker {
             val v = versionOf(o) ?: continue
             if (isNewerVersion(v, installed)) newer.add(v to o)
         }
-        if (newer.isEmpty()) return null
+        if (newer.isEmpty()) return UpdateCheck(null, ok = true)
 
         val sorted = newer.sortedBy { (v, _) -> versionKey(v) }
         val latest = sorted.last()
         val latestVersion = latest.first
         val apkUrl = pickApk(latest.second, latestVersion) ?: latest.second.optString("html_url")
-        if (apkUrl.isBlank()) return null
+        if (apkUrl.isBlank()) return UpdateCheck(null, ok = true)
 
         // объединяем changelog всех новых релизов, группируя по заголовку
         val merged = LinkedHashMap<String, MutableList<String>>()
@@ -52,7 +68,7 @@ object UpdateChecker {
         }
         val changelog = merged.map { ChangelogGroup(it.key, it.value) }
 
-        return AppUpdate(latestVersion, apkUrl, changelog)
+        return UpdateCheck(AppUpdate(latestVersion, apkUrl, changelog), ok = true)
     }
 
     private fun fetchReleases(): JSONArray? {
@@ -63,11 +79,36 @@ object UpdateChecker {
             .build()
         return try {
             client.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) return null
+                if (!resp.isSuccessful) {
+                    Logs.w("update: GitHub API HTTP ${resp.code}")
+                    return null
+                }
                 val raw = resp.body?.string() ?: return null
                 JSONArray(raw)
             }
         } catch (e: Exception) {
+            Logs.w("update: GitHub API error: $e")
+            null
+        }
+    }
+
+    /** Последняя версия через редирект github.com/releases/latest (без API-лимитов). */
+    private fun latestFromRedirect(): String? {
+        return try {
+            val request = Request.Builder()
+                .url("https://github.com/dabuldakov/p2p-chat/releases/latest")
+                .header("User-Agent", "p2pchat-android")
+                .build()
+            client.newCall(request).execute().use { resp ->
+                val finalUrl = resp.request.url.toString()
+                if (!resp.isSuccessful) {
+                    Logs.w("update: latest redirect HTTP ${resp.code}")
+                    return null
+                }
+                Regex("""/tag/v?(\d+\.\d+\.\d+)""").find(finalUrl)?.groupValues?.get(1)
+            }
+        } catch (e: Exception) {
+            Logs.w("update: latest redirect error: $e")
             null
         }
     }

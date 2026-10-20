@@ -231,17 +231,29 @@ object ChatRuntime {
         debugLogsEnabled = enabled
     }
 
+    private var lastUpdateCheck = 0L
+
     private fun checkForUpdate() {
+        lastUpdateCheck = System.currentTimeMillis()
         scope.launch {
-            update = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
+            val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
+            if (result.ok) update = result.update
+            Logs.i("update: installed=$version ok=${result.ok} latest=${result.update?.version}")
         }
+    }
+
+    /** Повторная проверка при возврате в приложение (не чаще раза в 10 минут). */
+    private fun maybeCheckUpdate() {
+        if (System.currentTimeMillis() - lastUpdateCheck < 10 * 60_000) return
+        checkForUpdate()
     }
 
     fun checkNow(onDone: (Boolean) -> Unit) {
         scope.launch {
-            val info = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
-            update = info
-            onDone(info != null)
+            val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
+            if (result.ok) update = result.update
+            Logs.i("update(now): installed=$version ok=${result.ok} latest=${result.update?.version}")
+            onDone(result.update != null)
         }
     }
 
@@ -458,6 +470,7 @@ object ChatRuntime {
         connectAll()
         syncAll()
         updateBadge(silent = true)
+        maybeCheckUpdate()
     }
 
     /** Бейдж/уведомления: по одному на непрочитанную группу + сводное. */
