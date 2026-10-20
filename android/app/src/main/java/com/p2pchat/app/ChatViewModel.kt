@@ -87,6 +87,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun setNickname(name: String) = ChatRuntime.setNickname(name)
     fun setAvatar(b: ByteArray) = ChatRuntime.setAvatar(b)
     fun setGroupAvatar(b: ByteArray) = ChatRuntime.setGroupAvatar(b)
+    fun renameGroup(name: String) = ChatRuntime.renameGroup(name)
+    fun deleteMessage(id: ByteArray) = ChatRuntime.deleteMessage(id)
     fun regenInvite(maxUses: Int): String? = ChatRuntime.regenInvite(maxUses)
 }
 
