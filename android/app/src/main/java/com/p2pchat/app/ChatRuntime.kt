@@ -31,6 +31,9 @@ import uniffi.p2pchat_ffi.FfiMessage
  */
 data class GraphEdge(val from: String, val to: String, val kind: String)
 
+/** Группа: уникальный id + отдельное отображаемое имя. */
+data class GroupInfo(val id: ByteArray, val name: String)
+
 object ChatRuntime {
 
     private const val PAGE_SIZE = 50
@@ -66,13 +69,15 @@ object ChatRuntime {
 
     var connected by mutableStateOf(0)
         private set
-    var groups by mutableStateOf<List<String>>(emptyList())
+    var groupInfos by mutableStateOf<List<GroupInfo>>(emptyList())
         private set
     var unread by mutableStateOf<Map<String, ULong>>(emptyMap())
         private set
     var memberCounts by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
     var currentGroup by mutableStateOf<ByteArray?>(null)
+        private set
+    var currentGroupName by mutableStateOf<String?>(null)
         private set
     var messages by mutableStateOf<List<FfiMessage>>(emptyList())
         private set
@@ -255,8 +260,7 @@ object ChatRuntime {
 
     /** Опубликовать свои активные связи по группам (эфемерно, не в лог). */
     fun publishLinks() {
-        for (name in groups) {
-            val g = name.toByteArray()
+        for (g in core.listGroups()) {
             val links = runCatching { core.members(g) }.getOrDefault(emptyList())
                 .mapNotNull { m -> peerKinds[m.publicKey.toHex()]?.let { FfiPeerLink(m.peerId, it) } }
             if (links.isEmpty()) continue
@@ -292,8 +296,8 @@ object ChatRuntime {
     /** Все участники всех групп (уникальные по peer_id) — для общего графа. */
     fun allMembers(): List<FfiMember> {
         val out = LinkedHashMap<String, FfiMember>()
-        for (name in groups) {
-            runCatching { core.members(name.toByteArray()) }.getOrDefault(emptyList())
+        for (g in core.listGroups()) {
+            runCatching { core.members(g) }.getOrDefault(emptyList())
                 .forEach { out[it.peerId.toHex()] = it }
         }
         return out.values.toList()
@@ -302,8 +306,8 @@ object ChatRuntime {
     /** Рёбра графа по всем группам (дедуп по паре). */
     fun graphEdgesAll(): List<GraphEdge> {
         val out = LinkedHashMap<String, GraphEdge>()
-        for (name in groups) {
-            graphEdges(name.toByteArray()).forEach { out.putIfAbsent(pairKey(it.from, it.to), it) }
+        for (g in core.listGroups()) {
+            graphEdges(g).forEach { out.putIfAbsent(pairKey(it.from, it.to), it) }
         }
         return out.values.toList()
     }
@@ -315,12 +319,12 @@ object ChatRuntime {
     fun createGroup(name: String) {
         val n = name.trim()
         if (n.isEmpty()) return
-        if (groups.contains(n)) {
+        if (groupInfos.any { it.name.equals(n, ignoreCase = true) }) {
             status = app.getString(R.string.group_exists, n)
             return
         }
-        val g = n.toByteArray()
-        invite = runCatching { core.createGroupInvite(g) }.getOrNull()
+        val g = runCatching { core.createNamedGroup(n) }.getOrNull() ?: return
+        invite = runCatching { core.groupInvite(g, 1u) }.getOrNull()
         inviteMaxUses = 1
         inviteAt = System.currentTimeMillis()
         refresh()
@@ -354,6 +358,7 @@ object ChatRuntime {
 
     fun selectGroup(g: ByteArray) {
         currentGroup = g
+        currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
         invite = runCatching { core.groupInvite(g, 1u) }.getOrNull()
         inviteMaxUses = 1
         inviteAt = System.currentTimeMillis()
@@ -373,6 +378,7 @@ object ChatRuntime {
             transport.sendTargets(it.envelope, it.targets)
         }
         currentGroup = null
+        currentGroupName = null
         refresh()
         updateBadge(silent = true)
     }
@@ -387,12 +393,14 @@ object ChatRuntime {
 
     fun backToList() {
         currentGroup = null
+        currentGroupName = null
     }
 
     fun onSharedText(text: String) {
         if (text.isBlank()) return
         sharedDraft = text
         currentGroup = null
+        currentGroupName = null
     }
 
     fun consumeSharedDraft(): String? {
@@ -435,11 +443,12 @@ object ChatRuntime {
 
     /** Бейдж/уведомления: по одному на непрочитанную группу + сводное. */
     private fun updateBadge(silent: Boolean) {
-        val items = groups.filter { (unread[it] ?: 0UL) > 0UL }.map { g ->
+        val items = groupInfos.mapNotNull { gi ->
+            if ((unread[gi.id.toHex()] ?: 0uL) == 0uL) return@mapNotNull null
             val last = runCatching {
-                core.historyWindow(g.toByteArray(), null, 1u).messages.lastOrNull()?.text
+                core.historyWindow(gi.id, null, 1u).messages.lastOrNull()?.text
             }.getOrNull()
-            g to (if (last.isNullOrBlank()) app.getString(R.string.new_messages) else last)
+            gi to (if (last.isNullOrBlank()) app.getString(R.string.new_messages) else last)
         }
         if (items.isEmpty()) Notifier.clearAll(app) else Notifier.showGroups(app, items, silent)
     }
@@ -534,14 +543,17 @@ object ChatRuntime {
 
     fun refresh() {
         val ids = core.listGroups()
-        groups = ids.map { String(it) }.sorted()
+        groupInfos = ids
+            .map { GroupInfo(it, runCatching { core.groupName(it) }.getOrDefault(String(it))) }
+            .sortedBy { it.name.lowercase() }
         currentGroup?.let { g ->
+            currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
             members = core.members(g)
             reloadLatest(g)
             runCatching { core.markRead(g) }
         }
-        unread = ids.associate { String(it) to core.unreadCount(it) }
-        memberCounts = ids.associate { String(it) to core.members(it).size }
+        unread = ids.associate { it.toHex() to core.unreadCount(it) }
+        memberCounts = ids.associate { it.toHex() to core.members(it).size }
         myNickname = core.myNickname()
         nicknames = core.allNicknames().associate { it.peerId.toHex() to it.nickname }
         val freshAvatars = runCatching { core.avatars() }

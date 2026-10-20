@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         intent?.getStringExtra(EXTRA_SHARED_TEXT)?.let(vm::onSharedText)
-        intent?.getStringExtra(EXTRA_GROUP)?.let { vm.selectGroup(it.toByteArray()) }
+        intent?.getStringExtra(EXTRA_GROUP)?.let { v -> vm.selectGroup(hexToBytes(v) ?: v.toByteArray()) }
         // Переход по ссылке-инвайту p2pchat://join?…
         val data = intent?.data
         if (intent?.action == Intent.ACTION_VIEW && data?.scheme == "p2pchat" && data.host == "join") {
@@ -234,7 +234,7 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (vm.groups.isEmpty()) {
+            if (vm.groupInfos.isEmpty()) {
                 Text(
                     stringResource(R.string.groups_empty),
                     style = MaterialTheme.typography.bodyMedium,
@@ -242,22 +242,23 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                     modifier = Modifier.padding(top = 24.dp),
                 )
             } else {
-                vm.groups.forEach { name ->
-                    Card(modifier = Modifier.fillMaxWidth().clickable { vm.selectGroup(name.toByteArray()) }) {
+                vm.groupInfos.forEach { gi ->
+                    val key = gi.id.toHex()
+                    Card(modifier = Modifier.fillMaxWidth().clickable { vm.selectGroup(gi.id) }) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column {
-                                Text(name, style = MaterialTheme.typography.bodyLarge)
+                                Text(gi.name, style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    stringResource(R.string.members_count, vm.memberCounts[name] ?: 1),
+                                    stringResource(R.string.members_count, vm.memberCounts[key] ?: 1),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             Spacer(Modifier.weight(1f))
-                            val u = vm.unread[name] ?: 0uL
+                            val u = vm.unread[key] ?: 0uL
                             if (u > 0uL) {
                                 Badge(containerColor = MaterialTheme.colorScheme.error) {
                                     Text(u.toString())
@@ -855,7 +856,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                 modifier = Modifier.fillMaxWidth().clickable { inviteExpanded = !inviteExpanded }.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val gname = vm.currentGroup?.let { String(it) } ?: ""
+                val gname = vm.currentGroupName ?: ""
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(8.dp))
@@ -1241,15 +1242,13 @@ private fun extractInvite(text: String): Pair<String, String>? {
     while (end < t.length && !t[end].isWhitespace()) end++
     val link = t.substring(idx, end)
     if (t.removeRange(idx, end).isNotBlank()) return null
-    val g = link.substringAfter('?', "")
-        .split('&')
-        .firstOrNull { it.startsWith("g=") }
-        ?.substringAfter("g=")
-        ?: return null
-    if (g.isEmpty() || g.length % 2 != 0) return null
-    val name = runCatching {
-        String(ByteArray(g.length / 2) { i -> g.substring(i * 2, i * 2 + 2).toInt(16).toByte() }, Charsets.UTF_8)
-    }.getOrNull()
+    val query = link.substringAfter('?', "").split('&')
+    fun param(k: String) = query.firstOrNull { it.startsWith("$k=") }?.substringAfter("=")
+    val gHex = param("g") ?: return null
+    // Имя — из подписанного параметра `m`; для старых билетов — из `g` (id == имя).
+    val name = param("m")?.takeIf { it.isNotEmpty() }
+        ?.let { hexToBytes(it)?.toString(Charsets.UTF_8) }
+        ?: if (gHex.length % 2 == 0) hexToBytes(gHex)?.toString(Charsets.UTF_8) else null
     if (name.isNullOrBlank()) return null
     return link to name
 }

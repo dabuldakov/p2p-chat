@@ -59,23 +59,24 @@ object Notifier {
     }
 
     /** Показать/обновить уведомления по группам. `items` — (группа, текст). */
-    fun showGroups(ctx: Context, items: List<Pair<String, String>>, silent: Boolean) {
+    fun showGroups(ctx: Context, items: List<Pair<GroupInfo, String>>, silent: Boolean) {
         val nm = NotificationManagerCompat.from(ctx)
         if (!nm.areNotificationsEnabled()) return
 
         val newIds = mutableSetOf<Int>()
         for ((group, text) in items) {
-            val id = (GROUP_KEY + group).hashCode()
+            val groupHex = group.id.toHex()
+            val id = (GROUP_KEY + groupHex).hashCode()
             newIds.add(id)
             val n = NotificationCompat.Builder(ctx, CH_MESSAGES)
                 .setSmallIcon(R.drawable.ic_notify)
-                .setContentTitle(group)
+                .setContentTitle(group.name)
                 .setContentText(text)
                 .setGroup(GROUP_KEY)
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .setSilent(silent)
                 .setAutoCancel(true)
-                .setContentIntent(openIntent(ctx, group, id))
+                .setContentIntent(openIntent(ctx, groupHex, id))
                 .build()
             runCatching { nm.notify(id, n) }
         }

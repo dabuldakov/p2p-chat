@@ -57,3 +57,21 @@ fn expired_invite_rejected() {
     let _ = invite; // без срока — не проверяем
     assert!(!try_join(&mut host, &invite2), "просроченный отклонён");
 }
+
+#[test]
+fn named_group_id_is_random_and_name_comes_from_invite() {
+    let mut host = engine();
+    let gid = host.create_named_group("Team Alpha").unwrap();
+    assert_ne!(gid, b"Team Alpha".to_vec(), "id не совпадает с именем");
+    assert_eq!(host.group_name(&gid), "Team Alpha");
+
+    // Одноимённые группы получают разные id.
+    let gid2 = host.create_named_group("Team Alpha").unwrap();
+    assert_ne!(gid, gid2, "одинаковые имена — разные id");
+
+    let invite = host.create_invite(&gid, 3600, 1).unwrap();
+    let mut joiner = engine();
+    let (jgid, _) = joiner.join_request(&invite).unwrap();
+    assert_eq!(jgid, gid);
+    assert_eq!(joiner.group_name(&jgid), "Team Alpha", "имя берётся из подписанного билета");
+}

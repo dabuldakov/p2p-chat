@@ -234,6 +234,17 @@ impl ChatCore {
         Ok(())
     }
 
+    /// Создать группу со случайным id и отдельным именем. Возвращает id.
+    pub fn create_named_group(&self, name: String) -> Result<Vec<u8>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        Ok(engine.create_named_group(&name)?)
+    }
+
+    /// Отображаемое имя группы (fallback — строка id для старых групп).
+    pub fn group_name(&self, group_id: Vec<u8>) -> String {
+        self.inner.lock().unwrap().group_name(&group_id)
+    }
+
     /// Создать группу и сразу вернуть одноразовый инвайт-билет (ссылка/QR).
     pub fn create_group_invite(&self, group_id: Vec<u8>) -> Result<String, FfiError> {
         let mut engine = self.inner.lock().unwrap();

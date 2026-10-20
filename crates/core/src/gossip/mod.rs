@@ -139,6 +139,29 @@ impl GossipEngine {
         Ok(())
     }
 
+    /// Создать группу с нормальным (случайным) id и отдельным именем.
+    /// `group_id` больше не совпадает с именем — коллизий между одноимёнными группами нет.
+    pub fn create_named_group(&mut self, name: &str) -> Result<GroupId, CoreError> {
+        let mut gid = vec![0u8; 16];
+        rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut gid);
+        self.create_group(gid.clone())?;
+        let name = name.trim();
+        if !name.is_empty() {
+            let _ = self.log.set_meta(&format!("name:{}", hex(&gid)), name.as_bytes());
+        }
+        Ok(gid)
+    }
+
+    /// Имя группы: из метаданных, иначе — как строка id (старые группы, где id == имя).
+    pub fn group_name(&self, group: &[u8]) -> String {
+        if let Ok(Some(b)) = self.log.get_meta(&format!("name:{}", hex(group))) {
+            if !b.is_empty() {
+                return String::from_utf8_lossy(&b).to_string();
+            }
+        }
+        String::from_utf8_lossy(group).to_string()
+    }
+
     /// Мы владелец группы (её создатель)?
     pub fn is_owner(&self, group: &[u8]) -> Result<bool, CoreError> {
         if let Some(owner) = self.owners.get(group) {
@@ -259,7 +282,15 @@ impl GossipEngine {
         let now = crate::unix_now();
         let expiry = if ttl_secs == 0 { 0 } else { now + ttl_secs };
         let max = max_uses.max(1);
-        let inv = crate::invite::Invite::ticket(group, &self.public_key(), expiry, max, &self.identity);
+        let name = self.group_name(group);
+        let inv = crate::invite::Invite::ticket(
+            group,
+            &self.public_key(),
+            expiry,
+            max,
+            &name,
+            &self.identity,
+        );
         let _ = self.log.set_meta(&format!("invite:{}", inv.use_token()), b"1");
         Ok(inv.encode())
     }
@@ -269,6 +300,13 @@ impl GossipEngine {
         let inv = crate::invite::Invite::parse(invite)?;
         if !inv.verify_sig() {
             return Err(CoreError::BadEnvelope("invite: подпись неверна".into()));
+        }
+        // Запоминаем имя группы из билета (чтобы оно было видно до/после входа).
+        if !inv.name.is_empty() {
+            let _ = self.log.set_meta(
+                &format!("name:{}", hex(&inv.group_id)),
+                inv.name.as_bytes(),
+            );
         }
         let req = crate::proto::JoinRequest {
             group_id: inv.group_id.clone(),

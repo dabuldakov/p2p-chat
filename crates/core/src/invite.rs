@@ -1,11 +1,12 @@
 //! Инвайт-билет группы — одноразовая подписанная ссылка/QR.
 //!
-//! Формат: `p2pchat://join?g=<hex>&h=<hex>&n=<hex>&e=<u64>&s=<hex>`
+//! Формат: `p2pchat://join?g=<hex>&h=<hex>&n=<hex>&e=<u64>&u=<n>&m=<hex>&s=<hex>`
 //! * `g` — group_id;
 //! * `h` — публичный ключ хозяина (для bootstrap-подключения);
 //! * `n` — nonce (16 байт), обеспечивает одноразовость;
 //! * `e` — срок действия (unix seconds; 0 = без срока);
-//! * `s` — Ed25519-подпись хозяина над `p2pchat-ticket-v1 || g || h || n || e`.
+//! * `m` — имя группы (hex UTF-8, опционально; подписывается вместе с билетом);
+//! * `s` — Ed25519-подпись хозяина над `p2pchat-ticket-v1 || g || h || n || e || u [|| m]`.
 //!
 //! Ключа группы в билете НЕТ: ключ выдаётся попарно после принятия заявки.
 
@@ -27,32 +28,50 @@ pub struct Invite {
     pub expiry: u64,
     /// Сколько раз можно войти (1 — одноразовый).
     pub max_uses: u32,
+    /// Имя группы (для отображения; пустое — для старых билетов).
+    pub name: String,
     pub sig: Vec<u8>,
 }
 
 impl Invite {
     /// Создать одноразовый билет (подписывает хозяин).
+    #[allow(clippy::too_many_arguments)]
     pub fn ticket(
         group_id: &[u8],
         host: &[u8],
         expiry: u64,
         max_uses: u32,
+        name: &str,
         signer: &Identity,
     ) -> Self {
         let mut nonce = [0u8; 16];
         rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
-        let sig = signer.sign(&signing_msg(group_id, host, &nonce, expiry, max_uses));
-        Self { group_id: group_id.to_vec(), host: host.to_vec(), nonce, expiry, max_uses, sig }
+        let sig = signer.sign(&signing_msg(group_id, host, &nonce, expiry, max_uses, name));
+        Self {
+            group_id: group_id.to_vec(),
+            host: host.to_vec(),
+            nonce,
+            expiry,
+            max_uses,
+            name: name.to_string(),
+            sig,
+        }
     }
 
     pub fn encode(&self) -> String {
+        let m = if self.name.is_empty() {
+            String::new()
+        } else {
+            format!("&m={}", hex(self.name.as_bytes()))
+        };
         format!(
-            "{SCHEME}?g={}&h={}&n={}&e={}&u={}&s={}",
+            "{SCHEME}?g={}&h={}&n={}&e={}&u={}{}&s={}",
             hex(&self.group_id),
             hex(&self.host),
             hex(&self.nonce),
             self.expiry,
             self.max_uses,
+            m,
             hex(&self.sig)
         )
     }
@@ -63,7 +82,8 @@ impl Invite {
             .map(|(_, q)| q)
             .ok_or_else(|| CoreError::BadEnvelope("invite: no query".into()))?;
 
-        let (mut g, mut h, mut n, mut e, mut u, mut sig) = (None, None, None, None, None, None);
+        let (mut g, mut h, mut n, mut e, mut u, mut m, mut sig) =
+            (None, None, None, None, None, None, None);
         for part in query.split('&') {
             let mut it = part.splitn(2, '=');
             match (it.next(), it.next()) {
@@ -72,6 +92,7 @@ impl Invite {
                 (Some("n"), Some(v)) => n = Some(v.to_string()),
                 (Some("e"), Some(v)) => e = Some(v.to_string()),
                 (Some("u"), Some(v)) => u = Some(v.to_string()),
+                (Some("m"), Some(v)) => m = Some(v.to_string()),
                 (Some("s"), Some(v)) => sig = Some(v.to_string()),
                 _ => {}
             }
@@ -89,9 +110,13 @@ impl Invite {
             .parse()
             .map_err(|_| CoreError::BadEnvelope("invite: bad expiry".into()))?;
         let max_uses: u32 = u.unwrap_or_else(|| "1".into()).parse().unwrap_or(1);
+        let name = match m {
+            Some(v) => String::from_utf8_lossy(&unhex(&v)?).to_string(),
+            None => String::new(),
+        };
         let sig = unhex(&sig.ok_or_else(|| CoreError::BadEnvelope("invite: no sig".into()))?)?;
 
-        Ok(Self { group_id, host, nonce, expiry, max_uses, sig })
+        Ok(Self { group_id, host, nonce, expiry, max_uses, name, sig })
     }
 
     /// Проверить подпись хозяина.
@@ -102,7 +127,12 @@ impl Invite {
         let Ok(vk) = VerifyingKey::from_bytes(&pk_arr) else {
             return false;
         };
-        verify(&vk, &signing_msg(&self.group_id, &self.host, &self.nonce, self.expiry, self.max_uses), &self.sig).is_ok()
+        verify(
+            &vk,
+            &signing_msg(&self.group_id, &self.host, &self.nonce, self.expiry, self.max_uses, &self.name),
+            &self.sig,
+        )
+        .is_ok()
     }
 
     /// Истёк ли билет (0 = без срока).
@@ -122,6 +152,7 @@ fn signing_msg(
     nonce: &[u8; 16],
     expiry: u64,
     max_uses: u32,
+    name: &str,
 ) -> Vec<u8> {
     let mut m = DOMAIN.to_vec();
     m.extend_from_slice(group_id);
@@ -129,6 +160,10 @@ fn signing_msg(
     m.extend_from_slice(nonce);
     m.extend_from_slice(&expiry.to_be_bytes());
     m.extend_from_slice(&max_uses.to_be_bytes());
+    // Имя добавляем только для новых билетов — старые (без `m`) проверяются по-прежнему.
+    if !name.is_empty() {
+        m.extend_from_slice(name.as_bytes());
+    }
     m
 }
 
