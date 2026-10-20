@@ -115,6 +115,10 @@ object ChatRuntime {
     var groupAvatarBytes by mutableStateOf<ByteArray?>(null)
         private set
 
+    /** Аватары групп (hex group_id → изображение) для списка. */
+    var groupAvatars by mutableStateOf<Map<String, ByteArray>>(emptyMap())
+        private set
+
     var myNickname by mutableStateOf<String?>(null)
         private set
 
@@ -577,6 +581,9 @@ object ChatRuntime {
             .getOrDefault(emptyList())
             .associate { it.peerId.toHex() to it.avatar }
         if (!sameAvatars(avatars, freshAvatars)) avatars = freshAvatars
+        groupAvatars = ids.mapNotNull { g ->
+            runCatching { core.groupAvatar(g) }.getOrNull()?.let { g.toHex() to it }
+        }.toMap()
         currentGroup?.let { g ->
             val fresh = runCatching { core.groupAvatar(g) }.getOrNull()
             val cur = groupAvatarBytes
@@ -589,6 +596,26 @@ object ChatRuntime {
     /** Задать свой аватар и разослать профиль. */
     fun setAvatar(bytes: ByteArray) {
         runCatching { core.setAvatar(bytes) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
+        refresh()
+    }
+
+    /** Переименовать текущую группу (владелец). */
+    fun renameGroup(name: String) {
+        val g = currentGroup ?: return
+        val n = name.trim()
+        if (n.isBlank()) return
+        runCatching { core.renameGroup(g, n) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
+        refresh()
+    }
+
+    /** Удалить своё сообщение. */
+    fun deleteMessage(id: ByteArray) {
+        val g = currentGroup ?: return
+        runCatching { core.deleteMessage(g, id) }.getOrNull()?.let {
             transport.sendTargets(it.envelope, it.targets)
         }
         refresh()

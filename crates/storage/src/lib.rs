@@ -183,6 +183,17 @@ impl Store {
             self.conn.execute_batch("PRAGMA user_version = 6;")?;
         }
 
+        if version < 7 {
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS message_deletes (
+                    message_id BLOB PRIMARY KEY
+                );
+                "#,
+            )?;
+            self.conn.execute_batch("PRAGMA user_version = 7;")?;
+        }
+
         Ok(())
     }
 
@@ -545,6 +556,22 @@ impl Store {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// Пометить сообщение удалённым (tombstone; необратимо).
+    pub fn set_deleted(&self, message_id: &[u8]) -> Result<(), StorageError> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO message_deletes (message_id) VALUES (?1)",
+            params![message_id],
+        )?;
+        Ok(())
+    }
+
+    /// Все удалённые сообщения.
+    pub fn all_deletes(&self) -> Result<Vec<Vec<u8>>, StorageError> {
+        let mut stmt = self.conn.prepare("SELECT message_id FROM message_deletes")?;
+        let rows = stmt.query_map([], |r| r.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     pub fn set_group_key(&self, group_id: &[u8], key: &[u8]) -> Result<(), StorageError> {
         self.conn.execute(
             "INSERT INTO group_keys (group_id, key) VALUES (?1, ?2)
@@ -724,7 +751,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 6);
+        assert_eq!(v, 7);
     }
 
     #[test]
@@ -790,7 +817,7 @@ mod tests {
         assert_eq!(msgs[0].parents, vec![vec![1u8, 2, 3]], "родители перенесены");
         assert!(!store.has_column("messages", "parents").unwrap(), "старый столбец убран");
         let v: i64 = store.conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(v, 6);
+        assert_eq!(v, 7);
 
         let _ = std::fs::remove_file(&path);
     }

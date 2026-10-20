@@ -39,6 +39,7 @@ pub struct FfiMessage {
     pub lamport: u64,
     pub wall_time: u64,
     pub edited: bool,
+    pub deleted: bool,
     pub attachment: Option<FfiAttachment>,
 }
 
@@ -204,6 +205,19 @@ impl ChatCore {
             .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
     }
 
+    /// Удалить своё сообщение (только автор). Возвращает конверт.
+    pub fn delete_message(
+        &self,
+        group_id: Vec<u8>,
+        target_id: Vec<u8>,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .post_delete(&group_id, &target_id)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
     /// Гифки, которые отправлял я (вкладка «Мои»), свежие сверху.
     pub fn recent_gifs(&self, limit: u32) -> Vec<FfiAttachment> {
         let engine = self.inner.lock().unwrap();
@@ -362,6 +376,19 @@ impl ChatCore {
         use prost::Message as _;
         Ok(engine
             .set_group_avatar(&group_id, avatar)?
+            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+    }
+
+    /// Переименовать группу (только владелец). Возвращает конверт.
+    pub fn rename_group(
+        &self,
+        group_id: Vec<u8>,
+        name: String,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .set_group_name(&group_id, name)?
             .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
     }
 
@@ -575,7 +602,12 @@ fn io_err<E: std::fmt::Display>(e: E) -> FfiError {
 }
 
 fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage, engine: &GossipEngine) -> FfiMessage {
-    let (text, edited) = engine.effective_text(&m.id, &m.text);
+    let deleted = engine.is_deleted(&m.id);
+    let (text, edited) = if deleted {
+        (String::new(), false)
+    } else {
+        engine.effective_text(&m.id, &m.text)
+    };
     FfiMessage {
         id: m.id,
         group_id: m.group_id,
@@ -584,7 +616,8 @@ fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage, engine: &GossipEngine) -> Ffi
         lamport: m.lamport,
         wall_time: m.wall_time,
         edited,
-        attachment: m.attachment.map(to_ffi_attachment),
+        deleted,
+        attachment: if deleted { None } else { m.attachment.map(to_ffi_attachment) },
     }
 }
 

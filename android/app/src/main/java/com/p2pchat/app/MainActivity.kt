@@ -105,6 +105,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -191,7 +192,7 @@ fun Root(vm: ChatViewModel) {
 
     val title = when {
         settings -> stringResource(R.string.settings)
-        group != null -> String(group)
+        group != null -> vm.currentGroupName ?: ""
         else -> "p2pchat"
     }
     val onBack: (() -> Unit)? = when {
@@ -249,6 +250,8 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            Avatar(vm.groupAvatars[key], key, 40.dp)
+                            Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(gi.name, style = MaterialTheme.typography.bodyLarge)
                                 Text(
@@ -805,6 +808,10 @@ private fun GroupScreen(vm: ChatViewModel) {
     var showGifPicker by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<FfiMessage?>(null) }
     var editText by remember { mutableStateOf("") }
+    var actionTarget by remember { mutableStateOf<FfiMessage?>(null) }
+    var deleteTarget by remember { mutableStateOf<FfiMessage?>(null) }
+    var showRename by remember { mutableStateOf(false) }
+    var renameText by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -869,6 +876,11 @@ private fun GroupScreen(vm: ChatViewModel) {
                 Spacer(Modifier.weight(1f))
                 Text(stringResource(R.string.members_count, vm.members.size), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (vm.isOwner) {
+                    IconButton(onClick = { renameText = vm.currentGroupName ?: ""; showRename = true }) {
+                        Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename_group))
+                    }
+                }
                 Spacer(Modifier.width(8.dp))
                 Icon(
                     if (inviteExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
@@ -978,7 +990,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                             ?: m.author.toHexShort()
                         MessageRow(
                             mine = mine, name = name, message = m, vm = vm,
-                            onEdit = { if (mine) { editText = m.text; editTarget = m } },
+                            onLongPress = { if (mine && !m.deleted) actionTarget = m },
                         )
                     }
                     if (vm.hasMore) {
@@ -1102,6 +1114,68 @@ private fun GroupScreen(vm: ChatViewModel) {
             },
         )
     }
+    actionTarget?.let { am ->
+        AlertDialog(
+            onDismissRequest = { actionTarget = null },
+            title = { Text(stringResource(R.string.message_actions)) },
+            text = {
+                Column {
+                    TextButton(onClick = {
+                        actionTarget = null
+                        editText = am.text
+                        editTarget = am
+                    }) { Text(stringResource(R.string.edit_message)) }
+                    TextButton(onClick = {
+                        actionTarget = null
+                        deleteTarget = am
+                    }) {
+                        Text(stringResource(R.string.delete_message), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { actionTarget = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+    deleteTarget?.let { dm ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text(stringResource(R.string.delete_message)) },
+            text = { Text(stringResource(R.string.delete_message_confirm)) },
+            confirmButton = {
+                TextButton(onClick = { vm.deleteMessage(dm.id); deleteTarget = null }) {
+                    Text(stringResource(R.string.remove), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+    if (showRename) {
+        AlertDialog(
+            onDismissRequest = { showRename = false },
+            title = { Text(stringResource(R.string.rename_group)) },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.renameGroup(renameText); showRename = false }) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRename = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
 }
 
 private fun ByteArray.toHexShort(): String =
@@ -1117,7 +1191,7 @@ private fun MessageRow(
     name: String,
     message: FfiMessage,
     vm: ChatViewModel,
-    onEdit: () -> Unit,
+    onLongPress: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
@@ -1145,7 +1219,7 @@ private fun MessageRow(
             tonalElevation = 1.dp,
             modifier = Modifier
                 .widthIn(max = 260.dp)
-                .combinedClickable(onClick = {}, onLongClick = onEdit),
+                .combinedClickable(onClick = {}, onLongClick = onLongPress),
         ) {
             Column(Modifier.padding(8.dp)) {
                 if (!mine) {
@@ -1156,7 +1230,14 @@ private fun MessageRow(
                     )
                 }
                 val att = message.attachment
-                if (att != null) {
+                if (message.deleted) {
+                    Text(
+                        stringResource(R.string.message_deleted),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (att != null) {
                     GifAttachmentView(
                         providerId = att.id,
                         width = att.width.toInt(),
@@ -1167,10 +1248,12 @@ private fun MessageRow(
                     val inv = extractInvite(message.text)
                     val url = singleUrl(message.text)
                     when {
-                        inv != null -> InviteCard(inv.first, inv.second, vm)
+                        inv != null -> InviteCard(inv.first, inv.second, vm, onLongPress)
                         url != null ->
-                            LinkPreviewCard(url, onLongPress = onEdit) { MessageText(message.text, onEdit) }
-                        else -> MessageText(message.text, onEdit)
+                            LinkPreviewCard(url, onLongPress = onLongPress) {
+                                MessageText(message.text, onLongPress)
+                            }
+                        else -> MessageText(message.text, onLongPress)
                     }
                 }
             }
@@ -1213,16 +1296,25 @@ private fun MessageText(text: String, onLongPress: () -> Unit = {}) {
 }
 
 /** Карточка приглашения по ссылке в группу. Тап — войти. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun InviteCard(invite: String, groupName: String, vm: ChatViewModel) {
+private fun InviteCard(
+    invite: String,
+    groupName: String,
+    vm: ChatViewModel,
+    onLongPress: () -> Unit = {},
+) {
     val ctx = LocalContext.current
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().clickable {
-            vm.joinGroup(invite)
-            Toast.makeText(ctx, ctx.getString(R.string.joining), Toast.LENGTH_SHORT).show()
-        },
+        modifier = Modifier.fillMaxWidth().combinedClickable(
+            onClick = {
+                vm.joinGroup(invite)
+                Toast.makeText(ctx, ctx.getString(R.string.joining), Toast.LENGTH_SHORT).show()
+            },
+            onLongClick = onLongPress,
+        ),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Hub, contentDescription = null, tint = MaterialTheme.colorScheme.primary)

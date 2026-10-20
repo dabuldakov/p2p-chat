@@ -81,4 +81,9 @@
     <string name="invite_card_title">دعوة إلى المجموعة</string>
     <string name="invite_card_hint">اضغط للانضمام</string>
     <string name="graph_all_groups">مخطط كل المجموعات</string>
+    <string name="rename_group">إعادة تسمية المجموعة</string>
+    <string name="delete_message">حذف الرسالة</string>
+    <string name="message_deleted">تم حذف الرسالة</string>
+    <string name="delete_message_confirm">حذف هذه الرسالة للجميع؟</string>
+    <string name="message_actions">الرسالة</string>
 </resources>

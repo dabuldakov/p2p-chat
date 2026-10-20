@@ -81,4 +81,9 @@
     <string name="invite_card_title">Запрашэнне ў групу</string>
     <string name="invite_card_hint">Націсніце, каб увайсці</string>
     <string name="graph_all_groups">Граф усіх груп</string>
+    <string name="rename_group">Перайменаваць групу</string>
+    <string name="delete_message">Выдаліць паведамленне</string>
+    <string name="message_deleted">Паведамленне выдалена</string>
+    <string name="delete_message_confirm">Выдаліць гэта паведамленне для ўсіх?</string>
+    <string name="message_actions">Паведамленне</string>
 </resources>

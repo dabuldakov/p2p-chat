@@ -136,11 +136,22 @@ message Gossip {
     Links links = 14;
     GroupProfile group_profile = 15;
     EditEvent edit = 16;
+    DeleteEvent delete = 17;
   }
 }
 
 // Правка сообщения. Само сообщение неизменяемо (контент-адресация); правка —
 // отдельное событие, ссылающееся на исходное. Правит только автор, LWW.
+// Удаление сообщения (tombstone). Правит только автор исходного, событие
+// необратимо и не зависит от порядка (как только пришло — удалено).
+message DeleteEvent {
+  bytes group_id = 1;
+  bytes target_id = 2;
+  uint64 lamport = 3;
+  uint64 wall_time = 4;
+  bytes author = 5;
+}
+
 message EditEvent {
   bytes group_id = 1;
   bytes target_id = 2;     // id исходного сообщения
@@ -157,6 +168,7 @@ message GroupProfile {
   uint64 lamport = 3;
   bytes author = 4;
   bytes id = 5;
+  string name = 6;          // имя группы (меняется только владельцем)
 }
 
 // Одна связь: с кем и как подключены.

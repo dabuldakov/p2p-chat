@@ -98,4 +98,9 @@
     <string name="invite_card_title">Group invite</string>
     <string name="invite_card_hint">Tap to join</string>
     <string name="graph_all_groups">All groups graph</string>
+    <string name="rename_group">Rename group</string>
+    <string name="delete_message">Delete message</string>
+    <string name="message_deleted">Message deleted</string>
+    <string name="delete_message_confirm">Delete this message for everyone?</string>
+    <string name="message_actions">Message</string>
 </resources>

@@ -11,7 +11,7 @@ use crate::log::Log;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, Direct, EditEvent, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
+use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
 use crate::{CoreError, GroupId, MessageId, PeerId};
 
 mod sync;
@@ -33,6 +33,8 @@ pub struct GossipEngine {
     links: std::collections::HashMap<GroupId, std::collections::HashMap<PeerId, (u64, Vec<(Vec<u8>, String)>)>>,
     /// Правки сообщений: target_id → (новый текст, lamport).
     edits: std::collections::HashMap<MessageId, (String, u64)>,
+    /// Удалённые сообщения (tombstone, необратимо).
+    deletes: std::collections::HashSet<MessageId>,
     /// Аватары участников (peer_id → изображение).
     avatars: std::collections::HashMap<PeerId, Vec<u8>>,
     /// Аватары групп (group → изображение).
@@ -76,6 +78,7 @@ impl GossipEngine {
             owners: Default::default(),
             links: Default::default(),
             edits: Default::default(),
+            deletes: Default::default(),
             avatars: Default::default(),
             group_avatars: Default::default(),
             nicknames: Default::default(),
@@ -231,6 +234,9 @@ impl GossipEngine {
     pub fn load_state(&mut self) -> Result<(), CoreError> {
         for (id, text, lamport, _wt) in self.log.load_edits()? {
             self.edits.insert(id, (text, lamport));
+        }
+        for id in self.log.load_deletes()? {
+            self.deletes.insert(id);
         }
         for (pid, nick, lamport, avatar) in self.log.load_profiles()? {
             self.nicknames.insert(pid.clone(), (nick, lamport));
@@ -550,6 +556,9 @@ impl GossipEngine {
             Some(Body::Edit(e)) => {
                 self.on_edit(e, &origin)?;
             }
+            Some(Body::Delete(e)) => {
+                self.on_delete(e, &origin)?;
+            }
             None => {}
         }
 
@@ -858,6 +867,58 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         Ok(())
     }
 
+    /// Удалить своё сообщение (только автор). Возвращает конверт.
+    pub fn post_delete(
+        &mut self,
+        group: &[u8],
+        target_id: &[u8],
+    ) -> Result<Option<Outgoing>, CoreError> {
+        if !self.mls.has(group) {
+            return Ok(None);
+        }
+        let me = self.peer_id();
+        let Some(m) = self.log.get(target_id) else {
+            return Ok(None);
+        };
+        if m.author != me {
+            return Ok(None); // удалять можно только свои
+        }
+        let lamport = self.log.tick();
+        let wt = crate::unix_now();
+        self.deletes.insert(target_id.to_vec());
+        let _ = self.log.store_delete(target_id);
+        let ev = DeleteEvent {
+            group_id: group.to_vec(),
+            target_id: target_id.to_vec(),
+            lamport,
+            wall_time: wt,
+            author: me,
+        };
+        let env = self.seal(Gossip { body: Some(Body::Delete(ev)) })?;
+        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+    }
+
+    /// Принять удаление: только от автора исходного сообщения.
+    fn on_delete(&mut self, ev: DeleteEvent, origin: &[u8]) -> Result<(), CoreError> {
+        if p2pchat_crypto::content_id(origin).to_vec() != ev.author {
+            return Ok(());
+        }
+        let Some(m) = self.log.get(&ev.target_id) else {
+            return Ok(());
+        };
+        if m.author != ev.author {
+            return Ok(());
+        }
+        if self.deletes.insert(ev.target_id.clone()) {
+            let _ = self.log.store_delete(&ev.target_id);
+        }
+        Ok(())
+    }
+
+    pub fn is_deleted(&self, id: &[u8]) -> bool {
+        self.deletes.contains(id)
+    }
+
     /// Эффективный текст сообщения и признак правки.
     pub fn effective_text(&self, id: &[u8], base: &str) -> (String, bool) {
         match self.edits.get(id) {
@@ -928,25 +989,55 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         if !self.is_owner(group)? {
             return Ok(None);
         }
-        let lamport = self.log.tick();
-        let me = self.peer_id();
         if avatar.is_empty() {
             self.group_avatars.remove(group);
         } else {
             self.group_avatars.insert(group.to_vec(), avatar.clone());
         }
+        self.send_group_profile(group, avatar)
+    }
+
+    /// Переименовать группу (только владелец). Рассылает профиль группы.
+    pub fn set_group_name(
+        &mut self,
+        group: &[u8],
+        name: String,
+    ) -> Result<Option<Outgoing>, CoreError> {
+        if !self.is_owner(group)? {
+            return Ok(None);
+        }
+        let name = name.trim();
+        if name.is_empty() {
+            return Ok(None);
+        }
+        let _ = self.log.set_meta(&format!("name:{}", hex(group)), name.as_bytes());
+        let avatar = self.group_avatar(group).unwrap_or_default();
+        self.send_group_profile(group, avatar)
+    }
+
+    /// Разослать профиль группы (аватар + имя) соседям, LWW по lamport.
+    fn send_group_profile(
+        &mut self,
+        group: &[u8],
+        avatar: Vec<u8>,
+    ) -> Result<Option<Outgoing>, CoreError> {
+        let lamport = self.log.tick();
+        let me = self.peer_id();
+        let name = self.group_name(group);
         let _ = self.log.set_meta(&format!("gavatar:{}", hex(group)), &avatar);
         let _ = self.log.set_meta(&format!("gavatar_l:{}", hex(group)), &lamport.to_le_bytes());
         let mut id_h = Vec::new();
         id_h.extend_from_slice(group);
         id_h.extend_from_slice(&lamport.to_be_bytes());
         id_h.extend_from_slice(&avatar);
+        id_h.extend_from_slice(name.as_bytes());
         let ev = GroupProfile {
             group_id: group.to_vec(),
             avatar,
             lamport,
             author: me,
             id: p2pchat_crypto::content_id(&id_h).to_vec(),
+            name,
         };
         let env = self.seal(Gossip { body: Some(Body::GroupProfile(ev)) })?;
         Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
@@ -974,6 +1065,9 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         let _ = self
             .log
             .set_meta(&format!("gavatar_l:{}", hex(&ev.group_id)), &ev.lamport.to_le_bytes());
+        if !ev.name.is_empty() {
+            let _ = self.log.set_meta(&format!("name:{}", hex(&ev.group_id)), ev.name.as_bytes());
+        }
         Ok(())
     }
 
@@ -1087,6 +1181,7 @@ fn mls_group_of(g: &Gossip) -> Option<GroupId> {
         Some(Body::Links(l)) => Some(l.group_id.clone()),
         Some(Body::GroupProfile(g)) => Some(g.group_id.clone()),
         Some(Body::Edit(e)) => Some(e.group_id.clone()),
+        Some(Body::Delete(e)) => Some(e.group_id.clone()),
         _ => None,
     }
 }

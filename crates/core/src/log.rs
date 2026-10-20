@@ -260,6 +260,20 @@ impl Log {
         })
     }
 
+    pub fn store_delete(&self, message_id: &[u8]) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.set_deleted(message_id)?;
+        }
+        Ok(())
+    }
+
+    pub fn load_deletes(&self) -> Result<Vec<Vec<u8>>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s.all_deletes()?,
+            None => Vec::new(),
+        })
+    }
+
     pub fn load_group_keys(&self) -> Result<Vec<p2pchat_storage::GroupKeyRow>, CoreError> {
         Ok(match &self.store {
             Some(s) => s.all_group_keys()?,

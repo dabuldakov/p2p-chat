@@ -81,4 +81,9 @@
     <string name="invite_card_title">Invito al gruppo</string>
     <string name="invite_card_hint">Tocca per entrare</string>
     <string name="graph_all_groups">Grafo di tutti i gruppi</string>
+    <string name="rename_group">Rinomina gruppo</string>
+    <string name="delete_message">Elimina messaggio</string>
+    <string name="message_deleted">Messaggio eliminato</string>
+    <string name="delete_message_confirm">Eliminare questo messaggio per tutti?</string>
+    <string name="message_actions">Messaggio</string>
 </resources>

@@ -48,3 +48,18 @@ fn two_cores_join_and_message() {
     assert_eq!(page.messages.len(), 1);
     assert_eq!(page.messages[0].text, "привет");
 }
+
+#[test]
+fn deleted_message_is_marked_as_tombstone() {
+    let a = ChatCore::new(tmp("del")).unwrap();
+    let g = a.create_named_group("G".into()).unwrap();
+    let _ = a.post(g.clone(), "hi".into()).unwrap();
+
+    let page = a.history_window(g.clone(), None, 10);
+    let id = page.messages[0].id.clone();
+    let _ = a.delete_message(g.clone(), id).unwrap();
+
+    let page = a.history_window(g, None, 10);
+    assert!(page.messages[0].deleted, "помечено удалённым");
+    assert_eq!(page.messages[0].text, "", "текст скрыт");
+}

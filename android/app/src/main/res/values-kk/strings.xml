@@ -81,4 +81,9 @@
     <string name="invite_card_title">Топқа шақыру</string>
     <string name="invite_card_hint">Қосылу үшін түртіңіз</string>
     <string name="graph_all_groups">Барлық топтардың графигі</string>
+    <string name="rename_group">Топты қайта атау</string>
+    <string name="delete_message">Хабарламаны жою</string>
+    <string name="message_deleted">Хабарлама жойылды</string>
+    <string name="delete_message_confirm">Бұл хабарламаны барлығынан жою керек пе?</string>
+    <string name="message_actions">Хабарлама</string>
 </resources>
