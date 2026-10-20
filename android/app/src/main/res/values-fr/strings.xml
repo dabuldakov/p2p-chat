@@ -86,4 +86,17 @@
     <string name="message_deleted">Message supprimé</string>
     <string name="delete_message_confirm">Supprimer ce message pour tous ?</string>
     <string name="message_actions">Message</string>
+    <string name="backup_title">Sauvegarde de la clé</string>
+    <string name="backup_desc">La phrase de récupération de 24 mots restaure votre compte sur un nouvel appareil. Ne la partagez jamais.</string>
+    <string name="fingerprint_label">Empreinte de la clé</string>
+    <string name="show_seed">Afficher la phrase</string>
+    <string name="seed_warning">Quiconque voit cette phrase obtient un accès complet à votre compte. Affichez-la uniquement en privé.</string>
+    <string name="seed_title">Phrase de récupération (24 mots)</string>
+    <string name="restore_seed">Restaurer depuis la phrase</string>
+    <string name="restore_hint">Saisissez les 24 mots séparés par des espaces</string>
+    <string name="restore_ok_restart">Compte restauré. L'application va redémarrer.</string>
+    <string name="restore_failed">Impossible de restaurer le compte</string>
+    <string name="restore_blocked">La restauration n'est disponible que sur un profil vide. Quittez les groupes ou réinitialisez les données d'abord.</string>
+    <string name="copy">Copier</string>
+    <string name="seed_copied">Phrase copiée</string>
 </resources>

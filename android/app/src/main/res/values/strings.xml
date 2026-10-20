@@ -103,4 +103,17 @@
     <string name="message_deleted">Message deleted</string>
     <string name="delete_message_confirm">Delete this message for everyone?</string>
     <string name="message_actions">Message</string>
+    <string name="backup_title">Key backup</string>
+    <string name="backup_desc">The 24-word seed phrase restores your account on a new device. Never share it.</string>
+    <string name="fingerprint_label">Key fingerprint</string>
+    <string name="show_seed">Show seed phrase</string>
+    <string name="seed_warning">Anyone who sees this phrase gets full access to your account. View it only in private.</string>
+    <string name="seed_title">Seed phrase (24 words)</string>
+    <string name="restore_seed">Restore from phrase</string>
+    <string name="restore_hint">Enter the 24 words separated by spaces</string>
+    <string name="restore_ok_restart">Account restored. The app will restart.</string>
+    <string name="restore_failed">Could not restore the account</string>
+    <string name="restore_blocked">Restore is only available on an empty profile. Leave groups or reset app data first.</string>
+    <string name="copy">Copy</string>
+    <string name="seed_copied">Phrase copied</string>
 </resources>

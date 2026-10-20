@@ -126,6 +126,7 @@ pub struct FfiNickname {
 #[derive(uniffi::Object)]
 pub struct ChatCore {
     inner: Mutex<GossipEngine>,
+    identity_path: Option<std::path::PathBuf>,
 }
 
 #[uniffi::export]
@@ -149,7 +150,7 @@ impl ChatCore {
         let mut engine = GossipEngine::new(identity, log);
         engine.load_state()?;
         engine.load_mls(&db_path)?;
-        Ok(Arc::new(Self { inner: Mutex::new(engine) }))
+        Ok(Arc::new(Self { inner: Mutex::new(engine), identity_path }))
     }
 
     /// Наш peer_id (hex-строкой — удобно для UI и логов).
@@ -160,6 +161,51 @@ impl ChatCore {
     /// Наш публичный ключ (его передаём собеседникам).
     pub fn public_key(&self) -> Vec<u8> {
         self.inner.lock().unwrap().public_key()
+    }
+
+    /// Короткий отпечаток публичного ключа для сверки «тот ли это человек».
+    pub fn fingerprint(&self) -> String {
+        let id = self.inner.lock().unwrap().peer_id();
+        let s: String = id[..8].iter().map(|b| format!("{b:02X}")).collect();
+        s.as_bytes()
+            .chunks(4)
+            .map(|c| std::str::from_utf8(c).unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Экспорт seed-фразы (24 слова, BIP39) текущей идентичности.
+    pub fn export_seed(&self) -> Result<String, FfiError> {
+        let secret = self.inner.lock().unwrap().secret_bytes();
+        let m = bip39::Mnemonic::from_entropy(&secret)
+            .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        Ok(m.to_string())
+    }
+
+    /// Восстановить идентичность из seed-фразы. Только на пустом профиле
+    /// (без групп) — иначе вернёт ошибку. Возвращает новый peer_id (hex).
+    pub fn import_seed(&self, phrase: String) -> Result<String, FfiError> {
+        let m = bip39::Mnemonic::parse(phrase.trim())
+            .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        let entropy = m.to_entropy();
+        if entropy.len() != 32 {
+            return Err(FfiError::Core {
+                reason: "нужна seed-фраза из 24 слов".into(),
+            });
+        }
+        let identity = p2pchat_crypto::Identity::from_secret_bytes(&entropy)
+            .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        let mut engine = self.inner.lock().unwrap();
+        if !engine.groups().is_empty() {
+            return Err(FfiError::Core {
+                reason: "сначала сбросьте данные приложения".into(),
+            });
+        }
+        if let Some(p) = &self.identity_path {
+            write_atomic(p, &identity.secret_bytes()).map_err(io_err)?;
+        }
+        engine.replace_identity(identity)?;
+        Ok(hex(&engine.peer_id()))
     }
 
     /// Отправить сообщение в группу. Возвращает конверт с адресатами.

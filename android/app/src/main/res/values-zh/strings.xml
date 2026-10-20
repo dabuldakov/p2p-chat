@@ -86,4 +86,17 @@
     <string name="message_deleted">消息已删除</string>
     <string name="delete_message_confirm">为所有人删除此消息？</string>
     <string name="message_actions">消息</string>
+    <string name="backup_title">密钥备份</string>
+    <string name="backup_desc">24 个单词的助记词可在新设备上恢复账户。切勿分享。</string>
+    <string name="fingerprint_label">密钥指纹</string>
+    <string name="show_seed">显示助记词</string>
+    <string name="seed_warning">看到此助记词的人将获得你账户的完全访问权限。请仅在私密环境下查看。</string>
+    <string name="seed_title">助记词（24 个单词）</string>
+    <string name="restore_seed">从助记词恢复</string>
+    <string name="restore_hint">输入以空格分隔的 24 个单词</string>
+    <string name="restore_ok_restart">账户已恢复。应用将重新启动。</string>
+    <string name="restore_failed">无法恢复账户</string>
+    <string name="restore_blocked">仅在空配置文件上可恢复。请先退出群组或重置应用数据。</string>
+    <string name="copy">复制</string>
+    <string name="seed_copied">助记词已复制</string>
 </resources>

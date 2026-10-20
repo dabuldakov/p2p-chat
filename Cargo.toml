@@ -60,6 +60,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # ffi
 uniffi = "0.28"
 
+# seed-фраза (BIP39) для бэкапа/восстановления ключа
+bip39 = "2"
+
 # websockets (signaling)
 tokio-tungstenite = "0.24"
 futures-util = "0.3"

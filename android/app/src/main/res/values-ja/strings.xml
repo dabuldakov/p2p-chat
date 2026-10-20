@@ -86,4 +86,17 @@
     <string name="message_deleted">メッセージは削除されました</string>
     <string name="delete_message_confirm">このメッセージを全員から削除しますか？</string>
     <string name="message_actions">メッセージ</string>
+    <string name="backup_title">キーのバックアップ</string>
+    <string name="backup_desc">24語のシードフレーズで新しい端末にアカウントを復元できます。絶対に共有しないでください。</string>
+    <string name="fingerprint_label">キーの指紋</string>
+    <string name="show_seed">シードフレーズを表示</string>
+    <string name="seed_warning">このフレーズを見た人はアカウントに完全アクセスできます。人目のない場所でのみ表示してください。</string>
+    <string name="seed_title">シードフレーズ（24語）</string>
+    <string name="restore_seed">フレーズから復元</string>
+    <string name="restore_hint">24語をスペースで区切って入力</string>
+    <string name="restore_ok_restart">アカウントを復元しました。アプリを再起動します。</string>
+    <string name="restore_failed">アカウントを復元できませんでした</string>
+    <string name="restore_blocked">復元は空のプロファイルでのみ可能です。先にグループを退出するかアプリデータをリセットしてください。</string>
+    <string name="copy">コピー</string>
+    <string name="seed_copied">フレーズをコピーしました</string>
 </resources>

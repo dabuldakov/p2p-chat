@@ -86,4 +86,17 @@
     <string name="message_deleted">Mensagem excluída</string>
     <string name="delete_message_confirm">Excluir esta mensagem para todos?</string>
     <string name="message_actions">Mensagem</string>
+    <string name="backup_title">Backup da chave</string>
+    <string name="backup_desc">A frase semente de 24 palavras restaura sua conta em um novo dispositivo. Nunca a compartilhe.</string>
+    <string name="fingerprint_label">Impressão da chave</string>
+    <string name="show_seed">Mostrar frase semente</string>
+    <string name="seed_warning">Qualquer pessoa que veja esta frase terá acesso total à sua conta. Veja apenas em privado.</string>
+    <string name="seed_title">Frase semente (24 palavras)</string>
+    <string name="restore_seed">Restaurar da frase</string>
+    <string name="restore_hint">Digite as 24 palavras separadas por espaços</string>
+    <string name="restore_ok_restart">Conta restaurada. O aplicativo será reiniciado.</string>
+    <string name="restore_failed">Não foi possível restaurar a conta</string>
+    <string name="restore_blocked">A restauração só está disponível em um perfil vazio. Saia dos grupos ou redefina os dados primeiro.</string>
+    <string name="copy">Copiar</string>
+    <string name="seed_copied">Frase copiada</string>
 </resources>

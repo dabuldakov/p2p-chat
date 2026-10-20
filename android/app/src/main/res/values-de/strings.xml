@@ -86,4 +86,17 @@
     <string name="message_deleted">Nachricht gelöscht</string>
     <string name="delete_message_confirm">Diese Nachricht für alle löschen?</string>
     <string name="message_actions">Nachricht</string>
+    <string name="backup_title">Schlüsselsicherung</string>
+    <string name="backup_desc">Die 24-Wörter-Seed-Phrase stellt dein Konto auf einem neuen Gerät wieder her. Teile sie niemals.</string>
+    <string name="fingerprint_label">Schlüsselfingerabdruck</string>
+    <string name="show_seed">Seed-Phrase anzeigen</string>
+    <string name="seed_warning">Wer diese Phrase sieht, erhält vollen Zugriff auf dein Konto. Zeige sie nur privat.</string>
+    <string name="seed_title">Seed-Phrase (24 Wörter)</string>
+    <string name="restore_seed">Aus Phrase wiederherstellen</string>
+    <string name="restore_hint">Gib die 24 Wörter durch Leerzeichen getrennt ein</string>
+    <string name="restore_ok_restart">Konto wiederhergestellt. Die App wird neu gestartet.</string>
+    <string name="restore_failed">Konto konnte nicht wiederhergestellt werden</string>
+    <string name="restore_blocked">Die Wiederherstellung ist nur mit leerem Profil möglich. Verlasse zuerst die Gruppen oder setze die App-Daten zurück.</string>
+    <string name="copy">Kopieren</string>
+    <string name="seed_copied">Phrase kopiert</string>
 </resources>

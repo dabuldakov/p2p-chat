@@ -94,6 +94,30 @@ impl GossipEngine {
         self.identity.public_key().to_bytes().to_vec()
     }
 
+    /// Секретный ключ (для экспорта seed-фразы).
+    pub fn secret_bytes(&self) -> [u8; 32] {
+        self.identity.secret_bytes()
+    }
+
+    /// Заменить идентичность (после восстановления из seed-фразы).
+    /// Допустимо только на пустом профиле — иначе ссылки/MLS станут невалидны.
+    pub fn replace_identity(&mut self, identity: p2pchat_crypto::Identity) -> Result<(), CoreError> {
+        self.identity = identity;
+        self.mls = match &self.mls_db {
+            Some(db) => MlsGroups::load(&self.identity, db)?,
+            None => MlsGroups::from_crypto(&self.identity)?,
+        };
+        let _ = self.log.set_meta("identity", &self.identity.secret_bytes());
+        self.owners.clear();
+        self.links.clear();
+        self.edits.clear();
+        self.deletes.clear();
+        self.avatars.clear();
+        self.group_avatars.clear();
+        self.nicknames.clear();
+        Ok(())
+    }
+
     pub fn log(&self) -> &Log {
         &self.log
     }

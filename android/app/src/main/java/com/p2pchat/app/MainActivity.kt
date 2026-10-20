@@ -8,6 +8,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.Process
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,6 +29,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -359,6 +363,13 @@ private fun SettingsScreen(vm: ChatViewModel) {
     }
     var explainKind by remember { mutableStateOf<String?>(null) }
     var showGraphAll by remember { mutableStateOf(false) }
+    var showSeedConfirm by remember { mutableStateOf(false) }
+    var showSeed by remember { mutableStateOf(false) }
+    var seedPhrase by remember { mutableStateOf<String?>(null) }
+    var showRestore by remember { mutableStateOf(false) }
+    var restoreText by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
+    val fingerprint = remember { vm.fingerprint() }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -448,6 +459,42 @@ private fun SettingsScreen(vm: ChatViewModel) {
                     )
                 }
                 TextButton(onClick = { pickAvatar.launch("image/*") }) { Text(stringResource(R.string.change)) }
+            }
+        }
+
+        Card {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(stringResource(R.string.backup_title), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.backup_desc),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (fingerprint.isNotBlank()) {
+                    Text(
+                        stringResource(R.string.fingerprint_label) + ": " + fingerprint,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { showSeedConfirm = true }) {
+                        Text(stringResource(R.string.show_seed))
+                    }
+                    TextButton(onClick = {
+                        if (vm.groupInfos.isNotEmpty()) {
+                            Toast.makeText(ctx, ctx.getString(R.string.restore_blocked), Toast.LENGTH_LONG).show()
+                        } else {
+                            restoreText = ""
+                            showRestore = true
+                        }
+                    }) {
+                        Text(stringResource(R.string.restore_seed))
+                    }
+                }
             }
         }
 
@@ -588,6 +635,81 @@ private fun SettingsScreen(vm: ChatViewModel) {
         UpdateDialog(update, onDismiss = { showUpdate = false })
     }
     if (showGraphAll) GraphDialog(vm, null) { showGraphAll = false }
+
+    if (showSeedConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSeedConfirm = false },
+            title = { Text(stringResource(R.string.show_seed)) },
+            text = { Text(stringResource(R.string.seed_warning)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSeedConfirm = false
+                    seedPhrase = vm.exportSeed()
+                    showSeed = seedPhrase != null
+                }) { Text(stringResource(R.string.show_seed)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSeedConfirm = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    if (showSeed) {
+        val phrase = seedPhrase
+        if (phrase != null) {
+            AlertDialog(
+                onDismissRequest = { showSeed = false },
+                title = { Text(stringResource(R.string.seed_title)) },
+                text = {
+                    SelectionContainer {
+                        Text(phrase, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        clipboard.setText(AnnotatedString(phrase))
+                        Toast.makeText(ctx, ctx.getString(R.string.seed_copied), Toast.LENGTH_SHORT).show()
+                    }) { Text(stringResource(R.string.copy)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showSeed = false }) { Text(stringResource(R.string.close)) }
+                },
+            )
+        }
+    }
+
+    if (showRestore) {
+        AlertDialog(
+            onDismissRequest = { showRestore = false },
+            title = { Text(stringResource(R.string.restore_seed)) },
+            text = {
+                OutlinedTextField(
+                    value = restoreText,
+                    onValueChange = { restoreText = it },
+                    placeholder = { Text(stringResource(R.string.restore_hint)) },
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val pid = vm.importSeed(restoreText)
+                    showRestore = false
+                    if (pid != null) {
+                        Toast.makeText(ctx, ctx.getString(R.string.restore_ok_restart), Toast.LENGTH_LONG).show()
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            Process.killProcess(Process.myPid())
+                        }, 1200)
+                    } else {
+                        Toast.makeText(ctx, ctx.getString(R.string.restore_failed), Toast.LENGTH_LONG).show()
+                    }
+                }) { Text(stringResource(R.string.restore_seed)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestore = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
 }
 
 /** Кликабельная метка типа соединения (STUN/TURN). */

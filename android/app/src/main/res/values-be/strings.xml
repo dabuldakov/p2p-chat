@@ -86,4 +86,17 @@
     <string name="message_deleted">Паведамленне выдалена</string>
     <string name="delete_message_confirm">Выдаліць гэта паведамленне для ўсіх?</string>
     <string name="message_actions">Паведамленне</string>
+    <string name="backup_title">Рэзервовая копія ключа</string>
+    <string name="backup_desc">Seed-фраза з 24 слоў аднаўляе акаўнт на новай прыладзе. Нікому яе не паказвайце.</string>
+    <string name="fingerprint_label">Адбітак ключа</string>
+    <string name="show_seed">Паказаць seed-фразу</string>
+    <string name="seed_warning">Любы, хто ўбачыць гэтую фразу, атрымае поўны доступ да акаўнта. Паказвайце толькі наадзіноце.</string>
+    <string name="seed_title">Seed-фраза (24 словы)</string>
+    <string name="restore_seed">Аднавіць з фразы</string>
+    <string name="restore_hint">Увядзіце 24 словы праз прабел</string>
+    <string name="restore_ok_restart">Акаўнт адноўлены. Дадатак перазапусціцца.</string>
+    <string name="restore_failed">Не ўдалося аднавіць акаўнт</string>
+    <string name="restore_blocked">Аднаўленне даступнае толькі на пустым профілі. Спачатку выйдзіце з груп або скіньце даныя дадатка.</string>
+    <string name="copy">Капіраваць</string>
+    <string name="seed_copied">Фраза скапіравана</string>
 </resources>

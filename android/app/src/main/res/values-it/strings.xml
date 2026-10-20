@@ -86,4 +86,17 @@
     <string name="message_deleted">Messaggio eliminato</string>
     <string name="delete_message_confirm">Eliminare questo messaggio per tutti?</string>
     <string name="message_actions">Messaggio</string>
+    <string name="backup_title">Backup della chiave</string>
+    <string name="backup_desc">La frase seed di 24 parole ripristina il tuo account su un nuovo dispositivo. Non condividerla mai.</string>
+    <string name="fingerprint_label">Impronta della chiave</string>
+    <string name="show_seed">Mostra frase seed</string>
+    <string name="seed_warning">Chiunque veda questa frase ottiene l'accesso completo al tuo account. Mostrala solo in privato.</string>
+    <string name="seed_title">Frase seed (24 parole)</string>
+    <string name="restore_seed">Ripristina dalla frase</string>
+    <string name="restore_hint">Inserisci le 24 parole separate da spazi</string>
+    <string name="restore_ok_restart">Account ripristinato. L'app verrà riavviata.</string>
+    <string name="restore_failed">Impossibile ripristinare l'account</string>
+    <string name="restore_blocked">Il ripristino è disponibile solo su un profilo vuoto. Esci dai gruppi o reimposta i dati prima.</string>
+    <string name="copy">Copia</string>
+    <string name="seed_copied">Frase copiata</string>
 </resources>

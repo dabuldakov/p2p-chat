@@ -86,4 +86,17 @@
     <string name="message_deleted">Мессеж устгагдсан</string>
     <string name="delete_message_confirm">Энэ мессежийг бүгдээс устгах уу?</string>
     <string name="message_actions">Мессеж</string>
+    <string name="backup_title">Түлхүүрийн нөөц</string>
+    <string name="backup_desc">24 үгтэй seed фраз нь шинэ төхөөрөмж дээр бүртгэлийг сэргээнэ. Хэзээ ч бүү хуваалц.</string>
+    <string name="fingerprint_label">Түлхүүрийн хээ</string>
+    <string name="show_seed">Seed фразыг харуулах</string>
+    <string name="seed_warning">Энэ фразыг харсан хэн бүхэн таны бүртгэлд бүрэн хандах боломжтой. Зөвхөн нууцаар хараарай.</string>
+    <string name="seed_title">Seed фраз (24 үг)</string>
+    <string name="restore_seed">Фразаас сэргээх</string>
+    <string name="restore_hint">24 үгийг зайгаар тусгаарлан оруулна уу</string>
+    <string name="restore_ok_restart">Бүртгэл сэргээгдлээ. Апп дахин эхэлнэ.</string>
+    <string name="restore_failed">Бүртгэлийг сэргээж чадсангүй</string>
+    <string name="restore_blocked">Сэргээх нь зөвхөн хоосон профайлд боломжтой. Эхлээд бүлгүүдээс гарна уу эсвэл апп өгөгдлийг шинэчинэ үү.</string>
+    <string name="copy">Хуулах</string>
+    <string name="seed_copied">Фраз хуулагдлаа</string>
 </resources>

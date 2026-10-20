@@ -86,4 +86,17 @@
     <string name="message_deleted">تم حذف الرسالة</string>
     <string name="delete_message_confirm">حذف هذه الرسالة للجميع؟</string>
     <string name="message_actions">الرسالة</string>
+    <string name="backup_title">نسخ احتياطي للمفتاح</string>
+    <string name="backup_desc">عبارة الاسترداد المكونة من 24 كلمة تستعيد حسابك على جهاز جديد. لا تشاركها أبدًا.</string>
+    <string name="fingerprint_label">بصمة المفتاح</string>
+    <string name="show_seed">إظهار عبارة الاسترداد</string>
+    <string name="seed_warning">أي شخص يرى هذه العبارة سيحصل على وصول كامل إلى حسابك. اعرضها في مكان خاص فقط.</string>
+    <string name="seed_title">عبارة الاسترداد (24 كلمة)</string>
+    <string name="restore_seed">استعادة من العبارة</string>
+    <string name="restore_hint">أدخل الكلمات الـ24 مفصولة بمسافات</string>
+    <string name="restore_ok_restart">تمت استعادة الحساب. سيُعاد تشغيل التطبيق.</string>
+    <string name="restore_failed">تعذر استعادة الحساب</string>
+    <string name="restore_blocked">الاستعادة متاحة فقط في ملف فارغ. اخرج من المجموعات أو أعد تعيين بيانات التطبيق أولًا.</string>
+    <string name="copy">نسخ</string>
+    <string name="seed_copied">تم نسخ العبارة</string>
 </resources>

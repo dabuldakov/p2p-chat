@@ -16,5 +16,6 @@ p2pchat-core = { workspace = true }
 p2pchat-crypto = { workspace = true }
 p2pchat-storage = { workspace = true }
 uniffi = { workspace = true, features = ["cli"] }
+bip39 = { workspace = true }
 prost = { workspace = true }
 thiserror = { workspace = true }

@@ -86,4 +86,17 @@
     <string name="message_deleted">Сообщение удалено</string>
     <string name="delete_message_confirm">Удалить это сообщение у всех?</string>
     <string name="message_actions">Сообщение</string>
+    <string name="backup_title">Резервная копия ключа</string>
+    <string name="backup_desc">Seed-фраза из 24 слов восстанавливает аккаунт на новом устройстве. Никому её не показывайте.</string>
+    <string name="fingerprint_label">Отпечаток ключа</string>
+    <string name="show_seed">Показать seed-фразу</string>
+    <string name="seed_warning">Любой, кто увидит эту фразу, получит полный доступ к аккаунту. Показывайте только наедине.</string>
+    <string name="seed_title">Seed-фраза (24 слова)</string>
+    <string name="restore_seed">Восстановить из фразы</string>
+    <string name="restore_hint">Введите 24 слова через пробел</string>
+    <string name="restore_ok_restart">Аккаунт восстановлен. Приложение перезапустится.</string>
+    <string name="restore_failed">Не удалось восстановить аккаунт</string>
+    <string name="restore_blocked">Восстановление доступно только на пустом профиле. Сначала выйдите из групп или сбросьте данные приложения.</string>
+    <string name="copy">Копировать</string>
+    <string name="seed_copied">Фраза скопирована</string>
 </resources>

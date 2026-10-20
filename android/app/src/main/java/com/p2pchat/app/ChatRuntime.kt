@@ -601,6 +601,16 @@ object ChatRuntime {
         refresh()
     }
 
+    /** Короткий отпечаток ключа для сверки. */
+    fun fingerprint(): String = runCatching { core.fingerprint() }.getOrDefault("")
+
+    /** Seed-фраза (24 слова) для бэкапа. */
+    fun exportSeed(): String? = runCatching { core.exportSeed() }.getOrNull()
+
+    /** Восстановить идентичность из фразы (только на пустом профиле). */
+    fun importSeed(phrase: String): String? =
+        runCatching { core.importSeed(phrase.trim()) }.getOrNull()
+
     /** Переименовать текущую группу (владелец). */
     fun renameGroup(name: String) {
         val g = currentGroup ?: return

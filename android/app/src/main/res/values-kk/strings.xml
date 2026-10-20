@@ -86,4 +86,17 @@
     <string name="message_deleted">Хабарлама жойылды</string>
     <string name="delete_message_confirm">Бұл хабарламаны барлығынан жою керек пе?</string>
     <string name="message_actions">Хабарлама</string>
+    <string name="backup_title">Кілттің резервтік көшірмесі</string>
+    <string name="backup_desc">24 сөзден тұратын seed-фраза аккаунтты жаңа құрылғыда қалпына келтіреді. Оны ешкімге көрсетпеңіз.</string>
+    <string name="fingerprint_label">Кілт ізі</string>
+    <string name="show_seed">Seed-фразаны көрсету</string>
+    <string name="seed_warning">Бұл фразаны көрген кез келген адам аккаунтыңызға толық қол жеткізеді. Оны тек жеке жерде көрсетіңіз.</string>
+    <string name="seed_title">Seed-фраза (24 сөз)</string>
+    <string name="restore_seed">Фразадан қалпына келтіру</string>
+    <string name="restore_hint">24 сөзді бос орынмен бөліп енгізіңіз</string>
+    <string name="restore_ok_restart">Аккаунт қалпына келтірілді. Қолданба қайта іске қосылады.</string>
+    <string name="restore_failed">Аккаунтты қалпына келтіру мүмкін болмады</string>
+    <string name="restore_blocked">Қалпына келтіру тек бос профильде қолжетімді. Алдымен топтардан шығыңыз немесе қолданба деректерін тазалаңыз.</string>
+    <string name="copy">Көшіру</string>
+    <string name="seed_copied">Фраза көшірілді</string>
 </resources>
