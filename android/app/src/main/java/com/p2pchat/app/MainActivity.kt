@@ -51,6 +51,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -70,6 +71,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -254,7 +256,7 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Avatar(vm.groupAvatars[key], key, 40.dp)
+                            Avatar(vm.groupAvatars[key], key, 52.dp)
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(gi.name, style = MaterialTheme.typography.bodyLarge)
@@ -1126,7 +1128,7 @@ private fun GroupScreen(vm: ChatViewModel) {
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
             if (vm.gifEnabled) {
                 IconButton(onClick = { showGifPicker = true }) {
                     Icon(Icons.Filled.GifBox, contentDescription = stringResource(R.string.gif))
@@ -1137,10 +1139,24 @@ private fun GroupScreen(vm: ChatViewModel) {
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text(stringResource(R.string.message_hint)) },
-                singleLine = true,
+                minLines = 1,
+                maxLines = 5,
+                shape = RoundedCornerShape(12.dp),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
             )
             Spacer(Modifier.width(8.dp))
-            Button(onClick = { vm.send(input); input = "" }) { Text(stringResource(R.string.send)) }
+            FilledIconButton(
+                onClick = { vm.send(input); input = "" },
+                modifier = Modifier.size(48.dp),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(R.string.send),
+                )
+            }
         }
     }
 
