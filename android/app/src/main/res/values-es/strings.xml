@@ -80,4 +80,5 @@
     <string name="edit_message">Editar mensaje</string>
     <string name="invite_card_title">Invitación al grupo</string>
     <string name="invite_card_hint">Toca para unirte</string>
+    <string name="graph_all_groups">Gráfico de todos los grupos</string>
 </resources>

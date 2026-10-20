@@ -354,6 +354,7 @@ private fun SettingsScreen(vm: ChatViewModel) {
         uri?.let { u -> scope.launch { withContext(Dispatchers.IO) { downscaledJpeg(ctx, u) }?.let { vm.setAvatar(it) } } }
     }
     var explainKind by remember { mutableStateOf<String?>(null) }
+    var showGraphAll by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -530,6 +531,17 @@ private fun SettingsScreen(vm: ChatViewModel) {
                 }
             }
         }
+
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { showGraphAll = true }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Hub, contentDescription = null)
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.graph_all_groups), style = MaterialTheme.typography.titleSmall)
+            }
+        }
     }
 
     if (showLang) {
@@ -571,6 +583,7 @@ private fun SettingsScreen(vm: ChatViewModel) {
     if (showUpdate && update != null) {
         UpdateDialog(update, onDismiss = { showUpdate = false })
     }
+    if (showGraphAll) GraphDialog(vm, null) { showGraphAll = false }
 }
 
 /** Кликабельная метка типа соединения (STUN/TURN). */
@@ -659,17 +672,22 @@ private fun fmtTime(ts: Long): String {
 }
 
 @Composable
-private fun GraphDialog(vm: ChatViewModel, group: ByteArray, onClose: () -> Unit) {
-    var edges by remember(group) { mutableStateOf(vm.graphEdges(group)) }
+private fun GraphDialog(vm: ChatViewModel, group: ByteArray?, onClose: () -> Unit) {
+    var members by remember(group) { mutableStateOf(if (group != null) vm.members else vm.allMembers()) }
+    var edges by remember(group) {
+        mutableStateOf(if (group != null) vm.graphEdges(group) else vm.graphEdgesAll())
+    }
     LaunchedEffect(group) {
         vm.publishLinks()
         kotlinx.coroutines.delay(600)
-        edges = vm.graphEdges(group)
+        members = if (group != null) vm.members else vm.allMembers()
+        edges = if (group != null) vm.graphEdges(group) else vm.graphEdgesAll()
     }
-    val members = vm.members
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text(stringResource(R.string.connection)) },
+        title = {
+            Text(stringResource(if (group == null) R.string.graph_all_groups else R.string.connection))
+        },
         text = {
             Canvas(Modifier.fillMaxWidth().height(340.dp)) {
                 val n = members.size.coerceAtLeast(1)
@@ -885,7 +903,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                         }) { Text(stringResource(R.string.invite_5)) }
                     }
                     Text(
-                        stringResource(R.string.status_connected, vm.status, vm.connected),
+                        stringResource(R.string.status_connected, vm.status, vm.groupConnected),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

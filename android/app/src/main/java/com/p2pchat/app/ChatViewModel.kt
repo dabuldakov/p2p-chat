@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.p2pchat.app.gif.Gif
 import com.p2pchat.app.gif.GifRef
 import uniffi.p2pchat_ffi.FfiLink
+import uniffi.p2pchat_ffi.FfiMember
 
 /**
  * Тонкая обёртка над [ChatRuntime] для Compose. Вся логика и состояние —
@@ -22,6 +23,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val version get() = ChatRuntime.version
 
     val connected get() = ChatRuntime.connected
+    val groupConnected get() = ChatRuntime.groupConnected
     val groups get() = ChatRuntime.groups
     val unread get() = ChatRuntime.unread
     val memberCounts get() = ChatRuntime.memberCounts
@@ -61,6 +63,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun links(group: ByteArray): List<FfiLink> = ChatRuntime.graphLinks(group)
     fun publishLinks() = ChatRuntime.publishLinks()
     fun graphEdges(group: ByteArray): List<GraphEdge> = ChatRuntime.graphEdges(group)
+    fun allMembers(): List<FfiMember> = ChatRuntime.allMembers()
+    fun graphEdgesAll(): List<GraphEdge> = ChatRuntime.graphEdgesAll()
     fun send(text: String) = ChatRuntime.send(text)
     fun editMessage(id: ByteArray, text: String) = ChatRuntime.editMessage(id, text)
     fun loadOlder() = ChatRuntime.loadOlder()

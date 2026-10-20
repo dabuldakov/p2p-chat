@@ -128,6 +128,13 @@ object ChatRuntime {
     val directCount: Int get() = peerKinds.values.count { it == "direct" }
     val turnCount: Int get() = peerKinds.values.count { it == "turn" }
 
+    /** Сколько участников ТЕКУЩЕЙ группы реально подключено. */
+    val groupConnected: Int
+        get() {
+            if (currentGroup == null) return connected
+            return members.count { peerKinds[it.publicKey.toHex()] != null }
+        }
+
     /** Время последней активности сигналинга (ms, unix). */
     var lastSignalingTs by mutableStateOf(0L)
         private set
@@ -282,6 +289,25 @@ object ChatRuntime {
         return out.values.toList()
     }
 
+    /** Все участники всех групп (уникальные по peer_id) — для общего графа. */
+    fun allMembers(): List<FfiMember> {
+        val out = LinkedHashMap<String, FfiMember>()
+        for (name in groups) {
+            runCatching { core.members(name.toByteArray()) }.getOrDefault(emptyList())
+                .forEach { out[it.peerId.toHex()] = it }
+        }
+        return out.values.toList()
+    }
+
+    /** Рёбра графа по всем группам (дедуп по паре). */
+    fun graphEdgesAll(): List<GraphEdge> {
+        val out = LinkedHashMap<String, GraphEdge>()
+        for (name in groups) {
+            graphEdges(name.toByteArray()).forEach { out.putIfAbsent(pairKey(it.from, it.to), it) }
+        }
+        return out.values.toList()
+    }
+
     private fun pairKey(a: String, b: String) = if (a < b) "$a|$b" else "$b|$a"
 
     // --- Группы ----------------------------------------------------------
@@ -384,12 +410,17 @@ object ChatRuntime {
             val keys = core.listGroups()
                 .flatMap { core.neighborKeys(it) }
                 .distinctBy { it.toHex() }
-            Logs.d("connectAll: groups=${core.listGroups().size} neighbors=${keys.size}")
+            // Для статуса в экране группы показываем соседей ТОЛЬКО текущей группы,
+            // а соединяемся со всеми (объединение по всем группам).
+            val curCount = currentGroup?.let { g ->
+                runCatching { core.neighborKeys(g).distinctBy { it.toHex() }.size }.getOrDefault(0)
+            } ?: keys.size
+            Logs.d("connectAll: groups=${core.listGroups().size} peers=${keys.size} groupNeighbors=$curCount")
             keys.forEach { pk ->
                 Logs.d("neighbor ${pk.toHex()}")
                 runCatching { transport.connect(pk) }
             }
-            status = app.getString(R.string.neighbors, keys.size)
+            status = app.getString(R.string.neighbors, curCount)
         }
     }
 

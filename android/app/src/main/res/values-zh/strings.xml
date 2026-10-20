@@ -80,4 +80,5 @@
     <string name="edit_message">编辑消息</string>
     <string name="invite_card_title">群组邀请</string>
     <string name="invite_card_hint">点按加入</string>
+    <string name="graph_all_groups">所有群组图</string>
 </resources>

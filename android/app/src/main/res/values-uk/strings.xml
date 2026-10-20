@@ -80,4 +80,5 @@
     <string name="edit_message">Редагувати повідомлення</string>
     <string name="invite_card_title">Запрошення до групи</string>
     <string name="invite_card_hint">Натисніть, щоб увійти</string>
+    <string name="graph_all_groups">Граф усіх груп</string>
 </resources>
