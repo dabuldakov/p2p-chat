@@ -253,10 +253,10 @@ private fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                     val key = gi.id.toHex()
                     Card(modifier = Modifier.fillMaxWidth().clickable { vm.selectGroup(gi.id) }) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Avatar(vm.groupAvatars[key], key, 52.dp)
+                            Avatar(vm.groupAvatars[key], key, 64.dp)
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(gi.name, style = MaterialTheme.typography.bodyLarge)
