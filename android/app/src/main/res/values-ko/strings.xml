@@ -99,4 +99,5 @@
     <string name="restore_blocked">복원은 빈 프로필에서만 가능합니다. 먼저 그룹을 나가거나 앱 데이터를 초기화하세요.</string>
     <string name="copy">복사</string>
     <string name="seed_copied">문구가 복사되었습니다</string>
+    <string name="update_check_failed">업데이트를 확인하지 못했습니다</string>
 </resources>

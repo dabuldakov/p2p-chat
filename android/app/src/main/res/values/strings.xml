@@ -116,4 +116,5 @@
     <string name="restore_blocked">Restore is only available on an empty profile. Leave groups or reset app data first.</string>
     <string name="copy">Copy</string>
     <string name="seed_copied">Phrase copied</string>
+    <string name="update_check_failed">Could not check for updates</string>
 </resources>

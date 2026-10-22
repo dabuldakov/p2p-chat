@@ -39,6 +39,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val inviteAt get() = ChatRuntime.inviteAt
     val isOwner get() = ChatRuntime.isOwner
     val update get() = ChatRuntime.update
+    val updateCheckFailed get() = ChatRuntime.updateCheckFailed
     val sharedDraft get() = ChatRuntime.sharedDraft
     val backgroundEnabled get() = ChatRuntime.backgroundEnabled
     val debugLogsEnabled get() = ChatRuntime.debugLogsEnabled

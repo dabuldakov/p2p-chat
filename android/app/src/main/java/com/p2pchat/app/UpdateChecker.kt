@@ -30,13 +30,21 @@ object UpdateChecker {
     fun check(installed: String): UpdateCheck {
         val releases = fetchReleases()
         if (releases == null) {
-            // API недоступен/лимит — пробуем лёгкий fallback через github.com.
+            // /releases недоступен — пробуем /releases/latest (тот же api.github.com).
+            val latestApi = fetchLatestRelease()
+            if (latestApi != null) {
+                val (v, apk) = latestApi
+                val update = if (isNewerVersion(v, installed)) {
+                    AppUpdate(v, apk ?: apkUrlFor(v))
+                } else {
+                    null
+                }
+                return UpdateCheck(update, ok = true)
+            }
+            // Последний шанс — редирект github.com (может быть заблокирован).
             val latest = latestFromRedirect()
             val update = if (latest != null && isNewerVersion(latest, installed)) {
-                AppUpdate(
-                    latest,
-                    "https://github.com/dabuldakov/p2p-chat/releases/download/v$latest/p2p-chat-$latest.apk",
-                )
+                AppUpdate(latest, apkUrlFor(latest))
             } else {
                 null
             }
@@ -109,6 +117,32 @@ object UpdateChecker {
             }
         } catch (e: Exception) {
             Logs.w("update: latest redirect error: $e")
+            null
+        }
+    }
+
+    private fun apkUrlFor(version: String): String =
+        "https://github.com/dabuldakov/p2p-chat/releases/download/v$version/p2p-chat-$version.apk"
+
+    /** Последний релиз через api.github.com/releases/latest. */
+    private fun fetchLatestRelease(): Pair<String, String?>? {
+        return try {
+            val request = Request.Builder()
+                .url("https://api.github.com/repos/dabuldakov/p2p-chat/releases/latest")
+                .header("Accept", "application/vnd.github+json")
+                .header("User-Agent", "p2pchat-android")
+                .build()
+            client.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Logs.w("update: latest API HTTP ${resp.code}")
+                    return null
+                }
+                val o = JSONObject(resp.body?.string() ?: return null)
+                val v = versionOf(o) ?: return null
+                v to pickApk(o, v)
+            }
+        } catch (e: Exception) {
+            Logs.w("update: latest API error: $e")
             null
         }
     }

@@ -99,4 +99,5 @@
     <string name="restore_blocked">Аднаўленне даступнае толькі на пустым профілі. Спачатку выйдзіце з груп або скіньце даныя дадатка.</string>
     <string name="copy">Капіраваць</string>
     <string name="seed_copied">Фраза скапіравана</string>
+    <string name="update_check_failed">Не ўдалося праверыць абнаўленні</string>
 </resources>

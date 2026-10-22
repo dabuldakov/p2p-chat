@@ -99,4 +99,5 @@
     <string name="restore_blocked">La restauration n\'est disponible que sur un profil vide. Quittez les groupes ou réinitialisez les données d\'abord.</string>
     <string name="copy">Copier</string>
     <string name="seed_copied">Phrase copiée</string>
+    <string name="update_check_failed">Impossible de vérifier les mises à jour</string>
 </resources>

@@ -99,4 +99,5 @@
     <string name="restore_blocked">Відновлення доступне лише на порожньому профілі. Спочатку вийдіть із груп або скиньте дані застосунку.</string>
     <string name="copy">Копіювати</string>
     <string name="seed_copied">Фразу скопійовано</string>
+    <string name="update_check_failed">Не вдалося перевірити оновлення</string>
 </resources>

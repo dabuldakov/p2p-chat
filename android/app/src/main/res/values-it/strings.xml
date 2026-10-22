@@ -99,4 +99,5 @@
     <string name="restore_blocked">Il ripristino è disponibile solo su un profilo vuoto. Esci dai gruppi o reimposta i dati prima.</string>
     <string name="copy">Copia</string>
     <string name="seed_copied">Frase copiata</string>
+    <string name="update_check_failed">Impossibile verificare gli aggiornamenti</string>
 </resources>

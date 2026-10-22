@@ -415,6 +415,14 @@ private fun SettingsScreen(vm: ChatViewModel) {
                     Badge(containerColor = Color.Red)
                 }
             }
+            if (vm.updateCheckFailed) {
+                Text(
+                    stringResource(R.string.update_check_failed),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                )
+            }
         }
 
         Card {

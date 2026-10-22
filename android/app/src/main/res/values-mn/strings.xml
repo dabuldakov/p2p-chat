@@ -99,4 +99,5 @@
     <string name="restore_blocked">Сэргээх нь зөвхөн хоосон профайлд боломжтой. Эхлээд бүлгүүдээс гарна уу эсвэл апп өгөгдлийг шинэчинэ үү.</string>
     <string name="copy">Хуулах</string>
     <string name="seed_copied">Фраз хуулагдлаа</string>
+    <string name="update_check_failed">Шинэчлэлтийг шалгаж чадсангүй</string>
 </resources>

@@ -230,13 +230,28 @@ object ChatRuntime {
         debugLogsEnabled = enabled
     }
 
-    private var updateChecked = false
+    private var updateOk = false
+    private var lastUpdateCheck = 0L
+
+    /** true — последняя попытка проверки обновлений не удалась (для UI/диагностики). */
+    var updateCheckFailed by mutableStateOf(false)
+        private set
 
     private fun checkForUpdate() {
-        updateChecked = true
+        if (updateOk) return
+        val now = System.currentTimeMillis()
+        if (now - lastUpdateCheck < 5 * 60_000) return // не чаще раза в 5 минут при сбоях
+        lastUpdateCheck = now
+        Logs.i("update: checking installed=$version")
         scope.launch {
             val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
-            if (result.ok) update = result.update
+            if (result.ok) {
+                update = result.update
+                updateOk = true
+                updateCheckFailed = false
+            } else {
+                updateCheckFailed = true
+            }
             Logs.i("update: installed=$version ok=${result.ok} latest=${result.update?.version}")
         }
     }
@@ -244,7 +259,13 @@ object ChatRuntime {
     fun checkNow(onDone: (Boolean) -> Unit) {
         scope.launch {
             val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
-            if (result.ok) update = result.update
+            if (result.ok) {
+                update = result.update
+                updateOk = true
+                updateCheckFailed = false
+            } else {
+                updateCheckFailed = true
+            }
             Logs.i("update(now): installed=$version ok=${result.ok} latest=${result.update?.version}")
             onDone(result.update != null)
         }
@@ -463,8 +484,8 @@ object ChatRuntime {
         connectAll()
         syncAll()
         updateBadge(silent = true)
-        // Проверяем обновления один раз за запуск приложения (и вручную — тап по версии).
-        if (!updateChecked) checkForUpdate()
+        // Проверяем обновления при входе; при сбое — повтор (не чаще раза в 5 минут).
+        checkForUpdate()
     }
 
     /** Бейдж/уведомления: по одному на непрочитанную группу + сводное. */

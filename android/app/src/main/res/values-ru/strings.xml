@@ -99,4 +99,5 @@
     <string name="restore_blocked">Восстановление доступно только на пустом профиле. Сначала выйдите из групп или сбросьте данные приложения.</string>
     <string name="copy">Копировать</string>
     <string name="seed_copied">Фраза скопирована</string>
+    <string name="update_check_failed">Не удалось проверить обновления</string>
 </resources>

@@ -99,4 +99,5 @@
     <string name="restore_blocked">復元は空のプロファイルでのみ可能です。先にグループを退出するかアプリデータをリセットしてください。</string>
     <string name="copy">コピー</string>
     <string name="seed_copied">フレーズをコピーしました</string>
+    <string name="update_check_failed">アップデートを確認できませんでした</string>
 </resources>
