@@ -15,7 +15,7 @@ use openmls_rust_crypto::OpenMlsRustCrypto;
 pub use openmls::prelude::MlsGroup;
 
 pub mod persist;
-pub use persist::{load_group, load_identity, save};
+pub use persist::{delete_group, load_group, load_identity, save};
 
 /// Криптопровайдер (в нём хранится ключевой материал).
 pub type Provider = OpenMlsRustCrypto;

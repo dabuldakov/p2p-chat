@@ -49,7 +49,12 @@ impl MlsGroups {
 
     /// Убрать группу из локального состояния (выход).
     pub fn remove(&mut self, group_id: &[u8]) -> bool {
-        self.groups.remove(group_id).is_some()
+        if self.groups.remove(group_id).is_some() {
+            let _ = p2pchat_mls::delete_group(&self.id, group_id);
+            true
+        } else {
+            false
+        }
     }
 
     /// id всех известных групп.

@@ -109,3 +109,13 @@ pub fn load_group(id: &MlsIdentity, group_id: &[u8]) -> Result<Option<MlsGroup>,
     MlsGroup::load(id.provider.storage(), &GroupId::from_slice(group_id))
         .map_err(|e| MlsError::Mls(format!("{e:?}")))
 }
+
+/// Удалить состояние группы из хранилища провайдера (выход из группы).
+pub fn delete_group(id: &MlsIdentity, group_id: &[u8]) -> Result<(), MlsError> {
+    if let Some(mut group) = load_group(id, group_id)? {
+        group
+            .delete(id.provider.storage())
+            .map_err(|e| MlsError::Mls(format!("{e:?}")))?;
+    }
+    Ok(())
+}

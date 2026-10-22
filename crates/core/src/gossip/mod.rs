@@ -357,6 +357,7 @@ impl GossipEngine {
         }
         self.mls.remove(group);
         self.forget_group(group);
+        self.persist_mls();
         Ok(None)
     }
 
@@ -766,8 +767,13 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         let commit_env = self.seal(Gossip {
             body: Some(Body::Mls(Mls { group_id: req.group_id.clone(), message: commit })),
         })?;
-        out.outgoing
-            .push(Outgoing { envelope: commit_env, targets: self.member_keys(&req.group_id) });
+        // Commit — только уже состоящим участникам; новому уходит Welcome.
+        let targets: Vec<Vec<u8>> = self
+            .member_keys(&req.group_id)
+            .into_iter()
+            .filter(|k| k != origin)
+            .collect();
+        out.outgoing.push(Outgoing { envelope: commit_env, targets });
         let pw = crate::proto::Pairwise {
             body: Some(crate::proto::pairwise::Body::JoinWelcome(crate::proto::JoinWelcome {
                 group_id: req.group_id.clone(),
