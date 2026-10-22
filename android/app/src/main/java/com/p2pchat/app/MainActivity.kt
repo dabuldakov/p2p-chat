@@ -944,6 +944,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     var deleteTarget by remember { mutableStateOf<FfiMessage?>(null) }
     var showRename by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
+    var profileTarget by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1074,8 +1075,11 @@ private fun GroupScreen(vm: ChatViewModel) {
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(stringResource(R.string.participants), style = MaterialTheme.typography.titleSmall)
                         vm.members.forEach { m ->
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                val hex = m.peerId.toHex()
+                            val hex = m.peerId.toHex()
+                            Row(
+                                Modifier.fillMaxWidth().clickable { profileTarget = hex },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
                                 val label = (vm.nicknames[hex]?.takeIf { it.isNotBlank() }
                                     ?: hex.take(10)) + (if (hex == vm.peerId) stringResource(R.string.you) else "")
                                 Avatar(vm.avatars[hex], hex, 26.dp)
@@ -1131,6 +1135,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                         MessageRow(
                             mine = mine, name = name, message = m, vm = vm,
                             onLongPress = { if (mine && !m.deleted) actionTarget = m },
+                            onOpenProfile = { profileTarget = it },
                         )
                     }
                     if (vm.hasMore) {
@@ -1308,6 +1313,8 @@ private fun GroupScreen(vm: ChatViewModel) {
             },
         )
     }
+    profileTarget?.let { hex -> PeerProfileDialog(vm, hex) { profileTarget = null } }
+
     if (showRename) {
         AlertDialog(
             onDismissRequest = { showRename = false },
@@ -1337,6 +1344,45 @@ private fun ByteArray.toHexShort(): String =
 
 private const val URL_TAG = "url"
 
+/** Профиль участника: крупное фото, ник, короткий ID, тип соединения. */
+@Composable
+private fun PeerProfileDialog(vm: ChatViewModel, peerIdHex: String, onClose: () -> Unit) {
+    val member = vm.members.firstOrNull { it.peerId.toHex() == peerIdHex }
+    val nick = vm.nicknames[peerIdHex]?.takeIf { it.isNotBlank() }
+        ?: if (peerIdHex == vm.peerId) stringResource(R.string.you) else peerIdHex.take(10)
+    val kind = member?.let { vm.peerKinds[it.publicKey.toHex()] }
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(nick) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Avatar(vm.avatars[peerIdHex], peerIdHex, 180.dp)
+                if (kind == "turn" || kind == "direct") {
+                    Text(
+                        if (kind == "turn") "TURN" else "STUN",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (kind == "turn") Color(0xFFE08A1E) else Color(0xFF2E9E6B),
+                    )
+                }
+                Text(
+                    "ID: " + peerIdHex.take(16),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose) { Text(stringResource(R.string.close)) }
+        },
+    )
+}
+
 /** Пузырь сообщения: владелец — справа, собеседник — слева. */
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
@@ -1346,6 +1392,7 @@ private fun MessageRow(
     message: FfiMessage,
     vm: ChatViewModel,
     onLongPress: () -> Unit,
+    onOpenProfile: (String) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
@@ -1354,8 +1401,13 @@ private fun MessageRow(
     ) {
         if (!mine) {
             val ahex = message.author.toHex()
-            Avatar(vm.avatars[ahex], ahex, 28.dp)
-            Spacer(Modifier.width(6.dp))
+            Box(
+                Modifier.size(36.dp).clickable { onOpenProfile(ahex) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Avatar(vm.avatars[ahex], ahex, 28.dp)
+            }
+            Spacer(Modifier.width(4.dp))
         }
         if (mine && message.edited) {
             Icon(
