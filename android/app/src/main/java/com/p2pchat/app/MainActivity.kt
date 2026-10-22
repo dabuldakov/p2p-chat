@@ -18,6 +18,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -94,6 +98,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -945,6 +950,8 @@ private fun GroupScreen(vm: ChatViewModel) {
     var showRename by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
     var profileTarget by remember { mutableStateOf<String?>(null) }
+    var showTimes by remember { mutableStateOf(false) }
+    var touching by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -965,6 +972,18 @@ private fun GroupScreen(vm: ChatViewModel) {
 
     // Список сообщений: reverseLayout=true — «дно» это самые свежие сообщения.
     val listState = rememberLazyListState()
+
+    // Время сообщений: показываем после 1.5 с скролла/касания, прячем через 2 с после отпускания.
+    val scrolling = listState.isScrollInProgress
+    LaunchedEffect(touching, scrolling) {
+        if (touching || scrolling) {
+            kotlinx.coroutines.delay(1500)
+            if (touching || listState.isScrollInProgress) showTimes = true
+        } else if (showTimes) {
+            kotlinx.coroutines.delay(2000)
+            if (!touching && !listState.isScrollInProgress) showTimes = false
+        }
+    }
     val groupKey = vm.currentGroup?.toHex()
     LaunchedEffect(groupKey) { if (vm.messages.isNotEmpty()) listState.scrollToItem(0) }
 
@@ -1115,7 +1134,16 @@ private fun GroupScreen(vm: ChatViewModel) {
 
         Box(
             modifier = Modifier.fillMaxWidth().weight(1f)
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val e = awaitPointerEvent(PointerEventPass.Initial)
+                            val pressed = e.changes.any { it.pressed }
+                            if (pressed != touching) touching = pressed
+                        }
+                    }
+                },
         ) {
             if (vm.messages.isEmpty()) {
                 Text(stringResource(R.string.no_messages), style = MaterialTheme.typography.bodySmall,
@@ -1136,6 +1164,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                             mine = mine, name = name, message = m, vm = vm,
                             onLongPress = { if (mine && !m.deleted) actionTarget = m },
                             onOpenProfile = { profileTarget = it },
+                            showTime = showTimes,
                         )
                     }
                     if (vm.hasMore) {
@@ -1344,6 +1373,23 @@ private fun ByteArray.toHexShort(): String =
 
 private const val URL_TAG = "url"
 
+/** Время сообщения с плавным появлением/исчезновением. */
+@Composable
+private fun MessageTime(text: String, visible: Boolean) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(300)),
+        exit = fadeOut(tween(300)),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+    }
+}
+
 /** Профиль участника: крупное фото, ник, короткий ID, тип соединения. */
 @Composable
 private fun PeerProfileDialog(vm: ChatViewModel, peerIdHex: String, onClose: () -> Unit) {
@@ -1393,7 +1439,14 @@ private fun MessageRow(
     vm: ChatViewModel,
     onLongPress: () -> Unit,
     onOpenProfile: (String) -> Unit,
+    showTime: Boolean,
 ) {
+    val ctx = LocalContext.current
+    val timeFmt = remember { android.text.format.DateFormat.getTimeFormat(ctx) }
+    val timeText = remember(message.wallTime) {
+        timeFmt.format(java.util.Date(message.wallTime.toLong() * 1000))
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
@@ -1408,6 +1461,9 @@ private fun MessageRow(
                 Avatar(vm.avatars[ahex], ahex, 28.dp)
             }
             Spacer(Modifier.width(4.dp))
+        }
+        if (mine) {
+            MessageTime(timeText, showTime)
         }
         if (mine && message.edited) {
             Icon(
@@ -1463,6 +1519,9 @@ private fun MessageRow(
                     }
                 }
             }
+        }
+        if (!mine) {
+            MessageTime(timeText, showTime)
         }
         if (!mine && message.edited) {
             Spacer(Modifier.width(4.dp))
