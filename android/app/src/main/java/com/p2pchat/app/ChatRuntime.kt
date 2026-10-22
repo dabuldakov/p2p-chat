@@ -230,24 +230,23 @@ object ChatRuntime {
         debugLogsEnabled = enabled
     }
 
-    private var updateOk = false
     private var lastUpdateCheck = 0L
 
     /** true — последняя попытка проверки обновлений не удалась (для UI/диагностики). */
     var updateCheckFailed by mutableStateOf(false)
         private set
 
-    private fun checkForUpdate() {
-        if (updateOk) return
+    private fun checkForUpdate(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (now - lastUpdateCheck < 5 * 60_000) return // не чаще раза в 5 минут при сбоях
+        // Успешная проверка — не чаще раза в 30 мин, после сбоя — раз в 5 мин.
+        val interval = if (updateCheckFailed) 5 * 60_000L else 30 * 60_000L
+        if (!force && lastUpdateCheck != 0L && now - lastUpdateCheck < interval) return
         lastUpdateCheck = now
         Logs.i("update: checking installed=$version")
         scope.launch {
             val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
             if (result.ok) {
                 update = result.update
-                updateOk = true
                 updateCheckFailed = false
             } else {
                 updateCheckFailed = true
@@ -257,11 +256,11 @@ object ChatRuntime {
     }
 
     fun checkNow(onDone: (Boolean) -> Unit) {
+        lastUpdateCheck = System.currentTimeMillis()
         scope.launch {
             val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
             if (result.ok) {
                 update = result.update
-                updateOk = true
                 updateCheckFailed = false
             } else {
                 updateCheckFailed = true
