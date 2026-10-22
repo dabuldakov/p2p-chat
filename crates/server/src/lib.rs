@@ -108,3 +108,68 @@ async fn route(clients: &Clients, env: &SignalEnvelope) {
 fn hex4(bytes: &[u8]) -> String {
     bytes.iter().take(4).map(|b| format!("{:02x}", b)).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    use p2pchat_proto::signal_envelope::Body;
+    use p2pchat_proto::{Offer, Register};
+    use tokio::sync::mpsc;
+
+    fn offer_env(from: &[u8], to: &[u8]) -> SignalEnvelope {
+        SignalEnvelope {
+            from: from.to_vec(),
+            to: to.to_vec(),
+            body: Some(Body::Offer(Offer { sdp: b"sdp".to_vec(), session_id: "s".into() })),
+        }
+    }
+
+    #[tokio::test]
+    async fn route_delivers_only_to_target() {
+        let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
+        let (txa, mut rxa) = mpsc::channel(8);
+        let (txb, mut rxb) = mpsc::channel(8);
+        clients.lock().unwrap().insert(b"a".to_vec(), txa);
+        clients.lock().unwrap().insert(b"b".to_vec(), txb);
+
+        route(&clients, &offer_env(b"a", b"b")).await;
+        assert!(rxb.recv().await.is_some());
+        assert!(rxa.try_recv().is_err(), "источнику не дублируем");
+    }
+
+    #[tokio::test]
+    async fn route_unknown_target_is_noop() {
+        let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
+        route(&clients, &offer_env(b"a", b"zzz")).await;
+    }
+
+    #[tokio::test]
+    async fn broadcast_skips_sender() {
+        let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
+        let (txa, mut rxa) = mpsc::channel(8);
+        let (txb, mut rxb) = mpsc::channel(8);
+        clients.lock().unwrap().insert(b"a".to_vec(), txa);
+        clients.lock().unwrap().insert(b"b".to_vec(), txb);
+        let env = SignalEnvelope {
+            from: b"a".to_vec(),
+            to: Vec::new(),
+            body: Some(Body::Register(Register {
+                peer_id: b"a".to_vec(),
+                endpoints: vec![],
+                is_relay: false,
+            })),
+        };
+        broadcast(&clients, &env).await;
+        assert!(rxb.recv().await.is_some());
+        assert!(rxa.try_recv().is_err());
+    }
+
+    #[test]
+    fn hex4_formats_prefix() {
+        assert_eq!(hex4(&[0xde, 0xad, 0xbe, 0xef, 1]), "deadbeef");
+        assert_eq!(hex4(&[1]), "01");
+    }
+}

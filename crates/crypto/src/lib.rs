@@ -271,4 +271,61 @@ mod tests {
         // C не может
         assert!(pairwise_decrypt(&c, &a.public_key(), &nonce, &ct).is_err());
     }
+    #[test]
+    fn identity_secret_roundtrip_and_signatures() {
+        let id = Identity::generate();
+        let id2 = Identity::from_secret_bytes(&id.secret_bytes()).unwrap();
+        assert_eq!(id.peer_id(), id2.peer_id());
+        assert_eq!(id.public_key(), id2.public_key());
+        assert_eq!(peer_id_of(&id.public_key()), id.peer_id());
+
+        let msg = b"payload";
+        let sig = id.sign(msg);
+        assert!(id.verify(msg, &sig).is_ok());
+        assert!(verify(&id.public_key(), msg, &sig).is_ok());
+        let mut bad = sig.clone();
+        bad[0] ^= 1;
+        assert!(id.verify(msg, &bad).is_err());
+        assert!(verify(&id.public_key(), b"other", &sig).is_err());
+        assert!(Identity::from_secret_bytes(&[0u8; 5]).is_err());
+        assert!(verify(&id.public_key(), msg, b"short").is_err());
+    }
+
+    #[test]
+    fn sender_key_roundtrip_and_wrong_key() {
+        let mut k = SenderKey::generate();
+        let (key, epoch, counter) = k.export();
+        let k2 = SenderKey::from_bytes(key, epoch, counter);
+        let (n, ct) = k.encrypt(b"hi").unwrap();
+        assert_eq!(k2.decrypt(&n, &ct).unwrap(), b"hi");
+        let other = SenderKey::from_bytes([7u8; 32], 0, 0);
+        assert!(other.decrypt(&n, &ct).is_err());
+    }
+
+    #[test]
+    fn group_key_roundtrip_and_wrong_key() {
+        let k = GroupKey::generate();
+        let k2 = GroupKey::from_bytes(k.export());
+        let (n, ct) = k.encrypt(b"group").unwrap();
+        assert_eq!(k2.decrypt(&n, &ct).unwrap(), b"group");
+        let other = GroupKey::from_bytes([0u8; 32]);
+        assert!(other.decrypt(&n, &ct).is_err());
+    }
+
+    #[test]
+    fn kdf_x25519_and_ids_are_deterministic() {
+        let seed = [3u8; 32];
+        assert_eq!(x25519_secret_bytes(&seed), x25519_secret_bytes(&seed));
+        assert_eq!(derive_key(b"shared", b"info"), derive_key(b"shared", b"info"));
+        assert_ne!(derive_key(b"shared", b"info"), derive_key(b"shared", b"other"));
+
+        let a = Identity::from_secret_bytes(&seed).unwrap();
+        let b = Identity::generate();
+        assert_eq!(pairwise_key(&a, &b.public_key()), pairwise_key(&b, &a.public_key()));
+        assert_eq!(x25519_public(&a.public_key()), x25519_public(&a.public_key()));
+        assert_eq!(a.x25519_secret(), a.x25519_secret());
+
+        assert_eq!(content_id(b"x"), content_id(b"x"));
+        assert_ne!(content_id(b"x"), content_id(b"y"));
+    }
 }

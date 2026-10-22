@@ -145,3 +145,43 @@ impl MlsGroups {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lifecycle_and_unknown_group_errors() {
+        let id = Identity::generate();
+        let mut m = MlsGroups::from_crypto(&id).unwrap();
+        assert!(!m.has(b"g"));
+        assert!(m.members(b"g").is_empty());
+        assert!(m.group_ids().is_empty());
+        assert!(m.key_package().is_ok());
+
+        m.create(b"g").unwrap();
+        assert!(m.has(b"g"));
+        assert_eq!(m.group_ids().len(), 1);
+        assert_eq!(m.members(b"g").len(), 1);
+
+        assert!(m.encrypt(b"nope", b"x").is_err());
+        assert!(m.process(b"nope", b"x").is_err());
+        assert!(m.add_member(b"nope", b"x").is_err());
+        assert!(m.remove_member(b"nope", b"x").is_err());
+
+        assert!(m.remove(b"g"));
+        assert!(!m.remove(b"g"));
+        assert!(m.group_ids().is_empty());
+    }
+
+    #[test]
+    fn load_group_unknown_is_false() {
+        let id = Identity::generate();
+        let dir = std::env::temp_dir().join(format!("p2pchat-mls-{}-t", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("db.sqlite").to_str().unwrap().to_string();
+        let mut m = MlsGroups::load(&id, &db).unwrap();
+        assert!(!m.load_group(b"missing").unwrap());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

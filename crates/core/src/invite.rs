@@ -188,3 +188,59 @@ fn unhex(s: &str) -> Result<Vec<u8>, CoreError> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use p2pchat_crypto::Identity;
+
+    #[test]
+    fn roundtrip_with_name_and_limits() {
+        let id = Identity::generate();
+        let inv = Invite::ticket(b"g", &id.public_key().to_bytes(), 0, 3, "Team", &id);
+        let enc = inv.encode();
+        assert!(enc.contains("&m="), "имя в билете");
+        let p = Invite::parse(&enc).unwrap();
+        assert_eq!(p.name, "Team");
+        assert_eq!(p.max_uses, 3);
+        assert!(p.verify_sig());
+        assert!(!p.is_expired(crate::unix_now()));
+    }
+
+    #[test]
+    fn expiry_check() {
+        let id = Identity::generate();
+        let inv = Invite::ticket(b"g", &id.public_key().to_bytes(), 10, 1, "T", &id);
+        assert!(!inv.is_expired(10));
+        assert!(inv.is_expired(11));
+    }
+
+    #[test]
+    fn old_ticket_without_name_verifies_and_tamper_fails() {
+        let id = Identity::generate();
+        let inv = Invite::ticket(b"g", &id.public_key().to_bytes(), 0, 1, "", &id);
+        let enc = inv.encode();
+        assert!(!enc.contains("&m="));
+        let p = Invite::parse(&enc).unwrap();
+        assert!(p.verify_sig(), "старый формат без имени");
+
+        let tampered = Invite { name: "Evil".into(), ..p.clone() };
+        assert!(!tampered.verify_sig(), "имя подписано");
+    }
+
+    #[test]
+    fn parse_errors() {
+        assert!(Invite::parse("nope").is_err());
+        assert!(Invite::parse("p2pchat://join?h=00").is_err());
+        assert!(Invite::parse("p2pchat://join?g=0&h=00&n=00&e=0&s=00").is_err());
+        assert!(Invite::parse("p2pchat://join?g=00&h=00&n=00&e=0&s=00").is_err());
+        assert!(Invite::parse(
+            "p2pchat://join?g=00&h=00&n=00000000000000000000000000000000&e=x&s=00"
+        )
+        .is_err());
+        assert!(Invite::parse(
+            "p2pchat://join?g=00&h=00&n=00000000000000000000000000000000&e=0"
+        )
+        .is_err());
+    }
+}

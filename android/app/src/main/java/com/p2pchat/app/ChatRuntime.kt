@@ -469,12 +469,11 @@ object ChatRuntime {
 
     /** Бейдж/уведомления: по одному на непрочитанную группу + сводное. */
     private fun updateBadge(silent: Boolean) {
-        val items = groupInfos.mapNotNull { gi ->
-            if ((unread[gi.id.toHex()] ?: 0uL) == 0uL) return@mapNotNull null
+        val items = unreadGroups(groupInfos, unread).map { gi ->
             val last = runCatching {
                 core.historyWindow(gi.id, null, 1u).messages.lastOrNull()?.text
             }.getOrNull()
-            gi to (if (last.isNullOrBlank()) app.getString(R.string.new_messages) else last)
+            gi to notificationText(last, app.getString(R.string.new_messages))
         }
         if (items.isEmpty()) Notifier.clearAll(app) else Notifier.showGroups(app, items, silent)
     }
@@ -576,7 +575,8 @@ object ChatRuntime {
             currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
             members = core.members(g)
             reloadLatest(g)
-            runCatching { core.markRead(g) }
+            // Помечаем прочитанным только если экран реально виден.
+            if (shouldMarkRead(appVisible, true)) runCatching { core.markRead(g) }
         }
         unread = ids.associate { it.toHex() to core.unreadCount(it) }
         memberCounts = ids.associate { it.toHex() to core.members(it).size }

@@ -138,4 +138,67 @@ mod tests {
         assert_eq!(t.get(b"a").unwrap().last_seen, 10);
         assert!(!t.get(b"a").unwrap().is_relay);
     }
+    fn info(id: &[u8], seen: u64, relay: bool, hops: u32) -> PeerInfo {
+        PeerInfo {
+            peer_id: id.to_vec(),
+            endpoints: vec![],
+            last_seen: seen,
+            is_relay: relay,
+            hops,
+        }
+    }
+
+    #[test]
+    fn local_endpoints_and_snapshot() {
+        let mut t = PeerTable::new(b"self".to_vec());
+        assert_eq!(t.local_id(), b"self");
+        t.set_local_endpoints(vec![endpoint("1.2.3.4", 9000, Transport::Udp)]);
+        let me = t.get(b"self").unwrap();
+        assert_eq!(me.endpoints.len(), 1);
+        assert!(me.last_seen > 0);
+        let snap = t.snapshot();
+        assert!(snap.peers.iter().any(|p| p.peer_id == b"self"));
+    }
+
+    #[test]
+    fn upsert_ignores_self_and_merge_counts() {
+        let mut t = PeerTable::new(b"self".to_vec());
+        t.upsert(info(b"self", 100, true, 0));
+        assert!(t.get(b"self").is_none(), "чужой upsert себя игнорирует");
+
+        let list = PeerList { peers: vec![info(b"a", 10, false, 1)], version: 5 };
+        assert_eq!(t.merge(&list), 1);
+        assert_eq!(t.merge(&list), 0, "повтор не обновляет");
+        assert_eq!(t.snapshot().version, 5);
+    }
+
+    #[test]
+    fn gossip_targets_prefers_relay_and_excludes_stale() {
+        let mut t = PeerTable::new(b"self".to_vec());
+        let now = crate::unix_now();
+        t.upsert(info(b"fresh1", now, false, 5));
+        t.upsert(info(b"fresh2", now, true, 9));
+        t.upsert(info(b"stale", 0, true, 0));
+
+        let targets = t.gossip_targets(2);
+        assert_eq!(targets.len(), 2);
+        assert!(targets.contains(&b"fresh2".to_vec()), "relay в приоритете");
+        assert!(!targets.iter().any(|p| p == b"stale"), "старые (last_seen=0) отсеиваются");
+        assert!(!targets.iter().any(|p| p == b"self"));
+        assert_eq!(t.gossip_targets(0).len(), 0);
+    }
+
+    #[test]
+    fn len_get_all_empty() {
+        let mut t = PeerTable::new(b"self".to_vec());
+        assert!(t.is_empty());
+        t.upsert(info(b"a", 1, false, 0));
+        assert_eq!(t.len(), 1);
+        assert!(!t.is_empty());
+        assert_eq!(t.all().count(), 1);
+        assert!(t.get(b"zzz").is_none());
+        let e = endpoint("h", 1, Transport::Tcp);
+        assert_eq!(e.port, 1);
+        assert_eq!(e.transport, Transport::Tcp as i32);
+    }
 }

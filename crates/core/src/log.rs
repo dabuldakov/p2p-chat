@@ -204,18 +204,13 @@ impl Log {
     }
 
     /// Отметка «прочитано до» (id последнего прочитанного сообщения группы).
+    /// Хранится в meta, поэтому работает и без Store (в памяти, для тестов).
     pub fn set_read(&self, group: &[u8], id: &[u8]) -> Result<(), CoreError> {
-        if let Some(s) = &self.store {
-            s.set_read(group, id)?;
-        }
-        Ok(())
+        self.set_meta(&format!("read:{}", hex(group)), id)
     }
 
     pub fn read_marker(&self, group: &[u8]) -> Result<Option<Vec<u8>>, CoreError> {
-        Ok(match &self.store {
-            Some(s) => s.get_read(group)?,
-            None => None,
-        })
+        self.get_meta(&format!("read:{}", hex(group)))
     }
 
     pub fn store_profile(
@@ -467,4 +462,118 @@ mod tests {
         assert!(b.merge(m.clone()).unwrap());
         assert!(!b.merge(m).unwrap());
     }
+    #[test]
+    fn append_ordered_heads_getters() {
+        let mut l = Log::new();
+        assert!(l.is_empty());
+        assert_eq!(l.len(), 0);
+        let g = b"g".to_vec();
+        let m1 = l.append_local(g.clone(), b"a".to_vec(), "1".into(), None).unwrap();
+        let m2 = l.append_local(g.clone(), b"a".to_vec(), "2".into(), None).unwrap();
+        assert_eq!(l.len(), 2);
+        assert!(l.get(&m1.id).is_some());
+        assert!(l.get(b"nope").is_none());
+        assert_eq!(l.ordered(&g).len(), 2);
+        assert_eq!(l.ids_for_group(&g).len(), 2);
+        assert_eq!(l.heads(&g), vec![m2.id.clone()], "голова — последнее");
+        assert!(l.tick() > m2.lamport);
+    }
+
+    #[test]
+    fn missing_parents_tracks_orphans() {
+        let mut l = Log::new();
+        let g = b"g".to_vec();
+        let orphan = ChatMessage {
+            id: b"child".to_vec(),
+            group_id: g.clone(),
+            author: b"a".to_vec(),
+            lamport: 5,
+            wall_time: 0,
+            text: "x".into(),
+            parents: vec![b"missing".to_vec()],
+            attachment: None,
+        };
+        l.merge(orphan).unwrap();
+        assert_eq!(l.missing_parents(&g), vec![b"missing".to_vec()]);
+
+        let parent = ChatMessage {
+            id: b"missing".to_vec(),
+            group_id: g.clone(),
+            author: b"a".to_vec(),
+            lamport: 1,
+            wall_time: 0,
+            text: "p".into(),
+            parents: vec![],
+            attachment: None,
+        };
+        l.merge(parent).unwrap();
+        assert!(l.missing_parents(&g).is_empty());
+    }
+
+    #[test]
+    fn store_wrappers_roundtrip() {
+        use p2pchat_storage::Store;
+        let st = Store::open_in_memory().unwrap();
+        let mut l = Log::with_store(st).unwrap();
+
+        l.store_group_key(b"g", b"k").unwrap();
+        assert_eq!(l.load_group_keys().unwrap().len(), 1);
+
+        l.store_profile(b"p", "Ann", 1, Some(&[1, 2])).unwrap();
+        assert_eq!(l.load_profiles().unwrap().len(), 1);
+
+        l.store_edit(b"m", "e", 1, 1).unwrap();
+        assert_eq!(l.load_edits().unwrap().len(), 1);
+
+        l.store_delete(b"d").unwrap();
+        assert_eq!(l.load_deletes().unwrap(), vec![b"d".to_vec()]);
+
+        let ev = crate::proto::MembershipEvent {
+            group_id: b"g".to_vec(),
+            peer_id: b"p".to_vec(),
+            public_key: b"pk".to_vec(),
+            join: true,
+            lamport: 1,
+            author: b"a".to_vec(),
+            id: b"e".to_vec(),
+        };
+        l.store_membership(&ev).unwrap();
+        assert_eq!(l.load_membership().unwrap().len(), 1);
+
+        l.set_meta("k", b"v").unwrap();
+        assert_eq!(l.get_meta("k").unwrap().unwrap(), b"v");
+
+        l.set_read(b"g", b"m").unwrap();
+        assert_eq!(l.read_marker(b"g").unwrap().unwrap(), b"m");
+    }
+
+    #[test]
+    fn gifs_wrappers() {
+        use p2pchat_storage::Store;
+        let st = Store::open_in_memory().unwrap();
+        let mut l = Log::with_store(st).unwrap();
+        let g = b"g".to_vec();
+        let author = b"a".to_vec();
+        let att = crate::proto::Attachment {
+            kind: "gif".into(),
+            id: "abc".into(),
+            width: 3,
+            height: 4,
+            url: String::new(),
+        };
+        l.append_local(g.clone(), author.clone(), "".into(), Some(att)).unwrap();
+        assert_eq!(l.gifs_for_group(&g, 10).unwrap().len(), 1);
+        assert_eq!(l.gifs_by_author(&author, 10).unwrap().len(), 1);
+        assert_eq!(l.gifs_for_group(b"other", 10).unwrap().len(), 0);
+    }
+
+}
+
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
 }

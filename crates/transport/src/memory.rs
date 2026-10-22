@@ -61,3 +61,28 @@ impl Transport for MemoryTransport {
             .expect("incoming() must be called once")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Transport;
+
+    #[tokio::test]
+    async fn delivers_between_joined_nodes() {
+        let hub = MemoryHub::new();
+        let a = MemoryTransport::join(&hub, b"a".to_vec());
+        let b = MemoryTransport::join(&hub, b"b".to_vec());
+        let mut rx_b = b.incoming().await;
+        a.send(&b"b".to_vec(), b"hi").await.unwrap();
+        let got = rx_b.recv().await.unwrap();
+        assert_eq!(got.from, b"a".to_vec());
+        assert_eq!(got.data, b"hi");
+    }
+
+    #[tokio::test]
+    async fn unknown_peer_is_unreachable() {
+        let hub = MemoryHub::new();
+        let a = MemoryTransport::join(&hub, b"a".to_vec());
+        assert!(a.send(&b"zzz".to_vec(), b"x").await.is_err());
+    }
+}

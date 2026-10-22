@@ -883,4 +883,113 @@ mod tests {
         assert_eq!(by_b.len(), 1);
         assert_eq!(by_b[0].id, "g2");
     }
+    #[test]
+    fn meta_and_read_markers() {
+        let st = Store::open_in_memory().unwrap();
+        assert!(st.get_meta("k").unwrap().is_none());
+        st.set_meta("k", b"v1").unwrap();
+        st.set_meta("k", b"v2").unwrap();
+        assert_eq!(st.get_meta("k").unwrap().unwrap(), b"v2");
+
+        st.set_read(b"g", b"msg").unwrap();
+        assert_eq!(st.get_read(b"g").unwrap().unwrap(), b"msg");
+        assert!(st.get_read(b"other").unwrap().is_none());
+    }
+
+    #[test]
+    fn profiles_upsert_with_avatar() {
+        let st = Store::open_in_memory().unwrap();
+        st.set_profile(b"p", "Ann", 1, None).unwrap();
+        let rows = st.all_profiles().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].1, "Ann");
+        assert!(rows[0].3.is_none());
+
+        st.set_profile(b"p", "Ann2", 2, Some(&[1, 2, 3])).unwrap();
+        let rows = st.all_profiles().unwrap();
+        assert_eq!(rows.len(), 1, "upsert по peer_id");
+        assert_eq!(rows[0].1, "Ann2");
+        assert_eq!(rows[0].3.as_deref(), Some(&[1u8, 2, 3][..]));
+    }
+
+    #[test]
+    fn edits_are_lww() {
+        let st = Store::open_in_memory().unwrap();
+        st.set_edit(b"m", "one", 1, 1).unwrap();
+        st.set_edit(b"m", "three", 3, 3).unwrap();
+        st.set_edit(b"m", "two", 2, 2).unwrap(); // старее — игнорируется
+        let rows = st.all_edits().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].1, "three");
+        assert_eq!(rows[0].2, 3);
+    }
+
+    #[test]
+    fn deletes_are_idempotent() {
+        let st = Store::open_in_memory().unwrap();
+        st.set_deleted(b"m1").unwrap();
+        st.set_deleted(b"m1").unwrap();
+        st.set_deleted(b"m2").unwrap();
+        let mut ids = st.all_deletes().unwrap();
+        ids.sort();
+        assert_eq!(ids, vec![b"m1".to_vec(), b"m2".to_vec()]);
+    }
+
+    #[test]
+    fn group_keys_roundtrip() {
+        let st = Store::open_in_memory().unwrap();
+        st.set_group_key(b"g", b"k1").unwrap();
+        st.set_group_key(b"g", b"k2").unwrap();
+        let rows = st.all_group_keys().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].1, b"k2");
+    }
+
+    #[test]
+    fn membership_upsert() {
+        let st = Store::open_in_memory().unwrap();
+        st.upsert_membership(b"g", b"p", b"pk", true, 1, b"e1").unwrap();
+        st.upsert_membership(b"g", b"p", b"pk2", false, 2, b"e2").unwrap();
+        let rows = st.all_membership().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].2, b"pk2");
+        assert!(!rows[0].3);
+        assert_eq!(rows[0].4, 2);
+    }
+
+    #[test]
+    fn messages_queries_and_attachments() {
+        let st = Store::open_in_memory().unwrap();
+        let mut g1 = msg(b"g1m1", 2);
+        g1.attachment = Some(StoredAttachment {
+            kind: "gif".into(),
+            id: "abc".into(),
+            width: 10,
+            height: 20,
+            url: "http://x".into(),
+        });
+        let mut g2 = msg(b"g2m1", 1);
+        g2.group_id = b"g2".to_vec();
+
+        st.insert_message(&g1, 2).unwrap();
+        st.insert_message(&g2, 2).unwrap();
+
+        let only_g1 = st.messages_for_group(b"g", 10).unwrap();
+        assert_eq!(only_g1.len(), 1);
+        assert_eq!(only_g1[0].attachment.as_ref().unwrap().id, "abc");
+        assert_eq!(only_g1[0].attachment.as_ref().unwrap().height, 20);
+
+        let all = st.all_messages().unwrap();
+        assert_eq!(all.len(), 2);
+        assert_eq!(all[0].id, b"g2m1", "сортировка по lamport");
+    }
+
+    #[test]
+    fn peers_upsert() {
+        let st = Store::open_in_memory().unwrap();
+        st.upsert_peer(&StoredPeer { peer_id: b"p".to_vec(), last_seen: 1, is_relay: false, hops: 1 })
+            .unwrap();
+        st.upsert_peer(&StoredPeer { peer_id: b"p".to_vec(), last_seen: 2, is_relay: true, hops: 0 })
+            .unwrap();
+    }
 }

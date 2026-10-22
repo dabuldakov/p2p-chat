@@ -98,4 +98,36 @@ mod tests {
         let ts: u64 = username.parse().unwrap();
         assert!(ts > 1_000_000_000);
     }
+    #[test]
+    fn credential_with_user_id() {
+        let (u, c) = turn_credentials(b"secret", 60, "bob");
+        assert!(u.ends_with(":bob"));
+        assert!(!c.is_empty());
+    }
+
+    #[tokio::test]
+    async fn serve_creds_http() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpStream;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(serve_creds(listener, Arc::new(b"secret".to_vec()), "turn.example".into(), 60));
+
+        let mut s = TcpStream::connect(addr).await.unwrap();
+        s.write_all(b"GET /turn-credentials HTTP/1.1\r\nHost: x\r\n\r\n").await.unwrap();
+        let mut buf = vec![0u8; 4096];
+        let n = s.read(&mut buf).await.unwrap();
+        let resp = String::from_utf8_lossy(&buf[..n]);
+        assert!(resp.contains("200 OK"), "{resp}");
+        assert!(resp.contains("turn:turn.example:3478"));
+        assert!(resp.contains("\"ttl\":60"));
+
+        let mut s2 = TcpStream::connect(addr).await.unwrap();
+        s2.write_all(b"GET /nope HTTP/1.1\r\n\r\n").await.unwrap();
+        let mut buf2 = vec![0u8; 1024];
+        let n2 = s2.read(&mut buf2).await.unwrap();
+        assert!(String::from_utf8_lossy(&buf2[..n2]).contains("404 Not Found"));
+    }
+
 }
