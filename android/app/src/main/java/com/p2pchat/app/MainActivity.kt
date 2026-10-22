@@ -996,7 +996,11 @@ private fun GroupScreen(vm: ChatViewModel) {
                     Avatar(vm.groupAvatar, gname, 32.dp)
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(stringResource(R.string.invite_to_group), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    if (vm.isOwner) stringResource(R.string.invite_to_group)
+                    else (vm.currentGroupName ?: ""),
+                    style = MaterialTheme.typography.titleSmall,
+                )
                 Spacer(Modifier.weight(1f))
                 Text(stringResource(R.string.members_count, vm.members.size), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1018,26 +1022,30 @@ private fun GroupScreen(vm: ChatViewModel) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        IconButton(onClick = { qrShown = true }) {
-                            Icon(Icons.Filled.QrCode, contentDescription = stringResource(R.string.invite_qr))
+                        if (vm.isOwner) {
+                            IconButton(onClick = { qrShown = true }) {
+                                Icon(Icons.Filled.QrCode, contentDescription = stringResource(R.string.invite_qr))
+                            }
                         }
                         IconButton(onClick = { showGraph = true }) {
                             Icon(Icons.Filled.Hub, contentDescription = stringResource(R.string.connection))
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = {
-                            vm.regenInvite(1)?.let {
-                                clipboard.setText(AnnotatedString(it))
-                                Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
-                            }
-                        }) { Text(stringResource(R.string.invite_single)) }
-                        OutlinedButton(onClick = {
-                            vm.regenInvite(5)?.let {
-                                clipboard.setText(AnnotatedString(it))
-                                Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
-                            }
-                        }) { Text(stringResource(R.string.invite_5)) }
+                    if (vm.isOwner) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = {
+                                vm.regenInvite(1)?.let {
+                                    clipboard.setText(AnnotatedString(it))
+                                    Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
+                                }
+                            }) { Text(stringResource(R.string.invite_single)) }
+                            OutlinedButton(onClick = {
+                                vm.regenInvite(5)?.let {
+                                    clipboard.setText(AnnotatedString(it))
+                                    Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
+                                }
+                            }) { Text(stringResource(R.string.invite_5)) }
+                        }
                     }
                     Text(
                         stringResource(
