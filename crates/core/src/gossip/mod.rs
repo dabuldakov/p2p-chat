@@ -11,7 +11,7 @@ use crate::log::Log;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
+use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, LeaveEvent, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
 use crate::{CoreError, GroupId, MessageId, PeerId};
 
 mod sync;
@@ -189,13 +189,17 @@ impl GossipEngine {
         String::from_utf8_lossy(group).to_string()
     }
 
+    /// Кто владелец группы (peer_id), если известен.
+    pub fn owner_of(&self, group: &[u8]) -> Option<PeerId> {
+        if let Some(o) = self.owners.get(group) {
+            return Some(o.clone());
+        }
+        self.log.get_meta(&format!("owner:{}", hex(group))).ok().flatten()
+    }
+
     /// Мы владелец группы (её создатель)?
     pub fn is_owner(&self, group: &[u8]) -> Result<bool, CoreError> {
-        if let Some(owner) = self.owners.get(group) {
-            return Ok(*owner == self.peer_id());
-        }
-        let key = format!("owner:{}", hex(group));
-        Ok(self.log.get_meta(&key)?.as_deref() == Some(self.peer_id().as_slice()))
+        Ok(self.owner_of(group).as_deref() == Some(self.peer_id().as_slice()))
     }
 
     /// Удалить участника (только владелец): MLS Remove + Commit остальным.
@@ -331,6 +335,9 @@ impl GossipEngine {
         if !inv.verify_sig() {
             return Err(CoreError::BadEnvelope("invite: подпись неверна".into()));
         }
+        // Запоминаем владельца (хозяин билета) — нужно для выхода/передачи владения.
+        let owner_pid = p2pchat_crypto::content_id(&inv.host).to_vec();
+        let _ = self.log.set_meta(&format!("owner:{}", hex(&inv.group_id)), &owner_pid);
         // Запоминаем имя группы из билета (чтобы оно было видно до/после входа).
         if !inv.name.is_empty() {
             let _ = self.log.set_meta(
@@ -355,10 +362,33 @@ impl GossipEngine {
         if !self.has_group(group) {
             return Ok(None);
         }
+        let me = self.peer_id();
+        // Если уходит владелец — назначаем нового (минимальный peer_id среди оставшихся).
+        let new_owner = if self.is_owner(group)? {
+            self.members(group)
+                .into_iter()
+                .map(|m| m.peer_id)
+                .filter(|p| p != &me)
+                .min()
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let lamport = self.log.tick();
+        let ev = LeaveEvent {
+            group_id: group.to_vec(),
+            peer_id: me.clone(),
+            new_owner,
+            lamport,
+            wall_time: crate::unix_now(),
+            author: me,
+        };
+        let env = self.seal(Gossip { body: Some(Body::Leave(ev)) })?;
+        let targets = self.neighbor_keys(group);
         self.mls.remove(group);
         self.forget_group(group);
         self.persist_mls();
-        Ok(None)
+        Ok(Some(Outgoing { envelope: env, targets }))
     }
 
     /// Убрать id группы из списка для загрузки при старте.
@@ -583,6 +613,9 @@ impl GossipEngine {
             }
             Some(Body::Delete(e)) => {
                 self.on_delete(e, &origin)?;
+            }
+            Some(Body::Leave(e)) => {
+                self.on_leave(e, &origin, &mut out)?;
             }
             None => {}
         }
@@ -945,6 +978,40 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         Ok(())
     }
 
+    /// Принять выход: уходящий должен быть участником; владелец делает Remove.
+    fn on_leave(
+        &mut self,
+        ev: LeaveEvent,
+        origin: &[u8],
+        out: &mut Outcome,
+    ) -> Result<(), CoreError> {
+        if p2pchat_crypto::content_id(origin).to_vec() != ev.author || ev.peer_id != ev.author {
+            return Ok(());
+        }
+        if !self.members(&ev.group_id).iter().any(|m| m.peer_id == ev.peer_id) {
+            return Ok(()); // не участник (или уже удалён)
+        }
+
+        // Если уходит владелец — принимаем назначенного нового владельца.
+        let leaver_is_owner = self.owner_of(&ev.group_id).as_deref() == Some(ev.peer_id.as_slice());
+        if leaver_is_owner && !ev.new_owner.is_empty() {
+            let valid = self
+                .members(&ev.group_id)
+                .iter()
+                .any(|m| m.peer_id == ev.new_owner && m.peer_id != ev.peer_id);
+            if valid {
+                self.owners.insert(ev.group_id.clone(), ev.new_owner.clone());
+                let _ = self.log.set_meta(&format!("owner:{}", hex(&ev.group_id)), &ev.new_owner);
+            }
+        }
+
+        if self.is_owner(&ev.group_id)? {
+            let commits = self.remove_member(&ev.group_id, &ev.peer_id)?;
+            out.outgoing.extend(commits);
+        }
+        Ok(())
+    }
+
     pub fn is_deleted(&self, id: &[u8]) -> bool {
         self.deletes.contains(id)
     }
@@ -1212,6 +1279,7 @@ fn mls_group_of(g: &Gossip) -> Option<GroupId> {
         Some(Body::GroupProfile(g)) => Some(g.group_id.clone()),
         Some(Body::Edit(e)) => Some(e.group_id.clone()),
         Some(Body::Delete(e)) => Some(e.group_id.clone()),
+        Some(Body::Leave(e)) => Some(e.group_id.clone()),
         _ => None,
     }
 }

@@ -593,6 +593,8 @@ object ChatRuntime {
             .sortedBy { it.name.lowercase() }
         currentGroup?.let { g ->
             currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
+            // Владение могло перейти (выход владельца) — обновляем и в UI.
+            isOwner = runCatching { core.isOwner(g) }.getOrDefault(false)
             members = core.members(g)
             reloadLatest(g)
             // Помечаем прочитанным только если экран реально виден.

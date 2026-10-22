@@ -9,7 +9,7 @@ fn leave_group_removes_and_is_idempotent() {
     let mut e = engine();
     let g = e.create_named_group("G").unwrap();
     assert!(e.has_group(&g));
-    assert!(e.leave_group(&g).unwrap().is_none());
+    assert!(e.leave_group(&g).unwrap().is_some(), "уходящий рассылает Leave");
     assert!(!e.has_group(&g));
     assert!(e.leave_group(&g).unwrap().is_none(), "повторный выход — no-op");
     assert!(e.groups().is_empty());

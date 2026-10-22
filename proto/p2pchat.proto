@@ -137,11 +137,23 @@ message Gossip {
     GroupProfile group_profile = 15;
     EditEvent edit = 16;
     DeleteEvent delete = 17;
+    LeaveEvent leave = 18;
   }
 }
 
 // Правка сообщения. Само сообщение неизменяемо (контент-адресация); правка —
 // отдельное событие, ссылающееся на исходное. Правит только автор, LWW.
+// Выход участника. Подписан уходящим; владелец (или новый владелец, если
+// уходит сам владелец) делает MLS Remove и рассылает Commit.
+message LeaveEvent {
+  bytes group_id = 1;
+  bytes peer_id = 2;        // кто уходит (== author)
+  bytes new_owner = 3;      // новый владелец, если уходит владелец (иначе пусто)
+  uint64 lamport = 4;
+  uint64 wall_time = 5;
+  bytes author = 6;
+}
+
 // Удаление сообщения (tombstone). Правит только автор исходного, событие
 // необратимо и не зависит от порядка (как только пришло — удалено).
 message DeleteEvent {

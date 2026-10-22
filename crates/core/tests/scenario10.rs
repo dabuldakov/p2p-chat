@@ -187,3 +187,71 @@ fn security_roles_replay_tamper_isolation() {
     pump(&mut pair, &keys3, vec![(1, req)]);
     assert!(!pair[1].has_group(&g3), "просроченный инвайт отклонён");
 }
+
+#[test]
+fn member_leave_notifies_group() {
+    let (mut engines, keys, g) = build_group(5);
+
+    let leave = engines[4].leave_group(&g).unwrap().expect("Leave-конверт");
+    assert!(!engines[4].has_group(&g), "локально вышел сразу");
+
+    pump(&mut engines, &keys, vec![(4, leave)]);
+
+    for i in 0..4 {
+        assert_eq!(engines[i].members(&g).len(), 4, "владелец удалил ушедшего");
+    }
+
+    // Сообщения продолжаются без ушедшего, ему больше не адресуются.
+    let out = engines[0].post(g.clone(), "after-leave".into()).unwrap();
+    assert!(!out.targets.contains(&engines[4].public_key()));
+    pump(&mut engines, &keys, vec![(0, out)]);
+    for i in 0..4 {
+        assert!(texts(&engines[i], &g).contains("after-leave"));
+    }
+
+    // Ушедший не может читать новые сообщения (локального состояния нет).
+    let msg = engines[0].post(g.clone(), "secret-after-leave".into()).unwrap();
+    let outcome = engines[4].handle(&enc(&msg));
+    assert!(outcome.is_err() || outcome.unwrap().new_messages.is_empty());
+}
+
+#[test]
+fn owner_leave_transfers_ownership() {
+    let (mut engines, keys, g) = build_group(4);
+    let owner = engines[0].peer_id();
+    let new_owner = engines[0]
+        .members(&g)
+        .into_iter()
+        .map(|m| m.peer_id)
+        .filter(|p| p != &owner)
+        .min()
+        .unwrap();
+    let new_owner_idx = engines.iter().position(|e| e.peer_id() == new_owner).unwrap();
+
+    let leave = engines[0].leave_group(&g).unwrap().expect("Leave-конверт");
+    pump(&mut engines, &keys, vec![(0, leave)]);
+
+    for i in 1..4 {
+        assert_eq!(engines[i].members(&g).len(), 3, "осталось 3 участника");
+    }
+    assert!(engines[new_owner_idx].is_owner(&g).unwrap(), "владение перешло");
+    for i in 1..4 {
+        if i != new_owner_idx {
+            assert!(!engines[i].is_owner(&g).unwrap());
+        }
+    }
+    // Новый владелец может приглашать.
+    assert!(engines[new_owner_idx].create_invite(&g, 60, 1).is_ok());
+}
+
+#[test]
+fn owner_leave_single_member_transfers() {
+    let (mut engines, keys, g) = build_group(2);
+
+    let leave = engines[0].leave_group(&g).unwrap().expect("Leave-конверт");
+    pump(&mut engines, &keys, vec![(0, leave)]);
+
+    assert_eq!(engines[1].members(&g).len(), 1, "остался один");
+    assert!(engines[1].is_owner(&g).unwrap(), "единственный стал владельцем");
+    assert!(engines[1].create_invite(&g, 60, 1).is_ok());
+}
