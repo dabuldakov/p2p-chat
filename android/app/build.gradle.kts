@@ -32,12 +32,12 @@ val appVersionCode: Int = appVersion.split(".").let { p ->
 
 android {
     namespace = "com.p2pchat.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.p2pchat.app"
+        applicationId = "com.cyber.p2pchat"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
 
