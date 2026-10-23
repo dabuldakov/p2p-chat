@@ -100,4 +100,5 @@
     <string name="copy">Хуулах</string>
     <string name="seed_copied">Фраз хуулагдлаа</string>
     <string name="update_check_failed">Шинэчлэлтийг шалгаж чадсангүй</string>
+    <string name="privacy_policy">Нууцлалын бодлого</string>
 </resources>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — p2pchat</title>
+<meta name="description" content="p2pchat privacy policy: peer-to-peer encrypted messaging, no accounts, no central message storage.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#0b1020;--bg2:#111a33;--card:#151f3d;--line:#26325a;--fg:#e8edff;--muted:#9aa7c7;--accent:#5b8cff}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#16224a 0%,var(--bg) 55%) fixed;color:var(--fg);line-height:1.65}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+  .wrap{max-width:820px;margin:0 auto;padding:0 20px}
+  header.nav{position:sticky;top:0;z-index:10;backdrop-filter:blur(10px);background:rgba(11,16,32,.75);border-bottom:1px solid var(--line)}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{font-weight:700}.brand span{color:var(--accent)}
+  main{padding:40px 0 60px}
+  h1{font-size:clamp(26px,4vw,38px);margin:0 0 6px}
+  .updated{color:var(--muted);font-size:14px;margin-bottom:28px}
+  h2{font-size:20px;margin:28px 0 8px}
+  p,li{color:#cdd7f3}
+  ul{padding-left:22px}
+  .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--muted);font-size:14.5px}
+  footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:14px}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <div class="brand">p2p<span>chat</span></div>
+  <nav><a href="./">Home</a> · <a href="privacy.html">Privacy</a></nav>
+</div></header>
+<main class="wrap">
+  <h1>Privacy Policy</h1>
+  <div class="updated">Last updated: October 23, 2026</div>
+
+  <p>p2pchat is a decentralized (peer-to-peer) messenger. Messages are sent directly between devices and are end-to-end encrypted. This policy explains what data is processed when you use the app.</p>
+
+  <h2>1. What we do not collect</h2>
+  <ul>
+    <li>No accounts, passwords, phone numbers or email addresses are required.</li>
+    <li>We do not operate a server that stores your messages, contacts or group history.</li>
+    <li>No advertising, no analytics SDKs, no tracking across apps.</li>
+  </ul>
+
+  <h2>2. Data processed on your device</h2>
+  <ul>
+    <li><b>Identity keys.</b> A cryptographic key pair is generated on your device. The private key is stored locally and is never transmitted.</li>
+    <li><b>Profile.</b> Your nickname and avatar are optional. They are shared only with members of the groups you join.</li>
+    <li><b>Messages and groups.</b> Messages are end-to-end encrypted (MLS) and stored locally on your device. Group names, avatars and membership are stored locally and shared with group members.</li>
+    <li><b>Backup.</b> You may export a 24-word seed phrase. It is shown only on your device and is not sent to us. Anyone with the phrase can access your account, so keep it private.</li>
+  </ul>
+
+  <h2>3. Network data</h2>
+  <ul>
+    <li><b>Signaling.</b> To help two devices find each other, a signaling server briefly relays connection metadata (public keys, IP addresses, SDP/ICE candidates). It does not receive or store your messages.</li>
+    <li><b>TURN relay.</b> If a direct connection is not possible, encrypted traffic may pass through a TURN relay. The relay cannot decrypt messages.</li>
+    <li><b>Operational logs.</b> Our infrastructure may keep short-lived technical logs (IP address, connection time) for security and reliability. They are not used to identify you or build profiles.</li>
+  </ul>
+
+  <h2>4. Third-party services</h2>
+  <ul>
+    <li><b>KLIPY</b> — when you search for GIFs, your query is sent to the KLIPY API (api.klipy.com). KLIPY's own privacy policy applies to that request.</li>
+    <li><b>GitHub</b> — the app checks GitHub for new releases; this request contains your IP address and app version.</li>
+    <li><b>Google Play</b> — if you install the app from Google Play, Google processes installation and update data under its policies.</li>
+  </ul>
+
+  <h2>5. Permissions</h2>
+  <ul>
+    <li>Internet and network state — to connect to peers and the signaling server.</li>
+    <li>Notifications — to show local notifications about new messages.</li>
+    <li>Foreground service (optional, off by default) — to keep the connection alive in the background when you enable it.</li>
+  </ul>
+
+  <h2>6. Retention and deletion</h2>
+  <p>Your data is stored on your device. You can delete individual messages, leave groups, or clear all app data in the system settings; uninstalling the app removes its local data. Messages already delivered to other participants remain on their devices. We cannot delete data we never received.</p>
+
+  <h2>7. Security</h2>
+  <p>Messages are protected with end-to-end encryption. Private keys stay on your device. We cannot recover your account or reset your key; the seed phrase is the only recovery method. Device security (screen lock, OS updates) is your responsibility.</p>
+
+  <h2>8. Children</h2>
+  <p>The app is not intended for children under 13 (or the minimum age required in your country). Do not use the app if you are below that age.</p>
+
+  <h2>9. User content</h2>
+  <p>You are responsible for the content you send and for the groups you create or join. Do not use the app for illegal activity or to harass others. You can leave a group or delete your messages at any time.</p>
+
+  <h2>10. Changes</h2>
+  <p>We may update this policy. The current version is always available at this page; the date above shows the last update.</p>
+
+  <h2>11. Contact</h2>
+  <p>Questions about privacy: <a href="mailto:admin@p2p-chat.ru">admin@p2p-chat.ru</a></p>
+
+  <div class="note">p2pchat is open source: <a href="https://github.com/dabuldakov/p2p-chat" target="_blank" rel="noopener">github.com/dabuldakov/p2p-chat</a>.</div>
+</main>
+<footer><div class="wrap">
+  <a href="./">← p2pchat</a> · <a href="https://github.com/dabuldakov/p2p-chat" target="_blank" rel="noopener">Source code</a>
+</div></footer>
+</body>
+</html>

@@ -100,4 +100,5 @@
     <string name="copy">コピー</string>
     <string name="seed_copied">フレーズをコピーしました</string>
     <string name="update_check_failed">アップデートを確認できませんでした</string>
+    <string name="privacy_policy">プライバシーポリシー</string>
 </resources>

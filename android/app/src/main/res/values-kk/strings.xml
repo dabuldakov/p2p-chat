@@ -100,4 +100,5 @@
     <string name="copy">Көшіру</string>
     <string name="seed_copied">Фраза көшірілді</string>
     <string name="update_check_failed">Жаңартуларды тексеру мүмкін болмады</string>
+    <string name="privacy_policy">Құпиялылық саясаты</string>
 </resources>

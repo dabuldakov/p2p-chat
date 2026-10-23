@@ -100,4 +100,5 @@
     <string name="copy">복사</string>
     <string name="seed_copied">문구가 복사되었습니다</string>
     <string name="update_check_failed">업데이트를 확인하지 못했습니다</string>
+    <string name="privacy_policy">개인정보 처리방침</string>
 </resources>

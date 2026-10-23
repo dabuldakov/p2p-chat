@@ -515,6 +515,27 @@ private fun SettingsScreen(vm: ChatViewModel) {
 
         Card {
             Row(
+                modifier = Modifier.fillMaxWidth().clickable {
+                    val path = if (Lang.get(ctx) == "ru") "ru/privacy.html" else "privacy.html"
+                    runCatching {
+                        ctx.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://dabuldakov.github.io/p2p-chat/" + path),
+                            ),
+                        )
+                    }
+                }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.privacy_policy), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.weight(1f))
+                Text("↗", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        Card {
+            Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

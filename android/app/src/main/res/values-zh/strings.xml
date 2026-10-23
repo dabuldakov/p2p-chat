@@ -100,4 +100,5 @@
     <string name="copy">复制</string>
     <string name="seed_copied">助记词已复制</string>
     <string name="update_check_failed">无法检查更新</string>
+    <string name="privacy_policy">隐私政策</string>
 </resources>

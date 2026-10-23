@@ -100,4 +100,5 @@
     <string name="copy">Copier</string>
     <string name="seed_copied">Phrase copiée</string>
     <string name="update_check_failed">Impossible de vérifier les mises à jour</string>
+    <string name="privacy_policy">Politique de confidentialité</string>
 </resources>
