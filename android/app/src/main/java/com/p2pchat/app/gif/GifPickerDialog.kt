@@ -1,13 +1,9 @@
 package com.p2pchat.app.gif
 
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
@@ -37,10 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.p2pchat.app.R
 import com.p2pchat.app.ChatViewModel
@@ -69,7 +65,6 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
     var endReached by remember { mutableStateOf(false) }
     var page by remember { mutableStateOf(0) }
     val gridState = rememberLazyGridState()
-    val ctx = LocalContext.current
 
     // Перезагрузка при смене вкладки/запроса.
     LaunchedEffect(tab, query) {
@@ -166,27 +161,15 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                         }
                     }
                 }
-                // Официальная атрибуция KLIPY — только на вкладке поиска (KLIPY).
+                // Атрибуция KLIPY — только на вкладке поиска, аккуратной подписью внизу.
                 if (tab == GifTab.SEARCH) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.klipy_powered_by),
-                            contentDescription = "Powered by KLIPY",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .height(22.dp)
-                                .clickable {
-                                    runCatching {
-                                        ctx.startActivity(
-                                            Intent(Intent.ACTION_VIEW, Uri.parse("https://klipy.com")),
-                                        )
-                                    }
-                                },
-                        )
-                    }
+                    Text(
+                        stringResource(R.string.gif_powered_by),
+                        modifier = Modifier.fillMaxWidth().padding(6.dp),
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                    )
                 }
             }
         },
