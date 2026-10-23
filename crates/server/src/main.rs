@@ -12,6 +12,7 @@
 //!   TURN_TTL           — срок жизни кред в секундах (по умолчанию 3600)
 //!   CREDS_LISTEN       — адрес HTTP-эндпоинта кред (по умолчанию 0.0.0.0:8091)
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -49,6 +50,16 @@ async fn main() -> Result<()> {
         });
     } else {
         tracing::info!("TURN_SECRET not set — turn-credentials endpoint disabled");
+    }
+
+    // Опционально: приём жалоб (UGC).
+    if let Ok(dir) = std::env::var("REPORT_DIR") {
+        let addr = std::env::var("REPORT_ADDR").unwrap_or_else(|_| "0.0.0.0:8092".into());
+        tokio::spawn(async move {
+            if let Err(e) = p2pchat_signal_server::report::serve(&addr, PathBuf::from(dir)).await {
+                tracing::error!("report endpoint: {e}");
+            }
+        });
     }
 
     p2pchat_signal_server::serve(&args.listen).await

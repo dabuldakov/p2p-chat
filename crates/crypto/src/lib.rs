@@ -71,6 +71,13 @@ pub fn peer_id_of(pk: &VerifyingKey) -> PeerId {
     h.finalize().into()
 }
 
+/// Проверить подпись по сырым байтам публичного ключа.
+pub fn verify_bytes(pk: &[u8], data: &[u8], sig: &[u8]) -> Result<(), CryptoError> {
+    let arr: [u8; 32] = pk.try_into().map_err(|_| CryptoError::BadKey)?;
+    let vk = VerifyingKey::from_bytes(&arr).map_err(|_| CryptoError::BadKey)?;
+    verify(&vk, data, sig)
+}
+
 pub fn verify(pk: &VerifyingKey, data: &[u8], sig: &[u8]) -> Result<(), CryptoError> {
     let sig = Signature::from_slice(sig).map_err(|_| CryptoError::BadSignature)?;
     pk.verify(data, &sig).map_err(|_| CryptoError::BadSignature)

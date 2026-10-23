@@ -102,4 +102,20 @@
     <string name="update_check_failed">Не удалось проверить обновления</string>
     <string name="gif_powered_by">Powered by KLIPY</string>
     <string name="privacy_policy">Политика конфиденциальности</string>
+    <string name="report">Пожаловаться</string>
+    <string name="report_spam">Спам</string>
+    <string name="report_abuse">Оскорбления</string>
+    <string name="report_illegal">Незаконный контент</string>
+    <string name="report_other">Другое</string>
+    <string name="report_note">Комментарий (необязательно)</string>
+    <string name="report_attach">Прикрепить скриншот</string>
+    <string name="report_remove">Убрать</string>
+    <string name="report_send">Отправить жалобу</string>
+    <string name="report_sent">Жалоба отправлена</string>
+    <string name="report_failed">Не удалось отправить жалобу</string>
+    <string name="report_hint">Скриншот поможет разобрать жалобу</string>
+    <string name="terms">Условия использования</string>
+    <string name="block">Заблокировать</string>
+    <string name="unblock">Разблокировать</string>
+    <string name="blocked_users">Заблокированные</string>
 </resources>

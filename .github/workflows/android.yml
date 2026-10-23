@@ -91,7 +91,20 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle assembleDebug assembleRelease bundleRelease --no-daemon
+        run: gradle assembleDebug assembleRelease --no-daemon
+
+      - name: Build Play AAB
+        working-directory: android
+        env:
+          PLAY_BUILD: "true"
+          SIGNAL_URL: ${{ secrets.SIGNAL_URL }}
+          TURN_CREDS_URL: ${{ secrets.TURN_CREDS_URL }}
+          KLIPY_APP_KEY: ${{ secrets.KLIPY_APP_KEY }}
+          KEYSTORE_FILE: ${{ steps.keystore.outputs.have == 'true' && format('{0}/android/app/release.keystore', github.workspace) || '' }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle bundleRelease --no-daemon
 
       - name: Rename APKs with version
         run: |

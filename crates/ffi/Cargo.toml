@@ -17,5 +17,8 @@ p2pchat-crypto = { workspace = true }
 p2pchat-storage = { workspace = true }
 uniffi = { workspace = true, features = ["cli"] }
 bip39 = { workspace = true }
+rand = { workspace = true }
 prost = { workspace = true }
 thiserror = { workspace = true }
+[dev-dependencies]
+ed25519-dalek = { workspace = true }

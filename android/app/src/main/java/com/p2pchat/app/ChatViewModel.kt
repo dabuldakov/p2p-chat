@@ -52,6 +52,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val avatars get() = ChatRuntime.avatars
     val groupAvatar get() = ChatRuntime.groupAvatarBytes
     val groupAvatars get() = ChatRuntime.groupAvatars
+    val blocked get() = ChatRuntime.blocked
     val myAvatar get() = ChatRuntime.avatars[ChatRuntime.peerId]
 
     fun createGroup(name: String) = ChatRuntime.createGroup(name)
@@ -91,6 +92,17 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun fingerprint(): String = ChatRuntime.fingerprint()
     fun exportSeed(): String? = ChatRuntime.exportSeed()
     fun importSeed(phrase: String): String? = ChatRuntime.importSeed(phrase)
+    fun blockPeer(peerId: ByteArray) = ChatRuntime.blockPeer(peerId)
+    fun unblockPeer(peerId: ByteArray) = ChatRuntime.unblockPeer(peerId)
+    fun sendReport(
+        reportedPeer: ByteArray,
+        groupId: ByteArray,
+        messageId: ByteArray,
+        reason: String,
+        note: String,
+        screenshot: ByteArray?,
+        onResult: (Boolean) -> Unit,
+    ) = ChatRuntime.sendReport(reportedPeer, groupId, messageId, reason, note, screenshot, onResult)
     fun renameGroup(name: String) = ChatRuntime.renameGroup(name)
     fun deleteMessage(id: ByteArray) = ChatRuntime.deleteMessage(id)
     fun regenInvite(maxUses: Int): String? = ChatRuntime.regenInvite(maxUses)

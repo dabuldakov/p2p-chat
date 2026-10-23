@@ -43,6 +43,8 @@ pub struct GossipEngine {
     nicknames: std::collections::HashMap<PeerId, (String, u64)>,
     /// nonce уже обработанных конвертов (анти-реплей, дедуп лавины)
     seen: std::collections::HashSet<u64>,
+    /// Локально заблокированные пользователи (их сообщения скрываются).
+    blocked: std::collections::HashSet<PeerId>,
 }
 
 /// Что переслать и кому.
@@ -83,6 +85,7 @@ impl GossipEngine {
             group_avatars: Default::default(),
             nicknames: Default::default(),
             seen: Default::default(),
+            blocked: Default::default(),
         }
     }
 
@@ -92,6 +95,11 @@ impl GossipEngine {
 
     pub fn public_key(&self) -> Vec<u8> {
         self.identity.public_key().to_bytes().to_vec()
+    }
+
+    /// Подписать произвольные данные ключом идентичности (для отчётов).
+    pub fn sign(&self, data: &[u8]) -> Vec<u8> {
+        self.identity.sign(data)
     }
 
     /// Секретный ключ (для экспорта seed-фразы).
@@ -265,6 +273,13 @@ impl GossipEngine {
         }
         for id in self.log.load_deletes()? {
             self.deletes.insert(id);
+        }
+        if let Ok(Some(b)) = self.log.get_meta("blocked") {
+            for line in String::from_utf8_lossy(&b).split('\n').filter(|s| !s.is_empty()) {
+                if let Ok(p) = unhex(line) {
+                    self.blocked.insert(p);
+                }
+            }
         }
         for (pid, nick, lamport, avatar) in self.log.load_profiles()? {
             self.nicknames.insert(pid.clone(), (nick, lamport));
@@ -660,16 +675,47 @@ impl GossipEngine {
         Ok(())
     }
 
-    /// Число непрочитанных сообщений в группе.
+    /// Заблокировать пользователя (локально): его сообщения скрываются.
+    pub fn block_user(&mut self, peer_id: &[u8]) {
+        self.blocked.insert(peer_id.to_vec());
+        self.save_blocked();
+    }
+
+    pub fn unblock_user(&mut self, peer_id: &[u8]) {
+        self.blocked.remove(peer_id);
+        self.save_blocked();
+    }
+
+    pub fn is_blocked(&self, peer_id: &[u8]) -> bool {
+        self.blocked.contains(peer_id)
+    }
+
+    pub fn blocked_users(&self) -> Vec<PeerId> {
+        let mut v: Vec<PeerId> = self.blocked.iter().cloned().collect();
+        v.sort();
+        v
+    }
+
+    fn save_blocked(&self) {
+        let list: Vec<String> = self.blocked.iter().map(|p| hex(p)).collect();
+        let _ = self.log.set_meta("blocked", list.join("\n").as_bytes());
+    }
+
+    /// Число непрочитанных сообщений в группе (без заблокированных авторов).
     pub fn unread_count(&self, group: &[u8]) -> Result<u64, CoreError> {
         let ordered = self.log.ordered(group);
-        let Some(marker) = self.log.read_marker(group)? else {
-            return Ok(ordered.len() as u64);
+        let start = match self.log.read_marker(group)? {
+            Some(marker) => ordered
+                .iter()
+                .position(|m| m.id == marker)
+                .map(|i| i + 1)
+                .unwrap_or(0),
+            None => 0,
         };
-        match ordered.iter().position(|m| m.id == marker) {
-            Some(idx) => Ok((ordered.len() - idx - 1) as u64),
-            None => Ok(ordered.len() as u64),
-        }
+        Ok(ordered[start..]
+            .iter()
+            .filter(|m| !self.blocked.contains(&m.author))
+            .count() as u64)
     }
 
     /// Разослать свою таблицу пиров.

@@ -119,4 +119,20 @@
     <string name="update_check_failed">Could not check for updates</string>
     <string name="gif_powered_by">Powered by KLIPY</string>
     <string name="privacy_policy">Privacy policy</string>
+    <string name="report">Report</string>
+    <string name="report_spam">Spam</string>
+    <string name="report_abuse">Abuse</string>
+    <string name="report_illegal">Illegal content</string>
+    <string name="report_other">Other</string>
+    <string name="report_note">Comment (optional)</string>
+    <string name="report_attach">Attach screenshot</string>
+    <string name="report_remove">Remove</string>
+    <string name="report_send">Send report</string>
+    <string name="report_sent">Report sent</string>
+    <string name="report_failed">Could not send the report</string>
+    <string name="report_hint">A screenshot helps us review the report</string>
+    <string name="terms">Terms of use</string>
+    <string name="block">Block</string>
+    <string name="unblock">Unblock</string>
+    <string name="blocked_users">Blocked users</string>
 </resources>

@@ -46,6 +46,8 @@ android {
         buildConfigField("String", "TURN_CREDS_URL", "\"${secret("TURN_CREDS_URL", "https://90.188.89.63.sslip.io:9443/turn-credentials")}\"")
         // Публичный ключ KLIPY GIF API (запросы идут с устройства напрямую).
         buildConfigField("String", "KLIPY_APP_KEY", "\"${secret("KLIPY_APP_KEY", "")}\"")
+        buildConfigField("String", "REPORT_URL", "\"${secret("REPORT_URL", "https://90.188.89.63.sslip.io:9443/report")}\"")
+        buildConfigField("boolean", "PLAY_BUILD", "${System.getenv("PLAY_BUILD") == "true"}")
     }
 
     // signaling-сообщения генерируются из src/main/proto (симлинк на общий proto/).

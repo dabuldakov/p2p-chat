@@ -9,6 +9,10 @@ name = "p2pchat-signal-server"
 path = "src/main.rs"
 
 [dependencies]
+serde_json = { workspace = true }
+serde = { workspace = true }
+axum = "0.7"
+p2pchat-crypto = { workspace = true }
 p2pchat-proto = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }

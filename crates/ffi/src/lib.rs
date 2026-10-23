@@ -53,6 +53,13 @@ pub struct FfiAttachment {
     pub url: String,
 }
 
+/// Подписанная жалоба для серверного endpoint.
+#[derive(uniffi::Record)]
+pub struct FfiReport {
+    pub payload: Vec<u8>,
+    pub signature: Vec<u8>,
+}
+
 /// Вход для публикации своих связей: с кем и как подключены.
 #[derive(uniffi::Record)]
 pub struct FfiPeerLink {
@@ -161,6 +168,52 @@ impl ChatCore {
     /// Наш публичный ключ (его передаём собеседникам).
     pub fn public_key(&self) -> Vec<u8> {
         self.inner.lock().unwrap().public_key()
+    }
+
+    /// Собрать и подписать жалобу для сервера.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_report(
+        &self,
+        reported_peer: Vec<u8>,
+        group_id: Vec<u8>,
+        message_id: Vec<u8>,
+        reason: String,
+        note: String,
+        screenshot: Vec<u8>,
+    ) -> Result<FfiReport, FfiError> {
+        let engine = self.inner.lock().unwrap();
+        let mut nonce = vec![0u8; 16];
+        rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
+        let report = p2pchat_core::proto::Report {
+            reporter_key: engine.public_key(),
+            reported_peer,
+            group_id,
+            message_id,
+            reason,
+            note,
+            screenshot,
+            timestamp: p2pchat_core::unix_now(),
+            nonce,
+        };
+        use prost::Message as _;
+        let payload = report.encode_to_vec();
+        let signature = engine.sign(&payload);
+        Ok(FfiReport { payload, signature })
+    }
+
+    /// Заблокировать пользователя (локально).
+    pub fn block_peer(&self, peer_id: Vec<u8>) {
+        self.inner.lock().unwrap().block_user(&peer_id);
+    }
+
+    /// Разблокировать пользователя.
+    pub fn unblock_peer(&self, peer_id: Vec<u8>) {
+        self.inner.lock().unwrap().unblock_user(&peer_id);
+    }
+
+    /// Список заблокированных peer_id.
+    pub fn blocked_peers(&self) -> Vec<Vec<u8>> {
+        self.inner.lock().unwrap().blocked_users()
     }
 
     /// Короткий отпечаток публичного ключа для сверки «тот ли это человек».
@@ -550,7 +603,7 @@ impl ChatCore {
     /// Вся история группы в причинном порядке (для тестов/утилит).
     pub fn history(&self, group_id: Vec<u8>) -> Vec<FfiMessage> {
         let engine = self.inner.lock().unwrap();
-        engine.log().ordered(&group_id).into_iter().map(|m| to_ffi_msg(m, &engine)).collect()
+        engine.log().ordered(&group_id).into_iter().filter(|m| !engine.is_blocked(&m.author)).map(|m| to_ffi_msg(m, &engine)).collect()
     }
 
     /// Окно истории: не более `limit` сообщений до `before_id` (не включая его).
@@ -570,7 +623,7 @@ impl ChatCore {
         let limit = limit as usize;
         let start = end.saturating_sub(limit);
         let has_more = start > 0;
-        let messages = all[start..end].iter().cloned().map(|m| to_ffi_msg(m, &engine)).collect();
+        let messages = all[start..end].iter().cloned().filter(|m| !engine.is_blocked(&m.author)).map(|m| to_ffi_msg(m, &engine)).collect();
         FfiHistoryPage { messages, has_more }
     }
 

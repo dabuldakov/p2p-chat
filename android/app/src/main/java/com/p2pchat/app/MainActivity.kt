@@ -80,6 +80,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
@@ -508,6 +509,53 @@ private fun SettingsScreen(vm: ChatViewModel) {
                         }
                     }) {
                         Text(stringResource(R.string.restore_seed))
+                    }
+                }
+            }
+        }
+
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable {
+                    val path = if (Lang.get(ctx) == "ru") "ru/terms.html" else "terms.html"
+                    runCatching {
+                        ctx.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://dabuldakov.github.io/p2p-chat/" + path),
+                            ),
+                        )
+                    }
+                }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.terms), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.weight(1f))
+                Text("↗", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        if (vm.blocked.isNotEmpty()) {
+            Card {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(stringResource(R.string.blocked_users), style = MaterialTheme.typography.titleSmall)
+                    vm.blocked.forEach { hex ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                vm.nicknames[hex]?.takeIf { it.isNotBlank() } ?: hex.take(10),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Spacer(Modifier.weight(1f))
+                            TextButton(onClick = { hexToBytes(hex)?.let { vm.unblockPeer(it) } }) {
+                                Text(stringResource(R.string.unblock))
+                            }
+                        }
                     }
                 }
             }
@@ -971,6 +1019,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     var showRename by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
     var profileTarget by remember { mutableStateOf<String?>(null) }
+    var reportTarget by remember { mutableStateOf<ReportTarget?>(null) }
     var showTimes by remember { mutableStateOf(false) }
     var touching by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
@@ -1183,7 +1232,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                             ?: m.author.toHexShort()
                         MessageRow(
                             mine = mine, name = name, message = m, vm = vm,
-                            onLongPress = { if (mine && !m.deleted) actionTarget = m },
+                            onLongPress = { if (!m.deleted) actionTarget = m },
                             onOpenProfile = { profileTarget = it },
                             showTime = showTimes,
                         )
@@ -1329,16 +1378,29 @@ private fun GroupScreen(vm: ChatViewModel) {
             title = { Text(stringResource(R.string.message_actions)) },
             text = {
                 Column {
-                    TextButton(onClick = {
-                        actionTarget = null
-                        editText = am.text
-                        editTarget = am
-                    }) { Text(stringResource(R.string.edit_message)) }
-                    TextButton(onClick = {
-                        actionTarget = null
-                        deleteTarget = am
-                    }) {
-                        Text(stringResource(R.string.delete_message), color = MaterialTheme.colorScheme.error)
+                    if (am.author.toHex() == vm.peerId) {
+                        TextButton(onClick = {
+                            actionTarget = null
+                            editText = am.text
+                            editTarget = am
+                        }) { Text(stringResource(R.string.edit_message)) }
+                        TextButton(onClick = {
+                            actionTarget = null
+                            deleteTarget = am
+                        }) {
+                            Text(stringResource(R.string.delete_message), color = MaterialTheme.colorScheme.error)
+                        }
+                    } else {
+                        TextButton(onClick = {
+                            actionTarget = null
+                            reportTarget = ReportTarget(
+                                am.author,
+                                vm.currentGroup ?: ByteArray(0),
+                                am.id,
+                            )
+                        }) {
+                            Text(stringResource(R.string.report), color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             },
@@ -1363,7 +1425,32 @@ private fun GroupScreen(vm: ChatViewModel) {
             },
         )
     }
-    profileTarget?.let { hex -> PeerProfileDialog(vm, hex) { profileTarget = null } }
+    profileTarget?.let { hex ->
+        PeerProfileDialog(
+            vm, hex,
+            onClose = { profileTarget = null },
+            onReport = if (hex != vm.peerId) {
+                {
+                    val pid = hexToBytes(hex)
+                    if (pid != null) {
+                        profileTarget = null
+                        reportTarget = ReportTarget(pid, vm.currentGroup ?: ByteArray(0), ByteArray(0))
+                    }
+                }
+            } else null,
+            blocked = vm.blocked.contains(hex),
+            onToggleBlock = if (hex != vm.peerId) {
+                {
+                    val pid = hexToBytes(hex)
+                    if (pid != null) {
+                        if (vm.blocked.contains(hex)) vm.unblockPeer(pid) else vm.blockPeer(pid)
+                        profileTarget = null
+                    }
+                }
+            } else null,
+        )
+    }
+    reportTarget?.let { t -> ReportDialog(vm, t) { reportTarget = null } }
 
     if (showRename) {
         AlertDialog(
@@ -1411,9 +1498,105 @@ private fun MessageTime(text: String, visible: Boolean) {
     }
 }
 
+/** Куда/на кого отправляется жалоба. */
+private data class ReportTarget(val peer: ByteArray, val group: ByteArray, val message: ByteArray)
+
+/** Диалог жалобы: причина, комментарий, скриншот. */
+@Composable
+private fun ReportDialog(vm: ChatViewModel, target: ReportTarget, onClose: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var reason by remember { mutableStateOf("spam") }
+    var note by remember { mutableStateOf("") }
+    var shot by remember { mutableStateOf<ByteArray?>(null) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { u ->
+            scope.launch {
+                withContext(Dispatchers.IO) { downscaledJpeg(ctx, u, 1280) }?.let { shot = it }
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.report)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    "spam" to R.string.report_spam,
+                    "abuse" to R.string.report_abuse,
+                    "illegal" to R.string.report_illegal,
+                    "other" to R.string.report_other,
+                ).forEach { (key, res) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { reason = key },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = reason == key, onClick = { reason = key })
+                        Text(stringResource(res), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.report_note)) },
+                    minLines = 2,
+                    maxLines = 4,
+                )
+                val s = shot
+                if (s != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(
+                            model = s,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(onClick = { shot = null }) { Text(stringResource(R.string.report_remove)) }
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { pick.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.report_attach)) }
+                    Text(
+                        stringResource(R.string.report_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                vm.sendReport(target.peer, target.group, target.message, reason, note.trim(), shot) { ok ->
+                    Toast.makeText(
+                        ctx,
+                        ctx.getString(if (ok) R.string.report_sent else R.string.report_failed),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                onClose()
+            }) { Text(stringResource(R.string.report_send)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onClose) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
 /** Профиль участника: крупное фото, ник, короткий ID, тип соединения. */
 @Composable
-private fun PeerProfileDialog(vm: ChatViewModel, peerIdHex: String, onClose: () -> Unit) {
+private fun PeerProfileDialog(
+    vm: ChatViewModel,
+    peerIdHex: String,
+    onClose: () -> Unit,
+    onReport: (() -> Unit)? = null,
+    blocked: Boolean = false,
+    onToggleBlock: (() -> Unit)? = null,
+) {
     val member = vm.members.firstOrNull { it.peerId.toHex() == peerIdHex }
     val nick = vm.nicknames[peerIdHex]?.takeIf { it.isNotBlank() }
         ?: if (peerIdHex == vm.peerId) stringResource(R.string.you) else peerIdHex.take(10)
@@ -1442,6 +1625,19 @@ private fun PeerProfileDialog(vm: ChatViewModel, peerIdHex: String, onClose: () 
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (onReport != null) {
+                    TextButton(onClick = onReport) {
+                        Text(stringResource(R.string.report), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                if (onToggleBlock != null) {
+                    TextButton(onClick = onToggleBlock) {
+                        Text(
+                            stringResource(if (blocked) R.string.unblock else R.string.block),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             }
         },
         confirmButton = {

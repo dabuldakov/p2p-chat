@@ -1,5 +1,6 @@
 //! Логика signaling-сервера (вынесена в lib для тестов).
 
+pub mod report;
 pub mod turn;
 
 use std::collections::HashMap;

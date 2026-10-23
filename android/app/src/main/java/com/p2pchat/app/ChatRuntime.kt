@@ -1,6 +1,9 @@
 package com.p2pchat.app
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import android.util.Base64
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +13,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import com.p2pchat.app.gif.Gif
 import com.p2pchat.app.gif.GifCache
 import com.p2pchat.app.gif.GifMediaCache
@@ -42,6 +50,8 @@ object ChatRuntime {
     private const val KEY_BG = "background_enabled"
     private val SIGNAL_URL = BuildConfig.SIGNAL_URL
     private val TURN_CREDS_URL = BuildConfig.TURN_CREDS_URL
+    private val REPORT_URL = BuildConfig.REPORT_URL
+    private val reportClient = OkHttpClient()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -128,6 +138,10 @@ object ChatRuntime {
 
     /** Режим отладки (подробные логи). */
     var debugLogsEnabled by mutableStateOf(false)
+        private set
+
+    /** Заблокированные (hex peer_id) — их сообщения скрыты. */
+    var blocked by mutableStateOf<Set<String>>(emptySet())
         private set
 
     /** Тип соединения по каждому пиру (hex публичного ключа → "direct"/"turn"). */
@@ -237,6 +251,7 @@ object ChatRuntime {
         private set
 
     private fun checkForUpdate(force: Boolean = false) {
+        if (BuildConfig.PLAY_BUILD) return // в Play обновления — через Play Store
         val now = System.currentTimeMillis()
         // Успешная проверка — не чаще раза в 30 мин, после сбоя — раз в 5 мин.
         val interval = if (updateCheckFailed) 5 * 60_000L else 30 * 60_000L
@@ -256,6 +271,16 @@ object ChatRuntime {
     }
 
     fun checkNow(onDone: (Boolean) -> Unit) {
+        if (BuildConfig.PLAY_BUILD) {
+            val id = app.packageName
+            val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$id"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val web = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$id"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { app.startActivity(market) }.onFailure { runCatching { app.startActivity(web) } }
+            onDone(true) // диалог не откроется (update == null), просто уводим в Play
+            return
+        }
         lastUpdateCheck = System.currentTimeMillis()
         scope.launch {
             val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
@@ -588,6 +613,8 @@ object ChatRuntime {
 
     fun refresh() {
         val ids = core.listGroups()
+        blocked = runCatching { core.blockedPeers() }.getOrDefault(emptyList())
+            .map { it.toHex() }.toSet()
         groupInfos = ids
             .map { GroupInfo(it, runCatching { core.groupName(it) }.getOrDefault(String(it))) }
             .sortedBy { it.name.lowercase() }
@@ -628,6 +655,51 @@ object ChatRuntime {
             transport.sendTargets(it.envelope, it.targets)
         }
         refresh()
+    }
+
+    fun blockPeer(peerId: ByteArray) {
+        runCatching { core.blockPeer(peerId) }
+        refresh()
+    }
+
+    fun unblockPeer(peerId: ByteArray) {
+        runCatching { core.unblockPeer(peerId) }
+        refresh()
+    }
+
+    /** Отправить подписанную жалобу на сервер (метаданные + скриншот). */
+    fun sendReport(
+        reportedPeer: ByteArray,
+        groupId: ByteArray,
+        messageId: ByteArray,
+        reason: String,
+        note: String,
+        screenshot: ByteArray?,
+        onResult: (Boolean) -> Unit,
+    ) {
+        val rep = runCatching {
+            core.createReport(reportedPeer, groupId, messageId, reason, note, screenshot ?: ByteArray(0))
+        }.getOrNull()
+        if (rep == null) {
+            onResult(false)
+            return
+        }
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    val body = JSONObject()
+                        .put("report", Base64.encodeToString(rep.payload, Base64.NO_WRAP))
+                        .put("signature", Base64.encodeToString(rep.signature, Base64.NO_WRAP))
+                        .toString()
+                    val req = Request.Builder()
+                        .url(REPORT_URL)
+                        .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                        .build()
+                    reportClient.newCall(req).execute().use { it.isSuccessful }
+                }.getOrDefault(false)
+            }
+            onResult(ok)
+        }
     }
 
     /** Короткий отпечаток ключа для сверки. */
