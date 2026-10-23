@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data deletion — p2pchat</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#0b1020;--card:#151f3d;--line:#26325a;--fg:#e8edff;--muted:#9aa7c7;--accent:#5b8cff}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#16224a 0%,var(--bg) 55%) fixed;color:var(--fg);line-height:1.65}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+  .wrap{max-width:820px;margin:0 auto;padding:0 20px}
+  header.nav{position:sticky;top:0;backdrop-filter:blur(10px);background:rgba(11,16,32,.75);border-bottom:1px solid var(--line)}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{font-weight:700}.brand span{color:var(--accent)}
+  main{padding:40px 0 60px}
+  h1{font-size:clamp(26px,4vw,38px);margin:0 0 6px}
+  .updated{color:var(--muted);font-size:14px;margin-bottom:28px}
+  h2{font-size:20px;margin:28px 0 8px}
+  p,li{color:#cdd7f3}
+  ul{padding-left:22px}
+  .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--muted);font-size:14.5px}
+  footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <div class="brand">p2p<span>chat</span></div>
+  <nav><a href="./">Home</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></nav>
+</div></header>
+<main class="wrap">
+  <h1>Data deletion</h1>
+  <div class="updated">Last updated: October 23, 2026</div>
+
+  <p>p2pchat does not create accounts and does not store your messages or group history on our servers. Your data is stored on your device.</p>
+
+  <h2>Delete data on your device</h2>
+  <ul>
+    <li>Delete individual messages in the chat (long-press → Delete).</li>
+    <li>Leave a group to remove it from the app.</li>
+    <li>Clear all app data: Android Settings → Apps → p2pchat → Storage → <b>Clear data</b>.</li>
+    <li>Uninstall the app — this removes its local data (including the identity key).</li>
+  </ul>
+  <p>Messages already delivered to other participants remain on their devices; we cannot delete them remotely. You can ask the participants or the group owner to remove them.</p>
+
+  <h2>Delete reports</h2>
+  <p>If you submitted a report, you can request its deletion by emailing <a href="mailto:dabuldakov@gmail.com">dabuldakov@gmail.com</a>. Include the approximate date/time and, if possible, your public key (short ID). We delete reports on request within 30 days; reports are also deleted automatically within 90 days.</p>
+
+  <div class="note">There is no account to delete. Your identity is a key stored only on your device; uninstalling the app or clearing its data removes it. Keep your seed phrase if you want to restore the identity later.</div>
+
+  <h2>Contact</h2>
+  <p><a href="mailto:dabuldakov@gmail.com">dabuldakov@gmail.com</a></p>
+</main>
+<footer><div class="wrap"><a href="./">← p2pchat</a> · <a href="privacy.html">Privacy policy</a> · <a href="terms.html">Terms</a></div></footer>
+</body>
+</html>
