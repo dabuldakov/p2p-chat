@@ -47,4 +47,15 @@ class ChatService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+
+    // Android 15+: у dataSync FGS есть лимит времени в фоне — корректно останавливаемся.
+    override fun onTimeout(startId: Int) {
+        Logs.w("ChatService: timeout (startId=$startId) — останавливаемся")
+        stopSelf()
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        Logs.w("ChatService: timeout (startId=$startId, type=$fgsType) — останавливаемся")
+        stopSelf()
+    }
 }
