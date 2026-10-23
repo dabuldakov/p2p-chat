@@ -35,7 +35,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.cyber.p2pchat"
+        applicationId = "com.p2pchat.app"
         minSdk = 26
         targetSdk = 36
         versionCode = appVersionCode

@@ -1,6 +1,6 @@
 # Google Play — материалы и чек-лист (p2pchat)
 
-Пакет: `com.cyber.p2pchat` (навсегда).  
+Пакет: `com.p2pchat.app` (навсегда).  
 Контакт: `admin@p2p-chat.ru` (замените, если нужно).  
 Privacy policy: https://dabuldakov.github.io/p2p-chat/privacy.html  
 RU: https://dabuldakov.github.io/p2p-chat/ru/privacy.html
