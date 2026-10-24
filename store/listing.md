@@ -20,6 +20,7 @@ p2pchat is a decentralized messenger: messages go directly between phones, are e
 • Groups: create a group, invite by QR code or link, chat.
 • End-to-end encryption (MLS). The server only helps devices find each other for a few seconds.
 • GIF search, link previews, avatars, message editing and deletion.
+• Group owner transfer: if the owner disappears or members challenge them, the group can vote a new owner.
 • Seed-phrase backup to restore your identity on a new device.
 • Open source.
 
@@ -38,6 +39,7 @@ p2pchat — децентрализованный мессенджер: сооб�
 • Группы: создайте группу, пригласите по QR или ссылке, общайтесь.
 • Сквозное шифрование (MLS). Сервер лишь помогает устройствам найти друг друга на несколько секунд.
 • Поиск гифок, превью ссылок, аватары, редактирование и удаление сообщений.
+• Передача владения группой: если владелец пропал или участники инициировали вызов, группа может выбрать нового владельца.
 • Резервная копия seed-фразой для восстановления на новом устройстве.
 • Открытый исходный код.
 
@@ -65,6 +67,7 @@ p2pchat — децентрализованный мессенджер: сооб�
 | IP-адрес | Обрабатывается signaling/TURN | Нет | Соединение, безопасность |
 | Поисковые запросы GIF | Нет | KLIPY (api.klipy.com) | Функциональность |
 | Жалобы (ключи, ID, причина, комментарий, скриншот) | Да (на наш сервер) | Нет | Модерация UGC |
+| События управления группой (владелец, heartbeat, заявки, голоса) | Нет (на устройствах) | Участникам группы | Функциональность |
 
 Дополнительно:
 - Шифрование в пути: да (TLS + MLS).
