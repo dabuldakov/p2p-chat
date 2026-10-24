@@ -140,6 +140,13 @@ object ChatRuntime {
     var debugLogsEnabled by mutableStateOf(false)
         private set
 
+    /** Последняя активность владельца текущей группы (ms, unix; 0 — нет данных). */
+    var ownerLastSeen by mutableStateOf(0L)
+        private set
+
+    /** Когда мы последний раз отправляли heartbeat владельца (hex группы → ms). */
+    private val ownerHeartbeatAt = HashMap<String, Long>()
+
     /** Заблокированные (hex peer_id) — их сообщения скрыты. */
     var blocked by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -216,6 +223,7 @@ object ChatRuntime {
                 kotlinx.coroutines.delay(15_000)
                 connectAll()
                 syncAll()
+                maybeOwnerHeartbeat()
                 lastSignalingTs = signaling.lastActivityMs
             }
         }
@@ -640,6 +648,10 @@ object ChatRuntime {
         groupAvatars = ids.mapNotNull { g ->
             runCatching { core.groupAvatar(g) }.getOrNull()?.let { g.toHex() to it }
         }.toMap()
+        ownerLastSeen = currentGroup?.let {
+            runCatching { core.ownerLastSeen(it) }.getOrDefault(0uL).toLong() * 1000L
+        } ?: 0L
+        maybeOwnerHeartbeat()
         currentGroup?.let { g ->
             val fresh = runCatching { core.groupAvatar(g) }.getOrNull()
             val cur = groupAvatarBytes
@@ -655,6 +667,18 @@ object ChatRuntime {
             transport.sendTargets(it.envelope, it.targets)
         }
         refresh()
+    }
+
+    private fun maybeOwnerHeartbeat() {
+        val g = currentGroup ?: return
+        if (!isOwner) return
+        val key = g.toHex()
+        val now = System.currentTimeMillis()
+        if (now - (ownerHeartbeatAt[key] ?: 0L) < 12 * 60 * 60_000L) return
+        ownerHeartbeatAt[key] = now
+        runCatching { core.ownerAlive(g) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+        }
     }
 
     fun blockPeer(peerId: ByteArray) {

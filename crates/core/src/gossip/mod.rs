@@ -11,7 +11,7 @@ use crate::log::Log;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, LeaveEvent, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
+use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, LeaveEvent, OwnerAlive, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
 use crate::{CoreError, GroupId, MessageId, PeerId};
 
 mod sync;
@@ -168,6 +168,10 @@ impl GossipEngine {
     pub fn create_group(&mut self, group: GroupId) -> Result<(), CoreError> {
         self.mls.create(&group)?;
         let _ = self.log.set_meta(&format!("owner:{}", hex(&group)), &self.peer_id());
+        let _ = self.log.set_meta(
+            &format!("owner_alive:{}", hex(&group)),
+            &crate::unix_now().to_le_bytes(),
+        );
         self.owners.insert(group.clone(), self.peer_id());
         self.remember_group(&group);
         self.persist_mls();
@@ -353,6 +357,10 @@ impl GossipEngine {
         // Запоминаем владельца (хозяин билета) — нужно для выхода/передачи владения.
         let owner_pid = p2pchat_crypto::content_id(&inv.host).to_vec();
         let _ = self.log.set_meta(&format!("owner:{}", hex(&inv.group_id)), &owner_pid);
+        let _ = self.log.set_meta(
+            &format!("owner_alive:{}", hex(&inv.group_id)),
+            &crate::unix_now().to_le_bytes(),
+        );
         // Запоминаем имя группы из билета (чтобы оно было видно до/после входа).
         if !inv.name.is_empty() {
             let _ = self.log.set_meta(
@@ -631,6 +639,9 @@ impl GossipEngine {
             }
             Some(Body::Leave(e)) => {
                 self.on_leave(e, &origin, &mut out)?;
+            }
+            Some(Body::OwnerAlive(a)) => {
+                self.on_owner_alive(a, &origin)?;
             }
             None => {}
         }
@@ -1048,6 +1059,10 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             if valid {
                 self.owners.insert(ev.group_id.clone(), ev.new_owner.clone());
                 let _ = self.log.set_meta(&format!("owner:{}", hex(&ev.group_id)), &ev.new_owner);
+                let _ = self.log.set_meta(
+                    &format!("owner_alive:{}", hex(&ev.group_id)),
+                    &crate::unix_now().to_le_bytes(),
+                );
             }
         }
 
@@ -1056,6 +1071,54 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             out.outgoing.extend(commits);
         }
         Ok(())
+    }
+
+    /// Владелец отмечается живым (heartbeat). Возвращает конверт для соседей.
+    pub fn owner_alive(&mut self, group: &[u8]) -> Result<Option<Outgoing>, CoreError> {
+        if !self.is_owner(group)? {
+            return Ok(None);
+        }
+        let at = crate::unix_now();
+        let ev = OwnerAlive { group_id: group.to_vec(), owner: self.peer_id(), at };
+        let _ = self.log.set_meta(
+            &format!("owner_alive:{}", hex(group)),
+            &at.to_le_bytes(),
+        );
+        let env = self.seal(Gossip { body: Some(Body::OwnerAlive(ev)) })?;
+        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+    }
+
+    /// Принять heartbeat владельца (только от владельца и участника группы).
+    fn on_owner_alive(&mut self, ev: OwnerAlive, origin: &[u8]) -> Result<(), CoreError> {
+        if p2pchat_crypto::content_id(origin).to_vec() != ev.owner {
+            return Ok(());
+        }
+        if self.owner_of(&ev.group_id).as_deref() != Some(ev.owner.as_slice()) {
+            return Ok(());
+        }
+        if !self.members(&ev.group_id).iter().any(|m| m.peer_id == ev.owner) {
+            return Ok(());
+        }
+        let now = crate::unix_now();
+        let at = ev.at.min(now + 600); // не доверяем далёкому будущему
+        if at > self.owner_last_seen(&ev.group_id) {
+            let _ = self.log.set_meta(
+                &format!("owner_alive:{}", hex(&ev.group_id)),
+                &at.to_le_bytes(),
+            );
+        }
+        Ok(())
+    }
+
+    /// Когда владелец последний раз подавал признаки жизни (unix seconds; 0 — нет данных).
+    pub fn owner_last_seen(&self, group: &[u8]) -> u64 {
+        self.log
+            .get_meta(&format!("owner_alive:{}", hex(group)))
+            .ok()
+            .flatten()
+            .and_then(|b| b.try_into().ok())
+            .map(u64::from_le_bytes)
+            .unwrap_or(0)
     }
 
     pub fn is_deleted(&self, id: &[u8]) -> bool {
@@ -1326,6 +1389,7 @@ fn mls_group_of(g: &Gossip) -> Option<GroupId> {
         Some(Body::Edit(e)) => Some(e.group_id.clone()),
         Some(Body::Delete(e)) => Some(e.group_id.clone()),
         Some(Body::Leave(e)) => Some(e.group_id.clone()),
+        Some(Body::OwnerAlive(a)) => Some(a.group_id.clone()),
         _ => None,
     }
 }

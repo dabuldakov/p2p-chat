@@ -53,6 +53,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val groupAvatar get() = ChatRuntime.groupAvatarBytes
     val groupAvatars get() = ChatRuntime.groupAvatars
     val blocked get() = ChatRuntime.blocked
+    val ownerLastSeen get() = ChatRuntime.ownerLastSeen
     val myAvatar get() = ChatRuntime.avatars[ChatRuntime.peerId]
 
     fun createGroup(name: String) = ChatRuntime.createGroup(name)

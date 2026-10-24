@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -1198,6 +1199,28 @@ private fun GroupScreen(vm: ChatViewModel) {
                     ) {
                         Text(stringResource(R.string.leave_group), color = MaterialTheme.colorScheme.error)
                     }
+                }
+            }
+        }
+
+        val ownerAbsentDays = if (!vm.isOwner && vm.ownerLastSeen > 0L) {
+            ((System.currentTimeMillis() - vm.ownerLastSeen) / 86_400_000L).toInt()
+        } else {
+            0
+        }
+        if (ownerAbsentDays >= 7) {
+            Card {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFFE08A1E))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.owner_absent, ownerAbsentDays),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

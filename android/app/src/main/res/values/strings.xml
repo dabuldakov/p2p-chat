@@ -135,4 +135,5 @@
     <string name="block">Block</string>
     <string name="unblock">Unblock</string>
     <string name="blocked_users">Blocked users</string>
+    <string name="owner_absent">Owner inactive for %1$d days</string>
 </resources>

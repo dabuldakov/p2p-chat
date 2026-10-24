@@ -138,6 +138,7 @@ message Gossip {
     EditEvent edit = 16;
     DeleteEvent delete = 17;
     LeaveEvent leave = 18;
+    OwnerAlive owner_alive = 19;
   }
 }
 
@@ -312,4 +313,11 @@ message Report {
   bytes screenshot = 7;     // JPEG (опционально)
   uint64 timestamp = 8;     // unix seconds
   bytes nonce = 9;          // 16 байт
+}
+
+// Владелец жив: периодический heartbeat (обновляет last_seen владельца).
+message OwnerAlive {
+  bytes group_id = 1;
+  bytes owner = 2;          // должен совпадать с владельцем и отправителем
+  uint64 at = 3;            // unix seconds
 }

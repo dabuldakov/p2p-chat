@@ -201,6 +201,21 @@ impl ChatCore {
         Ok(FfiReport { payload, signature })
     }
 
+    /// Отправить heartbeat владельца (только владелец).
+    pub fn owner_alive(&self, group_id: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine.owner_alive(&group_id)?.map(|o| FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        }))
+    }
+
+    /// Когда владелец последний раз был активен (unix seconds; 0 — нет данных).
+    pub fn owner_last_seen(&self, group_id: Vec<u8>) -> u64 {
+        self.inner.lock().unwrap().owner_last_seen(&group_id)
+    }
+
     /// Заблокировать пользователя (локально).
     pub fn block_peer(&self, peer_id: Vec<u8>) {
         self.inner.lock().unwrap().block_user(&peer_id);
