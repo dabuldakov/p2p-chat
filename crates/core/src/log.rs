@@ -27,6 +27,9 @@ pub struct Log {
     mem_meta: std::sync::Mutex<HashMap<String, Vec<u8>>>,
 }
 
+/// Строка профиля: peer_id, ник, lamport, аватар.
+pub type ProfileRow = (Vec<u8>, String, u64, Option<Vec<u8>>);
+
 impl Log {
     pub fn new() -> Self {
         Self {
@@ -227,7 +230,7 @@ impl Log {
     }
 
     /// (peer_id, nickname, lamport, avatar)
-    pub fn load_profiles(&self) -> Result<Vec<(Vec<u8>, String, u64, Option<Vec<u8>>)>, CoreError> {
+    pub fn load_profiles(&self) -> Result<Vec<ProfileRow>, CoreError> {
         Ok(match &self.store {
             Some(s) => s.all_profiles()?,
             None => Vec::new(),
@@ -431,6 +434,15 @@ impl Default for Log {
     }
 }
 
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -514,7 +526,7 @@ mod tests {
     fn store_wrappers_roundtrip() {
         use p2pchat_storage::Store;
         let st = Store::open_in_memory().unwrap();
-        let mut l = Log::with_store(st).unwrap();
+        let l = Log::with_store(st).unwrap();
 
         l.store_group_key(b"g", b"k").unwrap();
         assert_eq!(l.load_group_keys().unwrap().len(), 1);
@@ -567,13 +579,4 @@ mod tests {
         assert_eq!(l.gifs_for_group(b"other", 10).unwrap().len(), 0);
     }
 
-}
-
-fn hex(bytes: &[u8]) -> String {
-    use std::fmt::Write;
-    let mut s = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        let _ = write!(s, "{b:02x}");
-    }
-    s
 }

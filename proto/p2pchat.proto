@@ -139,6 +139,9 @@ message Gossip {
     DeleteEvent delete = 17;
     LeaveEvent leave = 18;
     OwnerAlive owner_alive = 19;
+    OwnerClaim owner_claim = 20;
+    OwnerVote owner_vote = 21;
+    OwnerChange owner_change = 22;
   }
 }
 
@@ -320,4 +323,55 @@ message OwnerAlive {
   bytes group_id = 1;
   bytes owner = 2;          // должен совпадать с владельцем и отправителем
   uint64 at = 3;            // unix seconds
+}
+
+enum OwnerTrigger {
+  OWNER_TRIGGER_ABSENT = 0;
+  OWNER_TRIGGER_CHALLENGE = 1;
+  OWNER_TRIGGER_AUTO = 2;
+}
+
+// Кандидат на владение (заявка).
+message OwnerClaim {
+  bytes group_id = 1;
+  bytes claim_id = 2;        // SHA-256 канонических байтов заявки
+  bytes claimant = 3;        // peer_id
+  bytes claimant_key = 4;    // публичный ключ (content_id == claimant)
+  OwnerTrigger trigger = 5;
+  uint64 last_seen_owner = 6;
+  uint64 created_at = 7;
+  bytes nonce = 8;
+  bytes sig = 9;             // подпись claimant
+}
+
+// Голос участника за конкретную заявку (или «оставить владельца»).
+message OwnerVote {
+  bytes group_id = 1;
+  bytes claim_id = 2;        // пусто, если keep
+  bytes voter = 3;
+  bytes voter_key = 4;
+  bool approve = 5;
+  bool keep = 6;
+  uint64 at = 7;
+  bytes sig = 8;             // подпись voter
+}
+
+// Итог выборов: заявка + голоса (с подписями). Может рассылать любой участник.
+message OwnerChange {
+  bytes group_id = 1;
+  OwnerClaim claim = 2;       // победившая заявка
+  repeated OwnerVote votes = 3;
+  bytes new_owner = 4;
+  uint64 at = 5;
+  uint64 epoch = 6;
+  repeated OwnerClaim candidates = 7; // все заявки выборов (для проверки кворума)
+}
+
+// Локальное состояние активных выборов (persist в meta, не пересылается).
+message OwnerElectionState {
+  bytes group_id = 1;
+  OwnerTrigger trigger = 2;
+  uint64 created_at = 3;
+  repeated OwnerClaim claims = 4;
+  repeated OwnerVote votes = 5;
 }

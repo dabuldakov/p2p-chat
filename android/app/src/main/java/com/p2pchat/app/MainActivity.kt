@@ -65,6 +65,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.HowToVote
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -1222,6 +1223,106 @@ private fun GroupScreen(vm: ChatViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+
+        vm.ownerChangeNotice?.let { gname ->
+            Card {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Check, contentDescription = null, tint = Color(0xFF2E9E6B))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.owner_changed) + ": " + gname,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { vm.dismissOwnerChangeNotice() }) {
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.remove))
+                    }
+                }
+            }
+        }
+
+        val election = vm.ownerElection
+        val nowSec = (System.currentTimeMillis() / 1000L).toULong()
+        if (election != null) {
+            val canVote = nowSec >= election.voteStart && nowSec < election.endsAt
+            val myVote = election.votes.any { it.voter.toHex() == vm.peerId }
+            val hoursLeft = ((election.endsAt.toLong() * 1000L - System.currentTimeMillis()) / 3_600_000L)
+                .coerceAtLeast(0L)
+            Card {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.HowToVote, contentDescription = null, tint = Color(0xFF2E9E6B))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.owner_election_title), style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.weight(1f))
+                        Text(stringResource(R.string.owner_election_ends, hoursLeft), style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    election.claims.forEach { claim ->
+                        val hex = claim.claimant.toHex()
+                        val name = vm.nicknames[hex]?.takeIf { it.isNotBlank() } ?: hex.take(10)
+                        val mine = hex == vm.peerId
+                        val votes = election.votes.count {
+                            !it.keep && it.approve && it.claimId.contentEquals(claim.claimId)
+                        } + if (mine) 1 else 0
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Avatar(vm.avatars[hex], hex, 24.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    if (mine) stringResource(R.string.owner_your_claim) else name,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Text(
+                                    when (claim.trigger.toInt()) {
+                                        0 -> stringResource(R.string.owner_claim_absence)
+                                        1 -> stringResource(R.string.owner_claim_challenge)
+                                        else -> stringResource(R.string.owner_claim_auto)
+                                    } + " · " + stringResource(R.string.owner_votes_count, votes),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (!mine && canVote && !myVote) {
+                                TextButton(onClick = { vm.voteOwner(claim.claimId, true, false) }) {
+                                    Text(stringResource(R.string.owner_vote_for))
+                                }
+                                TextButton(onClick = { vm.voteOwner(claim.claimId, false, false) }) {
+                                    Text(stringResource(R.string.owner_vote_against))
+                                }
+                            }
+                        }
+                    }
+                    if (vm.isOwner && election.trigger.toInt() == 1 && canVote && !myVote) {
+                        OutlinedButton(onClick = { vm.keepOwner() }, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.owner_keep))
+                        }
+                    }
+                }
+            }
+        } else if (!vm.isOwner) {
+            val canRequest = ownerAbsentDays >= 7
+            val canChallenge = vm.ownerChallengeAt == 0uL ||
+                nowSec >= vm.ownerChallengeAt + 7uL * 86_400uL
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { vm.claimOwner(0) },
+                    enabled = canRequest,
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.owner_request), style = MaterialTheme.typography.labelSmall) }
+                OutlinedButton(
+                    onClick = { vm.claimOwner(1) },
+                    enabled = canChallenge,
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.owner_challenge), style = MaterialTheme.typography.labelSmall) }
             }
         }
 

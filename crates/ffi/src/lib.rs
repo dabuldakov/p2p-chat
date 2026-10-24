@@ -25,7 +25,9 @@ pub enum FfiError {
 
 impl From<p2pchat_core::CoreError> for FfiError {
     fn from(e: p2pchat_core::CoreError) -> Self {
-        FfiError::Core { reason: e.to_string() }
+        FfiError::Core {
+            reason: e.to_string(),
+        }
     }
 }
 
@@ -97,6 +99,35 @@ pub struct FfiMember {
     pub public_key: Vec<u8>,
 }
 
+/// Заявка на владение в активных выборах.
+#[derive(uniffi::Record)]
+pub struct FfiOwnerClaim {
+    pub claim_id: Vec<u8>,
+    pub claimant: Vec<u8>,
+    pub trigger: u32,
+    pub created_at: u64,
+}
+
+/// Голос в активных выборах.
+#[derive(uniffi::Record)]
+pub struct FfiOwnerVote {
+    pub claim_id: Vec<u8>,
+    pub voter: Vec<u8>,
+    pub approve: bool,
+    pub keep: bool,
+}
+
+/// Активные выборы владельца.
+#[derive(uniffi::Record)]
+pub struct FfiOwnerElection {
+    pub trigger: u32,
+    pub created_at: u64,
+    pub vote_start: u64,
+    pub ends_at: u64,
+    pub claims: Vec<FfiOwnerClaim>,
+    pub votes: Vec<FfiOwnerVote>,
+}
+
 /// Конверт для отправки с адресатами (публичные ключи).
 /// Пустой `targets` — разослать всем подключённым.
 #[derive(uniffi::Record)]
@@ -148,7 +179,9 @@ impl ChatCore {
         } else {
             p2pchat_storage::Store::open(&db_path)
         }
-        .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        .map_err(|e| FfiError::Core {
+            reason: e.to_string(),
+        })?;
 
         let identity_path = identity_path_for(&db_path);
         let identity = load_or_create_identity(identity_path.as_deref(), &store)?;
@@ -157,7 +190,10 @@ impl ChatCore {
         let mut engine = GossipEngine::new(identity, log);
         engine.load_state()?;
         engine.load_mls(&db_path)?;
-        Ok(Arc::new(Self { inner: Mutex::new(engine), identity_path }))
+        Ok(Arc::new(Self {
+            inner: Mutex::new(engine),
+            identity_path,
+        }))
     }
 
     /// Наш peer_id (hex-строкой — удобно для UI и логов).
@@ -216,6 +252,122 @@ impl ChatCore {
         self.inner.lock().unwrap().owner_last_seen(&group_id)
     }
 
+    /// Номер эпохи владельца группы.
+    pub fn owner_epoch(&self, group_id: Vec<u8>) -> u64 {
+        self.inner.lock().unwrap().owner_epoch(&group_id)
+    }
+
+    /// Когда последний раз шёл вызов владельца (unix seconds; 0 — не было).
+    pub fn owner_challenge_at(&self, group_id: Vec<u8>) -> u64 {
+        self.inner.lock().unwrap().owner_challenge_at(&group_id)
+    }
+
+    /// Активные выборы владельца (для карточки в UI).
+    pub fn owner_election(&self, group_id: Vec<u8>) -> Option<FfiOwnerElection> {
+        let e = self.inner.lock().unwrap().owner_election(&group_id)?;
+        Some(FfiOwnerElection {
+            trigger: e.trigger as u32,
+            created_at: e.created_at,
+            vote_start: e.vote_start,
+            ends_at: e.ends_at,
+            claims: e
+                .claims
+                .into_iter()
+                .map(|c| FfiOwnerClaim {
+                    claim_id: c.claim_id,
+                    claimant: c.claimant,
+                    trigger: c.trigger as u32,
+                    created_at: c.created_at,
+                })
+                .collect(),
+            votes: e
+                .votes
+                .into_iter()
+                .map(|v| FfiOwnerVote {
+                    claim_id: v.claim_id,
+                    voter: v.voter,
+                    approve: v.approve,
+                    keep: v.keep,
+                })
+                .collect(),
+        })
+    }
+
+    /// Подать заявку на владение: 0 — отсутствие, 1 — вызов, 2 — авто-преемник.
+    pub fn create_owner_claim(
+        &self,
+        group_id: Vec<u8>,
+        trigger: u32,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        use p2pchat_core::proto::OwnerTrigger;
+        let trigger = match trigger {
+            0 => OwnerTrigger::Absent,
+            1 => OwnerTrigger::Challenge,
+            2 => OwnerTrigger::Auto,
+            _ => {
+                return Err(FfiError::Core {
+                    reason: "unknown owner trigger".into(),
+                })
+            }
+        };
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .create_owner_claim(&group_id, trigger)?
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
+    }
+
+    /// Голос: за заявку (`approve`) или оставить владельца (`keep`).
+    pub fn owner_vote(
+        &self,
+        group_id: Vec<u8>,
+        claim_id: Vec<u8>,
+        approve: bool,
+        keep: bool,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .owner_vote(&group_id, &claim_id, approve, keep)?
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
+    }
+
+    /// Завершить выборы, если окно истекло.
+    pub fn finalize_owner_election(
+        &self,
+        group_id: Vec<u8>,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .finalize_owner_election(&group_id)?
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
+    }
+
+    /// Последний OwnerChange для догона офлайн-участников.
+    pub fn owner_change_envelope(
+        &self,
+        group_id: Vec<u8>,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .owner_change_envelope(&group_id)?
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
+    }
+
     /// Заблокировать пользователя (локально).
     pub fn block_peer(&self, peer_id: Vec<u8>) {
         self.inner.lock().unwrap().block_user(&peer_id);
@@ -245,24 +397,28 @@ impl ChatCore {
     /// Экспорт seed-фразы (24 слова, BIP39) текущей идентичности.
     pub fn export_seed(&self) -> Result<String, FfiError> {
         let secret = self.inner.lock().unwrap().secret_bytes();
-        let m = bip39::Mnemonic::from_entropy(&secret)
-            .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        let m = bip39::Mnemonic::from_entropy(&secret).map_err(|e| FfiError::Core {
+            reason: e.to_string(),
+        })?;
         Ok(m.to_string())
     }
 
     /// Восстановить идентичность из seed-фразы. Только на пустом профиле
     /// (без групп) — иначе вернёт ошибку. Возвращает новый peer_id (hex).
     pub fn import_seed(&self, phrase: String) -> Result<String, FfiError> {
-        let m = bip39::Mnemonic::parse(phrase.trim())
-            .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        let m = bip39::Mnemonic::parse(phrase.trim()).map_err(|e| FfiError::Core {
+            reason: e.to_string(),
+        })?;
         let entropy = m.to_entropy();
         if entropy.len() != 32 {
             return Err(FfiError::Core {
                 reason: "нужна seed-фраза из 24 слов".into(),
             });
         }
-        let identity = p2pchat_crypto::Identity::from_secret_bytes(&entropy)
-            .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        let identity =
+            p2pchat_crypto::Identity::from_secret_bytes(&entropy).map_err(|e| FfiError::Core {
+                reason: e.to_string(),
+            })?;
         let mut engine = self.inner.lock().unwrap();
         if !engine.groups().is_empty() {
             return Err(FfiError::Core {
@@ -281,7 +437,10 @@ impl ChatCore {
         let mut engine = self.inner.lock().unwrap();
         let o = engine.post(group_id, text)?;
         use prost::Message as _;
-        Ok(FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+        Ok(FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        })
     }
 
     /// Отправить гифку (между клиентами едет только ссылка kind+id).
@@ -302,7 +461,10 @@ impl ChatCore {
             },
         )?;
         use prost::Message as _;
-        Ok(FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+        Ok(FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        })
     }
 
     /// Отредактировать своё сообщение (только автор). Возвращает конверт.
@@ -316,7 +478,10 @@ impl ChatCore {
         use prost::Message as _;
         Ok(engine
             .post_edit(&group_id, &target_id, text)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
     }
 
     /// Удалить своё сообщение (только автор). Возвращает конверт.
@@ -329,7 +494,10 @@ impl ChatCore {
         use prost::Message as _;
         Ok(engine
             .post_delete(&group_id, &target_id)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
     }
 
     /// Гифки, которые отправлял я (вкладка «Мои»), свежие сверху.
@@ -345,7 +513,8 @@ impl ChatCore {
     }
 
     /// Гифки текущей группы (вкладка «Эта группа»), свежие сверху.
-    pub fn group_gifs(&self, group_id: Vec<u8>, limit: u32) -> Vec<FfiAttachment> {        let engine = self.inner.lock().unwrap();
+    pub fn group_gifs(&self, group_id: Vec<u8>, limit: u32) -> Vec<FfiAttachment> {
+        let engine = self.inner.lock().unwrap();
         engine
             .log()
             .gifs_for_group(&group_id, limit as i64)
@@ -388,7 +557,9 @@ impl ChatCore {
         max_uses: u32,
     ) -> Result<Option<String>, FfiError> {
         let mut engine = self.inner.lock().unwrap();
-        Ok(engine.create_invite(&group_id, INVITE_TTL_SECS, max_uses).ok())
+        Ok(engine
+            .create_invite(&group_id, INVITE_TTL_SECS, max_uses)
+            .ok())
     }
 
     /// Начать впуск по билету: id группы, ключ хозяина и заявка для отправки.
@@ -397,8 +568,15 @@ impl ChatCore {
         let (group_id, o) = engine.join_request(&invite)?;
         use prost::Message as _;
         let host_key = o.targets.first().cloned().unwrap_or_default();
-        let request = FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets };
-        Ok(FfiJoin { group_id, host_key, request })
+        let request = FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        };
+        Ok(FfiJoin {
+            group_id,
+            host_key,
+            request,
+        })
     }
 
     /// Список групп, в которых мы состоим.
@@ -421,9 +599,10 @@ impl ChatCore {
     pub fn leave_group(&self, group_id: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
         let mut engine = self.inner.lock().unwrap();
         use prost::Message as _;
-        Ok(engine
-            .leave_group(&group_id)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+        Ok(engine.leave_group(&group_id)?.map(|o| FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        }))
     }
 
     /// Удалить участника (только владелец). Возвращает конверты для рассылки.
@@ -437,7 +616,10 @@ impl ChatCore {
         Ok(engine
             .remove_member(&group_id, &peer_id)?
             .into_iter()
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            })
             .collect())
     }
 
@@ -450,18 +632,20 @@ impl ChatCore {
     pub fn set_nickname(&self, name: String) -> Result<Option<FfiOutgoing>, FfiError> {
         let mut engine = self.inner.lock().unwrap();
         use prost::Message as _;
-        Ok(engine
-            .set_nickname(&name)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+        Ok(engine.set_nickname(&name)?.map(|o| FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        }))
     }
 
     /// Задать свой аватар (маленькое изображение) и вернуть конверт для рассылки.
     pub fn set_avatar(&self, avatar: Vec<u8>) -> Result<Option<FfiOutgoing>, FfiError> {
         let mut engine = self.inner.lock().unwrap();
         use prost::Message as _;
-        Ok(engine
-            .set_avatar(avatar)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+        Ok(engine.set_avatar(avatar)?.map(|o| FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        }))
     }
 
     /// Аватар участника (или None).
@@ -490,7 +674,10 @@ impl ChatCore {
         use prost::Message as _;
         Ok(engine
             .set_group_avatar(&group_id, avatar)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
     }
 
     /// Переименовать группу (только владелец). Возвращает конверт.
@@ -503,7 +690,10 @@ impl ChatCore {
         use prost::Message as _;
         Ok(engine
             .set_group_name(&group_id, name)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
     }
 
     /// Аватар группы (или None).
@@ -515,9 +705,10 @@ impl ChatCore {
     pub fn profile_envelope(&self) -> Result<Option<FfiOutgoing>, FfiError> {
         let engine = self.inner.lock().unwrap();
         use prost::Message as _;
-        Ok(engine
-            .profile_envelope()?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+        Ok(engine.profile_envelope()?.map(|o| FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        }))
     }
 
     pub fn my_nickname(&self) -> Option<String> {
@@ -545,7 +736,10 @@ impl ChatCore {
             .unwrap()
             .members(&group_id)
             .into_iter()
-            .map(|m| FfiMember { peer_id: m.peer_id, public_key: m.public_key })
+            .map(|m| FfiMember {
+                peer_id: m.peer_id,
+                public_key: m.public_key,
+            })
             .collect()
     }
 
@@ -568,9 +762,10 @@ impl ChatCore {
         let mut engine = self.inner.lock().unwrap();
         let ls = links.into_iter().map(|l| (l.peer_id, l.kind)).collect();
         use prost::Message as _;
-        Ok(engine
-            .post_links(&group_id, ls)?
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets }))
+        Ok(engine.post_links(&group_id, ls)?.map(|o| FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        }))
     }
 
     /// Снимок связей группы для графа: (from, to, kind).
@@ -590,11 +785,18 @@ impl ChatCore {
     }
 
     /// Merkle-digest группы, адресованный конкретному пиру (офлайн-догон).
-    pub fn sync_digest_to(&self, group_id: Vec<u8>, target_key: Vec<u8>) -> Result<FfiOutgoing, FfiError> {
+    pub fn sync_digest_to(
+        &self,
+        group_id: Vec<u8>,
+        target_key: Vec<u8>,
+    ) -> Result<FfiOutgoing, FfiError> {
         let engine = self.inner.lock().unwrap();
         let o = engine.sync_digest_to(&group_id, &target_key)?;
         use prost::Message as _;
-        Ok(FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+        Ok(FfiOutgoing {
+            envelope: o.envelope.encode_to_vec(),
+            targets: o.targets,
+        })
     }
 
     /// Конверт с нашим входом в группу — разослать соседям.
@@ -611,14 +813,23 @@ impl ChatCore {
         Ok(outcome
             .outgoing
             .into_iter()
-            .map(|o| FfiOutgoing { envelope: o.envelope.encode_to_vec(), targets: o.targets })
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            })
             .collect())
     }
 
     /// Вся история группы в причинном порядке (для тестов/утилит).
     pub fn history(&self, group_id: Vec<u8>) -> Vec<FfiMessage> {
         let engine = self.inner.lock().unwrap();
-        engine.log().ordered(&group_id).into_iter().filter(|m| !engine.is_blocked(&m.author)).map(|m| to_ffi_msg(m, &engine)).collect()
+        engine
+            .log()
+            .ordered(&group_id)
+            .into_iter()
+            .filter(|m| !engine.is_blocked(&m.author))
+            .map(|m| to_ffi_msg(m, &engine))
+            .collect()
     }
 
     /// Окно истории: не более `limit` сообщений до `before_id` (не включая его).
@@ -638,7 +849,12 @@ impl ChatCore {
         let limit = limit as usize;
         let start = end.saturating_sub(limit);
         let has_more = start > 0;
-        let messages = all[start..end].iter().cloned().filter(|m| !engine.is_blocked(&m.author)).map(|m| to_ffi_msg(m, &engine)).collect();
+        let messages = all[start..end]
+            .iter()
+            .filter(|m| !engine.is_blocked(&m.author))
+            .cloned()
+            .map(|m| to_ffi_msg(m, &engine))
+            .collect();
         FfiHistoryPage { messages, has_more }
     }
 
@@ -664,7 +880,9 @@ fn identity_path_for(db_path: &str) -> Option<PathBuf> {
     if db_path == ":memory:" {
         return None;
     }
-    let dir = Path::new(db_path).parent().filter(|d| !d.as_os_str().is_empty());
+    let dir = Path::new(db_path)
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty());
     Some(match dir {
         Some(d) => d.join("identity.key"),
         None => PathBuf::from("identity.key"),
@@ -687,8 +905,10 @@ fn load_or_create_identity(
     }
     // 2) миграция из БД (старые установки)
     if let Some(bytes) = store.get_meta("identity").map_err(io_err)? {
-        let id = p2pchat_crypto::Identity::from_secret_bytes(&bytes)
-            .map_err(|e| FfiError::Core { reason: e.to_string() })?;
+        let id =
+            p2pchat_crypto::Identity::from_secret_bytes(&bytes).map_err(|e| FfiError::Core {
+                reason: e.to_string(),
+            })?;
         if let Some(p) = path {
             write_atomic(p, &id.secret_bytes()).map_err(io_err)?;
         }
@@ -698,7 +918,9 @@ fn load_or_create_identity(
     let id = p2pchat_crypto::Identity::generate();
     match path {
         Some(p) => write_atomic(p, &id.secret_bytes()).map_err(io_err)?,
-        None => store.set_meta("identity", &id.secret_bytes()).map_err(io_err)?,
+        None => store
+            .set_meta("identity", &id.secret_bytes())
+            .map_err(io_err)?,
     }
     Ok(id)
 }
@@ -712,7 +934,9 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 }
 
 fn io_err<E: std::fmt::Display>(e: E) -> FfiError {
-    FfiError::Core { reason: e.to_string() }
+    FfiError::Core {
+        reason: e.to_string(),
+    }
 }
 
 fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage, engine: &GossipEngine) -> FfiMessage {
@@ -731,7 +955,11 @@ fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage, engine: &GossipEngine) -> Ffi
         wall_time: m.wall_time,
         edited,
         deleted,
-        attachment: if deleted { None } else { m.attachment.map(to_ffi_attachment) },
+        attachment: if deleted {
+            None
+        } else {
+            m.attachment.map(to_ffi_attachment)
+        },
     }
 }
 

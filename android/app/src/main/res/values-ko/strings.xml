@@ -101,4 +101,25 @@
     <string name="seed_copied">문구가 복사되었습니다</string>
     <string name="update_check_failed">업데이트를 확인하지 못했습니다</string>
     <string name="privacy_policy">개인정보 처리방침</string>
+    <string name="owner_absent">소유자가 %1$d일째 비활성 상태입니다</string>
+    <string name="owner_election_title">소유자 선거</string>
+    <string name="owner_election_ends">%1$d시간 남음</string>
+    <string name="owner_claim_absence">소유자 부재</string>
+    <string name="owner_claim_challenge">이의 제기</string>
+    <string name="owner_claim_auto">자동 후계자</string>
+    <string name="owner_votes_count">투표 수: %1$d</string>
+    <string name="owner_your_claim">내 요청</string>
+    <string name="owner_vote_for">투표</string>
+    <string name="owner_vote_against">반대</string>
+    <string name="owner_keep">소유자 유지</string>
+    <string name="owner_request">소유권 요청</string>
+    <string name="owner_challenge">소유자 이의 제기</string>
+    <string name="owner_claim_unavailable">아직 사용할 수 없음</string>
+    <string name="owner_vote_unavailable">투표가 수락되지 않았습니다</string>
+    <string name="owner_channel">소유자 선거</string>
+    <string name="owner_channel_desc">그룹 소유자 선거 알림</string>
+    <string name="owner_notification_title">소유자 선거</string>
+    <string name="owner_notification_start">그룹 소유자 변경 투표가 시작되었습니다</string>
+    <string name="owner_notification_vote">투표가 필요합니다</string>
+    <string name="owner_changed">그룹 소유자가 변경되었습니다</string>
 </resources>

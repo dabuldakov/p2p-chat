@@ -8,16 +8,22 @@ use ed25519_dalek::VerifyingKey;
 use prost::Message as _;
 
 use crate::log::Log;
+mod owner;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, LeaveEvent, OwnerAlive, Envelope, Gossip, GroupProfile, Link, Links, Mls, PeerInfo, Presence, ProfileEvent};
+use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, Envelope, Gossip, GroupProfile, LeaveEvent, Link, Links, Mls, OwnerAlive, OwnerChange, OwnerClaim, OwnerTrigger, OwnerVote, PeerInfo, Presence, ProfileEvent};
 use crate::{CoreError, GroupId, MessageId, PeerId};
 
 mod sync;
 
 /// Количество соседей для пересылки (используется транспортом при выборе цели).
 pub const FANOUT: usize = 5;
+
+type LinkMap = std::collections::HashMap<
+    GroupId,
+    std::collections::HashMap<PeerId, (u64, Vec<(Vec<u8>, String)>)>,
+>;
 
 pub struct GossipEngine {
     identity: p2pchat_crypto::Identity,
@@ -30,7 +36,7 @@ pub struct GossipEngine {
     /// Владельцы групп (кто создал) — для выдачи билетов и удаления участников.
     owners: std::collections::HashMap<GroupId, PeerId>,
     /// Эфемерные публикации связей: group → author → (time, [(peer, kind)]).
-    links: std::collections::HashMap<GroupId, std::collections::HashMap<PeerId, (u64, Vec<(Vec<u8>, String)>)>>,
+    links: LinkMap,
     /// Правки сообщений: target_id → (новый текст, lamport).
     edits: std::collections::HashMap<MessageId, (String, u64)>,
     /// Удалённые сообщения (tombstone, необратимо).
@@ -45,6 +51,26 @@ pub struct GossipEngine {
     seen: std::collections::HashSet<u64>,
     /// Локально заблокированные пользователи (их сообщения скрываются).
     blocked: std::collections::HashSet<PeerId>,
+    /// Активные выборы владельца по группам (в памяти).
+    owner_elections: std::collections::HashMap<GroupId, OwnerElection>,
+    /// Тестовые часы (None — реальное время).
+    now_override: Option<u64>,
+}
+
+const OWNER_ABSENT_SECS: u64 = 7 * 24 * 3600;
+const OWNER_APPLY_SECS: u64 = 24 * 3600;
+const OWNER_VOTE_SECS: u64 = 24 * 3600;
+const OWNER_CHALLENGE_COOLDOWN: u64 = 7 * 24 * 3600;
+
+/// Активные выборы владельца группы.
+#[derive(Clone)]
+struct OwnerElection {
+    trigger: i32,
+    created_at: u64,
+    /// claim_id → заявка.
+    claims: std::collections::HashMap<MessageId, OwnerClaim>,
+    /// voter peer_id → голос.
+    votes: std::collections::HashMap<PeerId, OwnerVote>,
 }
 
 /// Что переслать и кому.
@@ -86,6 +112,8 @@ impl GossipEngine {
             nicknames: Default::default(),
             seen: Default::default(),
             blocked: Default::default(),
+            owner_elections: Default::default(),
+            now_override: None,
         }
     }
 
@@ -170,7 +198,7 @@ impl GossipEngine {
         let _ = self.log.set_meta(&format!("owner:{}", hex(&group)), &self.peer_id());
         let _ = self.log.set_meta(
             &format!("owner_alive:{}", hex(&group)),
-            &crate::unix_now().to_le_bytes(),
+            &self.now().to_le_bytes(),
         );
         self.owners.insert(group.clone(), self.peer_id());
         self.remember_group(&group);
@@ -216,6 +244,17 @@ impl GossipEngine {
 
     /// Удалить участника (только владелец): MLS Remove + Commit остальным.
     pub fn remove_member(
+        &mut self,
+        group: &[u8],
+        peer_id: &[u8],
+    ) -> Result<Vec<Outgoing>, CoreError> {
+        if self.owner_election_active(group) {
+            return Ok(Vec::new()); // состав группы заморожен на время выборов
+        }
+        self.remove_member_now(group, peer_id)
+    }
+
+    fn remove_member_now(
         &mut self,
         group: &[u8],
         peer_id: &[u8],
@@ -317,6 +356,7 @@ impl GossipEngine {
                 if let Some(owner) = self.log.get_meta(&format!("owner:{}", hex(&gid)))? {
                     self.owners.insert(gid.clone(), owner);
                 }
+                self.load_owner_election(&gid);
             }
         }
         Ok(())
@@ -331,6 +371,9 @@ impl GossipEngine {
     ) -> Result<String, CoreError> {
         if !self.is_owner(group)? {
             return Err(CoreError::BadEnvelope("invite: только владелец".into()));
+        }
+        if self.owner_election_active(group) {
+            return Err(CoreError::BadEnvelope("invite: идут выборы владельца".into()));
         }
         let now = crate::unix_now();
         let expiry = if ttl_secs == 0 { 0 } else { now + ttl_secs };
@@ -359,7 +402,7 @@ impl GossipEngine {
         let _ = self.log.set_meta(&format!("owner:{}", hex(&inv.group_id)), &owner_pid);
         let _ = self.log.set_meta(
             &format!("owner_alive:{}", hex(&inv.group_id)),
-            &crate::unix_now().to_le_bytes(),
+            &self.now().to_le_bytes(),
         );
         // Запоминаем имя группы из билета (чтобы оно было видно до/после входа).
         if !inv.name.is_empty() {
@@ -623,7 +666,7 @@ impl GossipEngine {
                 self.on_presence(p);
             }
             Some(Body::Mls(m)) => {
-                self.on_mls(m, &mut out)?;
+                self.on_mls(m, &origin, &mut out)?;
             }
             Some(Body::Links(l)) => {
                 self.on_links(l, &origin)?;
@@ -642,6 +685,15 @@ impl GossipEngine {
             }
             Some(Body::OwnerAlive(a)) => {
                 self.on_owner_alive(a, &origin)?;
+            }
+            Some(Body::OwnerClaim(c)) => {
+                self.on_owner_claim(c, &origin)?;
+            }
+            Some(Body::OwnerVote(v)) => {
+                self.on_owner_vote(v, &origin)?;
+            }
+            Some(Body::OwnerChange(ch)) => {
+                self.on_owner_change(ch, &origin)?;
             }
             None => {}
         }
@@ -748,11 +800,21 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
     ///
     /// Ошибки (дубликат при лавине, свой же Commit, устаревший epoch) не фатальны —
     /// игнорируем: доставка идемпотентна, состояние уже применено.
-    fn on_mls(&mut self, m: Mls, out: &mut Outcome) -> Result<(), CoreError> {
+    fn on_mls(&mut self, m: Mls, _origin: &[u8], out: &mut Outcome) -> Result<(), CoreError> {
         if !self.mls.has(&m.group_id) {
             return Ok(()); // неизвестная группа (например, Commit до Welcome)
         }
-        if let Ok(Received::Application(bytes)) = self.mls.process(&m.group_id, &m.message) {
+        // Коммиты (добавление/удаление/переименование) разрешены только владельцу.
+        let owner_key = self.owner_of(&m.group_id).and_then(|owner| {
+            self.members(&m.group_id)
+                .into_iter()
+                .find(|member| member.peer_id == owner)
+                .map(|member| member.public_key)
+        });
+        let received = self
+            .mls
+            .process_checked(&m.group_id, &m.message, owner_key.as_deref());
+        if let Ok(Received::Application(bytes)) = received {
             let msg = ChatMessage::decode(bytes.as_slice())?;
             self.on_message(msg, out)?;
         }
@@ -835,6 +897,9 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             || inv.is_expired(crate::unix_now())
         {
             return Ok(());
+        }
+        if self.owner_election_active(&req.group_id) {
+            return Ok(()); // состав группы заморожен на время выборов
         }
         let token = inv.use_token();
         if self.log.get_meta(&format!("invite:{token}"))?.is_none() {
@@ -1061,13 +1126,13 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
                 let _ = self.log.set_meta(&format!("owner:{}", hex(&ev.group_id)), &ev.new_owner);
                 let _ = self.log.set_meta(
                     &format!("owner_alive:{}", hex(&ev.group_id)),
-                    &crate::unix_now().to_le_bytes(),
+                    &self.now().to_le_bytes(),
                 );
             }
         }
 
         if self.is_owner(&ev.group_id)? {
-            let commits = self.remove_member(&ev.group_id, &ev.peer_id)?;
+            let commits = self.remove_member_now(&ev.group_id, &ev.peer_id)?;
             out.outgoing.extend(commits);
         }
         Ok(())
@@ -1078,7 +1143,7 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         if !self.is_owner(group)? {
             return Ok(None);
         }
-        let at = crate::unix_now();
+        let at = self.now();
         let ev = OwnerAlive { group_id: group.to_vec(), owner: self.peer_id(), at };
         let _ = self.log.set_meta(
             &format!("owner_alive:{}", hex(group)),
@@ -1099,7 +1164,7 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         if !self.members(&ev.group_id).iter().any(|m| m.peer_id == ev.owner) {
             return Ok(());
         }
-        let now = crate::unix_now();
+        let now = self.now();
         let at = ev.at.min(now + 600); // не доверяем далёкому будущему
         if at > self.owner_last_seen(&ev.group_id) {
             let _ = self.log.set_meta(
@@ -1390,6 +1455,9 @@ fn mls_group_of(g: &Gossip) -> Option<GroupId> {
         Some(Body::Delete(e)) => Some(e.group_id.clone()),
         Some(Body::Leave(e)) => Some(e.group_id.clone()),
         Some(Body::OwnerAlive(a)) => Some(a.group_id.clone()),
+        Some(Body::OwnerClaim(c)) => Some(c.group_id.clone()),
+        Some(Body::OwnerVote(v)) => Some(v.group_id.clone()),
+        Some(Body::OwnerChange(c)) => Some(c.group_id.clone()),
         _ => None,
     }
 }

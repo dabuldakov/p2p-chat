@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 //! Интеграционный сценарий: 10 участников в одной группе.
 //!
 //! Проверяем: обмен сообщениями от всех, правки/удаления, выход и повторный
@@ -161,9 +162,9 @@ fn security_roles_replay_tamper_isolation() {
     let mut host = engine();
     let g2 = host.create_named_group("Limit").unwrap();
     let inv = host.create_invite(&g2, 3600, 2).unwrap();
-    let mut j1 = engine();
-    let mut j2 = engine();
-    let mut j3 = engine();
+    let j1 = engine();
+    let j2 = engine();
+    let j3 = engine();
     let keys2 = vec![host.public_key(), j1.public_key(), j2.public_key(), j3.public_key()];
     let mut all = vec![host, j1, j2, j3];
     for j in 1..=2 {
@@ -180,7 +181,7 @@ fn security_roles_replay_tamper_isolation() {
     let g3 = h.create_named_group("Expired").unwrap();
     let inv3 = h.create_invite(&g3, 1, 1).unwrap();
     std::thread::sleep(std::time::Duration::from_secs(2));
-    let mut j = engine();
+    let j = engine();
     let (_, req) = j.join_request(&inv3).unwrap();
     let keys3 = vec![h.public_key(), j.public_key()];
     let mut pair = vec![h, j];

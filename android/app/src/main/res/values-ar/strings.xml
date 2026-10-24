@@ -101,4 +101,25 @@
     <string name="seed_copied">تم نسخ العبارة</string>
     <string name="update_check_failed">تعذر التحقق من التحديثات</string>
     <string name="privacy_policy">سياسة الخصوصية</string>
+    <string name="owner_absent">المالك غير نشط منذ %1$d يوم</string>
+    <string name="owner_election_title">انتخابات المالك</string>
+    <string name="owner_election_ends">متبقي %1$d ساعة</string>
+    <string name="owner_claim_absence">المالك غائب</string>
+    <string name="owner_claim_challenge">تحدي</string>
+    <string name="owner_claim_auto">الخليفة التلقائي</string>
+    <string name="owner_votes_count">الأصوات: %1$d</string>
+    <string name="owner_your_claim">طلبك</string>
+    <string name="owner_vote_for">تصويت</string>
+    <string name="owner_vote_against">ضد</string>
+    <string name="owner_keep">الإبقاء على المالك</string>
+    <string name="owner_request">طلب الملكية</string>
+    <string name="owner_challenge">تحدي المالك</string>
+    <string name="owner_claim_unavailable">غير متاح بعد</string>
+    <string name="owner_vote_unavailable">لم يتم قبول التصويت</string>
+    <string name="owner_channel">انتخابات المالك</string>
+    <string name="owner_channel_desc">إشعارات حول انتخاب مالك المجموعة</string>
+    <string name="owner_notification_title">انتخابات المالك</string>
+    <string name="owner_notification_start">بدأ التصويت على تغيير مالك المجموعة</string>
+    <string name="owner_notification_vote">مطلوب تصويتك</string>
+    <string name="owner_changed">تم تغيير مالك المجموعة</string>
 </resources>

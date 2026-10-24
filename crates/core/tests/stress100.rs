@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 //! Большой стресс-сценарий: 30 пользователей, 100 групп, пересылка по оверлею,
 //! 100 сообщений на пользователя, часть изменена/удалена, проверка консистентности.
 //!
@@ -59,7 +60,7 @@ fn snapshot(e: &GossipEngine, ids: &[Vec<u8>], texts: &[String]) -> Vec<(Vec<u8>
 fn stress_100_groups_30_users() {
     let mut engines: Vec<GossipEngine> = (0..USERS).map(|_| engine()).collect();
     let keys: Vec<Vec<u8>> = engines.iter().map(|e| e.public_key()).collect();
-    let mut rng = Lcg(2026_10_22);
+    let mut rng = Lcg(20261022);
 
     // --- 100 групп; гарантируем, что каждый пользователь хотя бы в одной ---
     let mut groups: Vec<(Vec<u8>, Vec<usize>)> = Vec::new();

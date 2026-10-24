@@ -29,7 +29,10 @@ pub struct MlsGroups {
 
 impl MlsGroups {
     pub fn from_crypto(id: &Identity) -> Result<Self, CoreError> {
-        Ok(Self { id: identity_from(id)?, groups: HashMap::new() })
+        Ok(Self {
+            id: identity_from(id)?,
+            groups: HashMap::new(),
+        })
     }
 
     /// Наш KeyPackage для впуска в чужие группы.
@@ -92,11 +95,25 @@ impl MlsGroups {
     }
 
     pub fn process(&mut self, group_id: &[u8], bytes: &[u8]) -> Result<Received, CoreError> {
+        self.process_checked(group_id, bytes, None)
+    }
+
+    pub fn process_checked(
+        &mut self,
+        group_id: &[u8],
+        bytes: &[u8],
+        allowed_identity: Option<&[u8]>,
+    ) -> Result<Received, CoreError> {
         let Self { id, groups } = self;
         let group = groups
             .get_mut(group_id)
             .ok_or_else(|| CoreError::BadEnvelope("mls: неизвестная группа".into()))?;
-        Ok(p2pchat_mls::process(group, id, bytes)?)
+        Ok(p2pchat_mls::process_checked(
+            group,
+            id,
+            bytes,
+            allowed_identity,
+        )?)
     }
 
     /// Удалить участника по identity (account pubkey): вернуть commit.
@@ -132,7 +149,10 @@ impl MlsGroups {
             Ok(id) => id,
             Err(_) => identity_from(account)?,
         };
-        Ok(Self { id, groups: HashMap::new() })
+        Ok(Self {
+            id,
+            groups: HashMap::new(),
+        })
     }
 
     /// Поднять одну группу из сохранённого состояния в карту.

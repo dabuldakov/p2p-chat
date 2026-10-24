@@ -101,4 +101,25 @@
     <string name="seed_copied">Фраза скапіравана</string>
     <string name="update_check_failed">Не ўдалося праверыць абнаўленні</string>
     <string name="privacy_policy">Палітыка прыватнасці</string>
+    <string name="owner_absent">Уладальнік неактыўны %1$d дзён</string>
+    <string name="owner_election_title">Выбары ўладальніка</string>
+    <string name="owner_election_ends">засталося %1$d гадз</string>
+    <string name="owner_claim_absence">уладальнік адсутнічае</string>
+    <string name="owner_claim_challenge">выклік</string>
+    <string name="owner_claim_auto">аўта-пераемнік</string>
+    <string name="owner_votes_count">галасоў: %1$d</string>
+    <string name="owner_your_claim">Ваша заяўка</string>
+    <string name="owner_vote_for">Галасаваць</string>
+    <string name="owner_vote_against">Супраць</string>
+    <string name="owner_keep">Пакінуць уладальніка</string>
+    <string name="owner_request">Запытаць валоданне</string>
+    <string name="owner_challenge">Аспрэчыць уладальніка</string>
+    <string name="owner_claim_unavailable">Пакуль недаступна</string>
+    <string name="owner_vote_unavailable">Голас не прыняты</string>
+    <string name="owner_channel">Выбары ўладальніка</string>
+    <string name="owner_channel_desc">Апавяшчэнні аб выбарах уладальніка групы</string>
+    <string name="owner_notification_title">Выбары ўладальніка</string>
+    <string name="owner_notification_start">Пачалося галасаванне за змену ўладальніка групы</string>
+    <string name="owner_notification_vote">Патрэбны ваш голас</string>
+    <string name="owner_changed">Уладальнік групы зменены</string>
 </resources>

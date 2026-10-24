@@ -23,10 +23,12 @@ import androidx.core.app.NotificationManagerCompat
 object Notifier {
     const val CH_MESSAGES = "p2pchat_messages"
     const val CH_SERVICE = "p2pchat_connection"
+    const val CH_OWNER = "p2pchat_owner"
     private const val GROUP_KEY = "p2pchat"
     private const val ID_SUMMARY = 1000
 
     private val posted = mutableSetOf<Int>()
+    private val ownerPosted = mutableSetOf<Int>()
 
     fun ensureChannels(ctx: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -46,6 +48,38 @@ object Notifier {
                 },
             )
         }
+        if (mgr.getNotificationChannel(CH_OWNER) == null) {
+            mgr.createNotificationChannel(
+                NotificationChannel(CH_OWNER, ctx.getString(R.string.owner_channel), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = ctx.getString(R.string.owner_channel_desc)
+                    setShowBadge(false)
+                },
+            )
+        }
+    }
+
+    /** Уведомление о выборах владельца (не входит в счётчик непрочитанных). */
+    fun showOwnerElection(ctx: Context, groupHex: String, groupName: String, text: String) {
+        val nm = NotificationManagerCompat.from(ctx)
+        if (!nm.areNotificationsEnabled()) return
+        val id = ("$GROUP_KEY-owner-$groupHex").hashCode()
+        val n = NotificationCompat.Builder(ctx, CH_OWNER)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(ctx.getString(R.string.owner_notification_title))
+            .setContentText("$groupName: $text")
+            .setSubText(groupName)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setAutoCancel(true)
+            .setContentIntent(openIntent(ctx, groupHex, id))
+            .build()
+        runCatching { nm.notify(id, n) }
+        ownerPosted.add(id)
+    }
+
+    fun clearOwnerElection(ctx: Context, groupHex: String) {
+        val id = ("$GROUP_KEY-owner-$groupHex").hashCode()
+        ownerPosted.remove(id)
+        runCatching { NotificationManagerCompat.from(ctx).cancel(id) }
     }
 
     private fun openIntent(ctx: Context, group: String?, id: Int): PendingIntent {

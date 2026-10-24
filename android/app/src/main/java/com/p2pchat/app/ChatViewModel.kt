@@ -6,6 +6,7 @@ import com.p2pchat.app.gif.Gif
 import com.p2pchat.app.gif.GifRef
 import uniffi.p2pchat_ffi.FfiLink
 import uniffi.p2pchat_ffi.FfiMember
+import uniffi.p2pchat_ffi.FfiOwnerElection
 
 /**
  * Тонкая обёртка над [ChatRuntime] для Compose. Вся логика и состояние —
@@ -54,6 +55,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val groupAvatars get() = ChatRuntime.groupAvatars
     val blocked get() = ChatRuntime.blocked
     val ownerLastSeen get() = ChatRuntime.ownerLastSeen
+    val ownerElection get() = ChatRuntime.ownerElection
+    val ownerEpoch get() = ChatRuntime.ownerEpoch
+    val ownerChangeNotice get() = ChatRuntime.ownerChangeNotice
+    val ownerChallengeAt get() = ChatRuntime.ownerChallengeAt
     val myAvatar get() = ChatRuntime.avatars[ChatRuntime.peerId]
 
     fun createGroup(name: String) = ChatRuntime.createGroup(name)
@@ -61,6 +66,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun selectGroup(g: ByteArray) = ChatRuntime.selectGroup(g)
     fun leaveGroup() = ChatRuntime.leaveGroup()
     fun removeMember(peerId: ByteArray) = ChatRuntime.removeMember(peerId)
+    fun claimOwner(trigger: Int) = ChatRuntime.claimOwner(trigger)
+    fun voteOwner(claimId: ByteArray, approve: Boolean, keep: Boolean) = ChatRuntime.voteOwner(claimId, approve, keep)
+    fun keepOwner() = ChatRuntime.keepOwner()
+    fun dismissOwnerChangeNotice() = ChatRuntime.dismissOwnerChangeNotice()
     fun backToList() = ChatRuntime.backToList()
     fun onSharedText(text: String) = ChatRuntime.onSharedText(text)
     fun consumeSharedDraft() = ChatRuntime.consumeSharedDraft()

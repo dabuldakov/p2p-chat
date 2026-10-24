@@ -136,4 +136,24 @@
     <string name="unblock">Unblock</string>
     <string name="blocked_users">Blocked users</string>
     <string name="owner_absent">Owner inactive for %1$d days</string>
+    <string name="owner_election_title">Owner election</string>
+    <string name="owner_election_ends">ends in %1$d h</string>
+    <string name="owner_claim_absence">owner absent</string>
+    <string name="owner_claim_challenge">challenge</string>
+    <string name="owner_claim_auto">auto successor</string>
+    <string name="owner_votes_count">%1$d votes</string>
+    <string name="owner_your_claim">Your request</string>
+    <string name="owner_vote_for">Vote</string>
+    <string name="owner_vote_against">Against</string>
+    <string name="owner_keep">Keep owner</string>
+    <string name="owner_request">Request ownership</string>
+    <string name="owner_challenge">Challenge owner</string>
+    <string name="owner_claim_unavailable">Not available yet</string>
+    <string name="owner_vote_unavailable">Vote not accepted</string>
+    <string name="owner_channel">Owner elections</string>
+    <string name="owner_channel_desc">Notifications about group owner elections</string>
+    <string name="owner_notification_title">Owner election</string>
+    <string name="owner_notification_start">Voting to change the group owner has started</string>
+    <string name="owner_notification_vote">Your vote is needed</string>
+    <string name="owner_changed">Group owner changed</string>
 </resources>

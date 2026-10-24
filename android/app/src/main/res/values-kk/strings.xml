@@ -101,4 +101,25 @@
     <string name="seed_copied">Фраза көшірілді</string>
     <string name="update_check_failed">Жаңартуларды тексеру мүмкін болмады</string>
     <string name="privacy_policy">Құпиялылық саясаты</string>
+    <string name="owner_absent">Иесі %1$d күннен бері белсенді емес</string>
+    <string name="owner_election_title">Иесін сайлау</string>
+    <string name="owner_election_ends">%1$d сағат қалды</string>
+    <string name="owner_claim_absence">иесі жоқ</string>
+    <string name="owner_claim_challenge">шақыру</string>
+    <string name="owner_claim_auto">авто-мұрагер</string>
+    <string name="owner_votes_count">дауыс: %1$d</string>
+    <string name="owner_your_claim">Сіздің өтініміңіз</string>
+    <string name="owner_vote_for">Дауыс беру</string>
+    <string name="owner_vote_against">Қарсы</string>
+    <string name="owner_keep">Иесін қалдыру</string>
+    <string name="owner_request">Иелікті сұрау</string>
+    <string name="owner_challenge">Иесіне қарсы шығу</string>
+    <string name="owner_claim_unavailable">Әзірге қолжетімсіз</string>
+    <string name="owner_vote_unavailable">Дауыс қабылданбады</string>
+    <string name="owner_channel">Иесін сайлау</string>
+    <string name="owner_channel_desc">Топ иесін сайлау туралы хабарламалар</string>
+    <string name="owner_notification_title">Иесін сайлау</string>
+    <string name="owner_notification_start">Топ иесін ауыстыруға дауыс беру басталды</string>
+    <string name="owner_notification_vote">Сіздің дауысыңыз қажет</string>
+    <string name="owner_changed">Топ иесі өзгертілді</string>
 </resources>

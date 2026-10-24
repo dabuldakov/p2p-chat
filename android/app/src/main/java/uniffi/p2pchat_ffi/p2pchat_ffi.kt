@@ -776,6 +776,66 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -803,11 +863,41 @@ internal interface UniffiLib : Library {
     ): Pointer
     fun uniffi_p2pchat_ffi_fn_method_chatcore_all_nicknames(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_p2pchat_ffi_fn_method_chatcore_create_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_avatar_of(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_avatars(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_block_peer(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_blocked_peers(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_create_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_p2pchat_ffi_fn_method_chatcore_create_group_invite(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_p2pchat_ffi_fn_method_chatcore_group_invite(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_create_named_group(`ptr`: Pointer,`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_create_owner_claim(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`trigger`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_create_report(`ptr`: Pointer,`reportedPeer`: RustBuffer.ByValue,`groupId`: RustBuffer.ByValue,`messageId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,`note`: RustBuffer.ByValue,`screenshot`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_delete_message(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`targetId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_edit_message(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`targetId`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_export_seed(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_finalize_owner_election(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_fingerprint(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_group_avatar(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_group_gifs(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_group_invite(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`maxUses`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_group_name(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_groups_with(`ptr`: Pointer,`publicKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -815,15 +905,17 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_history_window(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`beforeId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_import_seed(`ptr`: Pointer,`phrase`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_is_owner(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
     fun uniffi_p2pchat_ffi_fn_method_chatcore_join_envelope(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_join_from_invite(`ptr`: Pointer,`invite`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_p2pchat_ffi_fn_method_chatcore_join_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
     fun uniffi_p2pchat_ffi_fn_method_chatcore_leave_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_links(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_list_groups(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -839,11 +931,29 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_nickname_of(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_alive(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_challenge_at(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_change_envelope(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_election(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_epoch(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_last_seen(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_vote(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`claimId`: RustBuffer.ByValue,`approve`: Byte,`keep`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_peer_id_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_peers(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_post(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_post_gif(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`attachment`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_post_links(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`links`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_profile_envelope(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -851,12 +961,22 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_receive(`ptr`: Pointer,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_recent_gifs(`ptr`: Pointer,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_remove_member(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_rename_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_set_avatar(`ptr`: Pointer,`avatar`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_set_group_avatar(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`avatar`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_set_nickname(`ptr`: Pointer,`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_sync_digest_to(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`targetKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_unblock_peer(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_p2pchat_ffi_fn_method_chatcore_unread_count(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     fun uniffi_p2pchat_ffi_fn_func_default_group_id(uniffi_out_err: UniffiRustCallStatus, 
@@ -977,11 +1097,41 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_all_nicknames(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_avatar_of(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_avatars(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_block_peer(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_blocked_peers(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_group(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_group_invite(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_named_group(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_owner_claim(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_create_report(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_delete_message(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_edit_message(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_export_seed(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_finalize_owner_election(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_fingerprint(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_group_avatar(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_group_gifs(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_group_invite(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_group_name(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_groups_with(
     ): Short
@@ -989,15 +1139,17 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_history_window(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_import_seed(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_is_owner(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite(
     ): Short
-    fun uniffi_p2pchat_ffi_checksum_method_chatcore_join_group(
-    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_leave_group(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_links(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_list_groups(
     ): Short
@@ -1013,11 +1165,29 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_nickname_of(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_alive(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_challenge_at(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_change_envelope(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_election(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_epoch(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_last_seen(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_vote(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_peer_id_hex(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_peers(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_post(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_post_gif(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_post_links(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_profile_envelope(
     ): Short
@@ -1025,11 +1195,21 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_receive(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_recent_gifs(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_remove_member(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_rename_group(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_set_avatar(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_set_group_avatar(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_set_nickname(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to(
+    ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_unblock_peer(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_unread_count(
     ): Short
@@ -1058,13 +1238,58 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_all_nicknames() != 41658.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_group() != 18445.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_avatar_of() != 20317.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_group_invite() != 59093.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_avatars() != 35038.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_group_invite() != 22465.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_block_peer() != 51201.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_blocked_peers() != 34446.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_group() != 53496.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_group_invite() != 36685.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_named_group() != 26662.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_owner_claim() != 25434.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_create_report() != 38357.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_delete_message() != 52593.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_edit_message() != 34690.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_export_seed() != 25533.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_finalize_owner_election() != 51877.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_fingerprint() != 49038.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_group_avatar() != 59301.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_group_gifs() != 31617.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_group_invite() != 26887.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_group_name() != 49766.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_groups_with() != 29021.toShort()) {
@@ -1076,19 +1301,22 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_history_window() != 21811.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_import_seed() != 48423.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_is_owner() != 28503.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope() != 63251.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_envelope() != 60433.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite() != 5750.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_group() != 25300.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_join_from_invite() != 41492.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_leave_group() != 34284.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_links() != 60764.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_list_groups() != 45145.toShort()) {
@@ -1112,6 +1340,27 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_nickname_of() != 10251.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_alive() != 6699.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_challenge_at() != 60534.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_change_envelope() != 40222.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_election() != 44819.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_epoch() != 53222.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_last_seen() != 1868.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_vote() != 24642.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_peer_id_hex() != 59466.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1119,6 +1368,12 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post() != 30042.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post_gif() != 22888.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post_links() != 13009.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_profile_envelope() != 20307.toShort()) {
@@ -1130,13 +1385,28 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_receive() != 36340.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_recent_gifs() != 43810.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_remove_member() != 39810.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_rename_group() != 65305.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_set_avatar() != 21275.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_set_group_avatar() != 36601.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_set_nickname() != 38114.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_sync_digest_to() != 49268.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_unblock_peer() != 12478.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_unread_count() != 64043.toShort()) {
@@ -1507,19 +1777,95 @@ public interface ChatCoreInterface {
     fun `allNicknames`(): List<FfiNickname>
     
     /**
-     * Создать группу: возвращает групповой ключ для раздачи участникам.
+     * Аватар участника (или None).
      */
-    fun `createGroup`(`groupId`: kotlin.ByteArray): kotlin.ByteArray
+    fun `avatarOf`(`peerId`: kotlin.ByteArray): kotlin.ByteArray?
     
     /**
-     * Создать группу и сразу вернуть инвайт-строку (ссылка/QR).
+     * Все аватары участников.
+     */
+    fun `avatars`(): List<FfiAvatar>
+    
+    /**
+     * Заблокировать пользователя (локально).
+     */
+    fun `blockPeer`(`peerId`: kotlin.ByteArray)
+    
+    /**
+     * Список заблокированных peer_id.
+     */
+    fun `blockedPeers`(): List<kotlin.ByteArray>
+    
+    /**
+     * Создать группу (MLS). Ключ раздаётся участникам попарно при впуске.
+     */
+    fun `createGroup`(`groupId`: kotlin.ByteArray)
+    
+    /**
+     * Создать группу и сразу вернуть одноразовый инвайт-билет (ссылка/QR).
      */
     fun `createGroupInvite`(`groupId`: kotlin.ByteArray): kotlin.String
     
     /**
-     * Инвайт существующей группы.
+     * Создать группу со случайным id и отдельным именем. Возвращает id.
      */
-    fun `groupInvite`(`groupId`: kotlin.ByteArray): kotlin.String?
+    fun `createNamedGroup`(`name`: kotlin.String): kotlin.ByteArray
+    
+    /**
+     * Подать заявку на владение: 0 — отсутствие, 1 — вызов, 2 — авто-преемник.
+     */
+    fun `createOwnerClaim`(`groupId`: kotlin.ByteArray, `trigger`: kotlin.UInt): FfiOutgoing?
+    
+    /**
+     * Собрать и подписать жалобу для сервера.
+     */
+    fun `createReport`(`reportedPeer`: kotlin.ByteArray, `groupId`: kotlin.ByteArray, `messageId`: kotlin.ByteArray, `reason`: kotlin.String, `note`: kotlin.String, `screenshot`: kotlin.ByteArray): FfiReport
+    
+    /**
+     * Удалить своё сообщение (только автор). Возвращает конверт.
+     */
+    fun `deleteMessage`(`groupId`: kotlin.ByteArray, `targetId`: kotlin.ByteArray): FfiOutgoing?
+    
+    /**
+     * Отредактировать своё сообщение (только автор). Возвращает конверт.
+     */
+    fun `editMessage`(`groupId`: kotlin.ByteArray, `targetId`: kotlin.ByteArray, `text`: kotlin.String): FfiOutgoing?
+    
+    /**
+     * Экспорт seed-фразы (24 слова, BIP39) текущей идентичности.
+     */
+    fun `exportSeed`(): kotlin.String
+    
+    /**
+     * Завершить выборы, если окно истекло.
+     */
+    fun `finalizeOwnerElection`(`groupId`: kotlin.ByteArray): FfiOutgoing?
+    
+    /**
+     * Короткий отпечаток публичного ключа для сверки «тот ли это человек».
+     */
+    fun `fingerprint`(): kotlin.String
+    
+    /**
+     * Аватар группы (или None).
+     */
+    fun `groupAvatar`(`groupId`: kotlin.ByteArray): kotlin.ByteArray?
+    
+    /**
+     * Гифки текущей группы (вкладка «Эта группа»), свежие сверху.
+     */
+    fun `groupGifs`(`groupId`: kotlin.ByteArray, `limit`: kotlin.UInt): List<FfiAttachment>
+    
+    /**
+     * Инвайт-билет существующей группы (только владелец).
+     * `max_uses` — сколько раз можно войти (1 — одноразовый), срок — сутки.
+     */
+    fun `groupInvite`(`groupId`: kotlin.ByteArray, `maxUses`: kotlin.UInt): kotlin.String?
+    
+    /**
+     * Отображаемое имя группы (fallback — строка id для старых групп).
+     */
+    fun `groupName`(`groupId`: kotlin.ByteArray): kotlin.String
     
     /**
      * Группы, где мы состоим и есть участник с таким публичным ключом.
@@ -1538,6 +1884,12 @@ public interface ChatCoreInterface {
     fun `historyWindow`(`groupId`: kotlin.ByteArray, `beforeId`: kotlin.ByteArray?, `limit`: kotlin.UInt): FfiHistoryPage
     
     /**
+     * Восстановить идентичность из seed-фразы. Только на пустом профиле
+     * (без групп) — иначе вернёт ошибку. Возвращает новый peer_id (hex).
+     */
+    fun `importSeed`(`phrase`: kotlin.String): kotlin.String
+    
+    /**
      * Являемся ли мы владельцем группы.
      */
     fun `isOwner`(`groupId`: kotlin.ByteArray): kotlin.Boolean
@@ -1548,19 +1900,19 @@ public interface ChatCoreInterface {
     fun `joinEnvelope`(`groupId`: kotlin.ByteArray): FfiOutgoing?
     
     /**
-     * Вступить в группу по инвайт-строке. Возвращает id группы и ключ хозяина.
+     * Начать впуск по билету: id группы, ключ хозяина и заявка для отправки.
      */
     fun `joinFromInvite`(`invite`: kotlin.String): FfiJoin
-    
-    /**
-     * Вступить в группу по ключу (получен по защищённому каналу).
-     */
-    fun `joinGroup`(`groupId`: kotlin.ByteArray, `key`: kotlin.ByteArray)
     
     /**
      * Выйти из группы. Возвращает конверт для рассылки (или None).
      */
     fun `leaveGroup`(`groupId`: kotlin.ByteArray): FfiOutgoing?
+    
+    /**
+     * Снимок связей группы для графа: (from, to, kind).
+     */
+    fun `links`(`groupId`: kotlin.ByteArray): List<FfiLink>
     
     /**
      * Список групп, в которых мы состоим.
@@ -1592,6 +1944,41 @@ public interface ChatCoreInterface {
     fun `nicknameOf`(`peerId`: kotlin.ByteArray): kotlin.String?
     
     /**
+     * Отправить heartbeat владельца (только владелец).
+     */
+    fun `ownerAlive`(`groupId`: kotlin.ByteArray): FfiOutgoing?
+    
+    /**
+     * Когда последний раз шёл вызов владельца (unix seconds; 0 — не было).
+     */
+    fun `ownerChallengeAt`(`groupId`: kotlin.ByteArray): kotlin.ULong
+    
+    /**
+     * Последний OwnerChange для догона офлайн-участников.
+     */
+    fun `ownerChangeEnvelope`(`groupId`: kotlin.ByteArray): FfiOutgoing?
+    
+    /**
+     * Активные выборы владельца (для карточки в UI).
+     */
+    fun `ownerElection`(`groupId`: kotlin.ByteArray): FfiOwnerElection?
+    
+    /**
+     * Номер эпохи владельца группы.
+     */
+    fun `ownerEpoch`(`groupId`: kotlin.ByteArray): kotlin.ULong
+    
+    /**
+     * Когда владелец последний раз был активен (unix seconds; 0 — нет данных).
+     */
+    fun `ownerLastSeen`(`groupId`: kotlin.ByteArray): kotlin.ULong
+    
+    /**
+     * Голос: за заявку (`approve`) или оставить владельца (`keep`).
+     */
+    fun `ownerVote`(`groupId`: kotlin.ByteArray, `claimId`: kotlin.ByteArray, `approve`: kotlin.Boolean, `keep`: kotlin.Boolean): FfiOutgoing?
+    
+    /**
      * Наш peer_id (hex-строкой — удобно для UI и логов).
      */
     fun `peerIdHex`(): kotlin.String
@@ -1605,6 +1992,16 @@ public interface ChatCoreInterface {
      * Отправить сообщение в группу. Возвращает конверт с адресатами.
      */
     fun `post`(`groupId`: kotlin.ByteArray, `text`: kotlin.String): FfiOutgoing
+    
+    /**
+     * Отправить гифку (между клиентами едет только ссылка kind+id).
+     */
+    fun `postGif`(`groupId`: kotlin.ByteArray, `attachment`: FfiAttachment): FfiOutgoing
+    
+    /**
+     * Опубликовать свои активные связи в группе (эфемерно). Вернуть конверт.
+     */
+    fun `postLinks`(`groupId`: kotlin.ByteArray, `links`: List<FfiPeerLink>): FfiOutgoing?
     
     /**
      * Конверт с нашим профилем для повторной рассылки (если ник задан).
@@ -1622,9 +2019,29 @@ public interface ChatCoreInterface {
     fun `receive`(`envelope`: kotlin.ByteArray): List<FfiOutgoing>
     
     /**
+     * Гифки, которые отправлял я (вкладка «Мои»), свежие сверху.
+     */
+    fun `recentGifs`(`limit`: kotlin.UInt): List<FfiAttachment>
+    
+    /**
      * Удалить участника (только владелец). Возвращает конверты для рассылки.
      */
     fun `removeMember`(`groupId`: kotlin.ByteArray, `peerId`: kotlin.ByteArray): List<FfiOutgoing>
+    
+    /**
+     * Переименовать группу (только владелец). Возвращает конверт.
+     */
+    fun `renameGroup`(`groupId`: kotlin.ByteArray, `name`: kotlin.String): FfiOutgoing?
+    
+    /**
+     * Задать свой аватар (маленькое изображение) и вернуть конверт для рассылки.
+     */
+    fun `setAvatar`(`avatar`: kotlin.ByteArray): FfiOutgoing?
+    
+    /**
+     * Сменить аватар группы (только владелец). Возвращает конверт для рассылки.
+     */
+    fun `setGroupAvatar`(`groupId`: kotlin.ByteArray, `avatar`: kotlin.ByteArray): FfiOutgoing?
     
     /**
      * Задать свой никнейм; возвращает конверт для рассылки.
@@ -1635,6 +2052,11 @@ public interface ChatCoreInterface {
      * Merkle-digest группы, адресованный конкретному пиру (офлайн-догон).
      */
     fun `syncDigestTo`(`groupId`: kotlin.ByteArray, `targetKey`: kotlin.ByteArray): FfiOutgoing
+    
+    /**
+     * Разблокировать пользователя.
+     */
+    fun `unblockPeer`(`peerId`: kotlin.ByteArray)
     
     /**
      * Число непрочитанных сообщений в группе.
@@ -1754,13 +2176,13 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Создать группу: возвращает групповой ключ для раздачи участникам.
-     */override fun `createGroup`(`groupId`: kotlin.ByteArray): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
+     * Аватар участника (или None).
+     */override fun `avatarOf`(`peerId`: kotlin.ByteArray): kotlin.ByteArray? {
+            return FfiConverterOptionalByteArray.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_create_group(
-        it, FfiConverterByteArray.lower(`groupId`),_status)
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_avatar_of(
+        it, FfiConverterByteArray.lower(`peerId`),_status)
 }
     }
     )
@@ -1769,11 +2191,71 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Создать группу и сразу вернуть инвайт-строку (ссылка/QR).
-     */override fun `createGroupInvite`(`groupId`: kotlin.ByteArray): kotlin.String {
-            return FfiConverterString.lift(
+     * Все аватары участников.
+     */override fun `avatars`(): List<FfiAvatar> {
+            return FfiConverterSequenceTypeFfiAvatar.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_avatars(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Заблокировать пользователя (локально).
+     */override fun `blockPeer`(`peerId`: kotlin.ByteArray)
+        = 
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_block_peer(
+        it, FfiConverterByteArray.lower(`peerId`),_status)
+}
+    }
+    
+    
+
+    
+    /**
+     * Список заблокированных peer_id.
+     */override fun `blockedPeers`(): List<kotlin.ByteArray> {
+            return FfiConverterSequenceByteArray.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_blocked_peers(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Создать группу (MLS). Ключ раздаётся участникам попарно при впуске.
+     */
+    @Throws(FfiException::class)override fun `createGroup`(`groupId`: kotlin.ByteArray)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_create_group(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    
+    
+
+    
+    /**
+     * Создать группу и сразу вернуть одноразовый инвайт-билет (ссылка/QR).
+     */
+    @Throws(FfiException::class)override fun `createGroupInvite`(`groupId`: kotlin.ByteArray): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_create_group_invite(
         it, FfiConverterByteArray.lower(`groupId`),_status)
 }
@@ -1784,12 +2266,186 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Инвайт существующей группы.
-     */override fun `groupInvite`(`groupId`: kotlin.ByteArray): kotlin.String? {
-            return FfiConverterOptionalString.lift(
+     * Создать группу со случайным id и отдельным именем. Возвращает id.
+     */
+    @Throws(FfiException::class)override fun `createNamedGroup`(`name`: kotlin.String): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_create_named_group(
+        it, FfiConverterString.lower(`name`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Подать заявку на владение: 0 — отсутствие, 1 — вызов, 2 — авто-преемник.
+     */
+    @Throws(FfiException::class)override fun `createOwnerClaim`(`groupId`: kotlin.ByteArray, `trigger`: kotlin.UInt): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_create_owner_claim(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterUInt.lower(`trigger`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Собрать и подписать жалобу для сервера.
+     */
+    @Throws(FfiException::class)override fun `createReport`(`reportedPeer`: kotlin.ByteArray, `groupId`: kotlin.ByteArray, `messageId`: kotlin.ByteArray, `reason`: kotlin.String, `note`: kotlin.String, `screenshot`: kotlin.ByteArray): FfiReport {
+            return FfiConverterTypeFfiReport.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_create_report(
+        it, FfiConverterByteArray.lower(`reportedPeer`),FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`messageId`),FfiConverterString.lower(`reason`),FfiConverterString.lower(`note`),FfiConverterByteArray.lower(`screenshot`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Удалить своё сообщение (только автор). Возвращает конверт.
+     */
+    @Throws(FfiException::class)override fun `deleteMessage`(`groupId`: kotlin.ByteArray, `targetId`: kotlin.ByteArray): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_delete_message(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`targetId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Отредактировать своё сообщение (только автор). Возвращает конверт.
+     */
+    @Throws(FfiException::class)override fun `editMessage`(`groupId`: kotlin.ByteArray, `targetId`: kotlin.ByteArray, `text`: kotlin.String): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_edit_message(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`targetId`),FfiConverterString.lower(`text`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Экспорт seed-фразы (24 слова, BIP39) текущей идентичности.
+     */
+    @Throws(FfiException::class)override fun `exportSeed`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_export_seed(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Завершить выборы, если окно истекло.
+     */
+    @Throws(FfiException::class)override fun `finalizeOwnerElection`(`groupId`: kotlin.ByteArray): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_finalize_owner_election(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Короткий отпечаток публичного ключа для сверки «тот ли это человек».
+     */override fun `fingerprint`(): kotlin.String {
+            return FfiConverterString.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_fingerprint(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Аватар группы (или None).
+     */override fun `groupAvatar`(`groupId`: kotlin.ByteArray): kotlin.ByteArray? {
+            return FfiConverterOptionalByteArray.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_group_avatar(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Гифки текущей группы (вкладка «Эта группа»), свежие сверху.
+     */override fun `groupGifs`(`groupId`: kotlin.ByteArray, `limit`: kotlin.UInt): List<FfiAttachment> {
+            return FfiConverterSequenceTypeFfiAttachment.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_group_gifs(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterUInt.lower(`limit`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Инвайт-билет существующей группы (только владелец).
+     * `max_uses` — сколько раз можно войти (1 — одноразовый), срок — сутки.
+     */
+    @Throws(FfiException::class)override fun `groupInvite`(`groupId`: kotlin.ByteArray, `maxUses`: kotlin.UInt): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_group_invite(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterUInt.lower(`maxUses`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Отображаемое имя группы (fallback — строка id для старых групп).
+     */override fun `groupName`(`groupId`: kotlin.ByteArray): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_group_name(
         it, FfiConverterByteArray.lower(`groupId`),_status)
 }
     }
@@ -1845,6 +2501,23 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
+     * Восстановить идентичность из seed-фразы. Только на пустом профиле
+     * (без групп) — иначе вернёт ошибку. Возвращает новый peer_id (hex).
+     */
+    @Throws(FfiException::class)override fun `importSeed`(`phrase`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_import_seed(
+        it, FfiConverterString.lower(`phrase`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Являемся ли мы владельцем группы.
      */
     @Throws(FfiException::class)override fun `isOwner`(`groupId`: kotlin.ByteArray): kotlin.Boolean {
@@ -1877,7 +2550,7 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Вступить в группу по инвайт-строке. Возвращает id группы и ключ хозяина.
+     * Начать впуск по билету: id группы, ключ хозяина и заявка для отправки.
      */
     @Throws(FfiException::class)override fun `joinFromInvite`(`invite`: kotlin.String): FfiJoin {
             return FfiConverterTypeFfiJoin.lift(
@@ -1893,21 +2566,6 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Вступить в группу по ключу (получен по защищённому каналу).
-     */
-    @Throws(FfiException::class)override fun `joinGroup`(`groupId`: kotlin.ByteArray, `key`: kotlin.ByteArray)
-        = 
-    callWithPointer {
-    uniffiRustCallWithError(FfiException) { _status ->
-    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_join_group(
-        it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`key`),_status)
-}
-    }
-    
-    
-
-    
-    /**
      * Выйти из группы. Возвращает конверт для рассылки (или None).
      */
     @Throws(FfiException::class)override fun `leaveGroup`(`groupId`: kotlin.ByteArray): FfiOutgoing? {
@@ -1915,6 +2573,21 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     callWithPointer {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_leave_group(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Снимок связей группы для графа: (from, to, kind).
+     */override fun `links`(`groupId`: kotlin.ByteArray): List<FfiLink> {
+            return FfiConverterSequenceTypeFfiLink.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_links(
         it, FfiConverterByteArray.lower(`groupId`),_status)
 }
     }
@@ -2023,6 +2696,114 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
+     * Отправить heartbeat владельца (только владелец).
+     */
+    @Throws(FfiException::class)override fun `ownerAlive`(`groupId`: kotlin.ByteArray): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_alive(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Когда последний раз шёл вызов владельца (unix seconds; 0 — не было).
+     */override fun `ownerChallengeAt`(`groupId`: kotlin.ByteArray): kotlin.ULong {
+            return FfiConverterULong.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_challenge_at(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Последний OwnerChange для догона офлайн-участников.
+     */
+    @Throws(FfiException::class)override fun `ownerChangeEnvelope`(`groupId`: kotlin.ByteArray): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_change_envelope(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Активные выборы владельца (для карточки в UI).
+     */override fun `ownerElection`(`groupId`: kotlin.ByteArray): FfiOwnerElection? {
+            return FfiConverterOptionalTypeFfiOwnerElection.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_election(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Номер эпохи владельца группы.
+     */override fun `ownerEpoch`(`groupId`: kotlin.ByteArray): kotlin.ULong {
+            return FfiConverterULong.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_epoch(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Когда владелец последний раз был активен (unix seconds; 0 — нет данных).
+     */override fun `ownerLastSeen`(`groupId`: kotlin.ByteArray): kotlin.ULong {
+            return FfiConverterULong.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_last_seen(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Голос: за заявку (`approve`) или оставить владельца (`keep`).
+     */
+    @Throws(FfiException::class)override fun `ownerVote`(`groupId`: kotlin.ByteArray, `claimId`: kotlin.ByteArray, `approve`: kotlin.Boolean, `keep`: kotlin.Boolean): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_vote(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`claimId`),FfiConverterBoolean.lower(`approve`),FfiConverterBoolean.lower(`keep`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Наш peer_id (hex-строкой — удобно для UI и логов).
      */override fun `peerIdHex`(): kotlin.String {
             return FfiConverterString.lift(
@@ -2061,6 +2842,38 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_post(
         it, FfiConverterByteArray.lower(`groupId`),FfiConverterString.lower(`text`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Отправить гифку (между клиентами едет только ссылка kind+id).
+     */
+    @Throws(FfiException::class)override fun `postGif`(`groupId`: kotlin.ByteArray, `attachment`: FfiAttachment): FfiOutgoing {
+            return FfiConverterTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_post_gif(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterTypeFfiAttachment.lower(`attachment`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Опубликовать свои активные связи в группе (эфемерно). Вернуть конверт.
+     */
+    @Throws(FfiException::class)override fun `postLinks`(`groupId`: kotlin.ByteArray, `links`: List<FfiPeerLink>): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_post_links(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterSequenceTypeFfiPeerLink.lower(`links`),_status)
 }
     }
     )
@@ -2116,6 +2929,21 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
+     * Гифки, которые отправлял я (вкладка «Мои»), свежие сверху.
+     */override fun `recentGifs`(`limit`: kotlin.UInt): List<FfiAttachment> {
+            return FfiConverterSequenceTypeFfiAttachment.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_recent_gifs(
+        it, FfiConverterUInt.lower(`limit`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Удалить участника (только владелец). Возвращает конверты для рассылки.
      */
     @Throws(FfiException::class)override fun `removeMember`(`groupId`: kotlin.ByteArray, `peerId`: kotlin.ByteArray): List<FfiOutgoing> {
@@ -2124,6 +2952,54 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_remove_member(
         it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`peerId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Переименовать группу (только владелец). Возвращает конверт.
+     */
+    @Throws(FfiException::class)override fun `renameGroup`(`groupId`: kotlin.ByteArray, `name`: kotlin.String): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_rename_group(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterString.lower(`name`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Задать свой аватар (маленькое изображение) и вернуть конверт для рассылки.
+     */
+    @Throws(FfiException::class)override fun `setAvatar`(`avatar`: kotlin.ByteArray): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_set_avatar(
+        it, FfiConverterByteArray.lower(`avatar`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Сменить аватар группы (только владелец). Возвращает конверт для рассылки.
+     */
+    @Throws(FfiException::class)override fun `setGroupAvatar`(`groupId`: kotlin.ByteArray, `avatar`: kotlin.ByteArray): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_set_group_avatar(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`avatar`),_status)
 }
     }
     )
@@ -2160,6 +3036,20 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     }
     )
     }
+    
+
+    
+    /**
+     * Разблокировать пользователя.
+     */override fun `unblockPeer`(`peerId`: kotlin.ByteArray)
+        = 
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_unblock_peer(
+        it, FfiConverterByteArray.lower(`peerId`),_status)
+}
+    }
+    
     
 
     
@@ -2217,6 +3107,88 @@ public object FfiConverterTypeChatCore: FfiConverter<ChatCore, Pointer> {
 
 
 /**
+ * Вложение-ссылка (гифка). Байты медиа не передаются — клиент тянет их сам.
+ */
+data class FfiAttachment (
+    var `kind`: kotlin.String, 
+    var `id`: kotlin.String, 
+    var `width`: kotlin.UInt, 
+    var `height`: kotlin.UInt, 
+    var `url`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiAttachment: FfiConverterRustBuffer<FfiAttachment> {
+    override fun read(buf: ByteBuffer): FfiAttachment {
+        return FfiAttachment(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiAttachment) = (
+            FfiConverterString.allocationSize(value.`kind`) +
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterUInt.allocationSize(value.`width`) +
+            FfiConverterUInt.allocationSize(value.`height`) +
+            FfiConverterString.allocationSize(value.`url`)
+    )
+
+    override fun write(value: FfiAttachment, buf: ByteBuffer) {
+            FfiConverterString.write(value.`kind`, buf)
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterUInt.write(value.`width`, buf)
+            FfiConverterUInt.write(value.`height`, buf)
+            FfiConverterString.write(value.`url`, buf)
+    }
+}
+
+
+
+/**
+ * Аватар участника.
+ */
+data class FfiAvatar (
+    var `peerId`: kotlin.ByteArray, 
+    var `avatar`: kotlin.ByteArray
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiAvatar: FfiConverterRustBuffer<FfiAvatar> {
+    override fun read(buf: ByteBuffer): FfiAvatar {
+        return FfiAvatar(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiAvatar) = (
+            FfiConverterByteArray.allocationSize(value.`peerId`) +
+            FfiConverterByteArray.allocationSize(value.`avatar`)
+    )
+
+    override fun write(value: FfiAvatar, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`peerId`, buf)
+            FfiConverterByteArray.write(value.`avatar`, buf)
+    }
+}
+
+
+
+/**
  * Страница истории: сообщения (по возрастанию) и есть ли ещё более старые.
  */
 data class FfiHistoryPage (
@@ -2257,7 +3229,11 @@ public object FfiConverterTypeFfiHistoryPage: FfiConverterRustBuffer<FfiHistoryP
  */
 data class FfiJoin (
     var `groupId`: kotlin.ByteArray, 
-    var `hostKey`: kotlin.ByteArray
+    var `hostKey`: kotlin.ByteArray, 
+    /**
+     * Заявка на впуск (KeyPackage + билет) — отправить хозяину после подключения.
+     */
+    var `request`: FfiOutgoing
 ) {
     
     companion object
@@ -2271,17 +3247,59 @@ public object FfiConverterTypeFfiJoin: FfiConverterRustBuffer<FfiJoin> {
         return FfiJoin(
             FfiConverterByteArray.read(buf),
             FfiConverterByteArray.read(buf),
+            FfiConverterTypeFfiOutgoing.read(buf),
         )
     }
 
     override fun allocationSize(value: FfiJoin) = (
             FfiConverterByteArray.allocationSize(value.`groupId`) +
-            FfiConverterByteArray.allocationSize(value.`hostKey`)
+            FfiConverterByteArray.allocationSize(value.`hostKey`) +
+            FfiConverterTypeFfiOutgoing.allocationSize(value.`request`)
     )
 
     override fun write(value: FfiJoin, buf: ByteBuffer) {
             FfiConverterByteArray.write(value.`groupId`, buf)
             FfiConverterByteArray.write(value.`hostKey`, buf)
+            FfiConverterTypeFfiOutgoing.write(value.`request`, buf)
+    }
+}
+
+
+
+/**
+ * Связь для графа: автор → собеседник и тип ("direct"/"turn").
+ */
+data class FfiLink (
+    var `from`: kotlin.ByteArray, 
+    var `to`: kotlin.ByteArray, 
+    var `kind`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiLink: FfiConverterRustBuffer<FfiLink> {
+    override fun read(buf: ByteBuffer): FfiLink {
+        return FfiLink(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiLink) = (
+            FfiConverterByteArray.allocationSize(value.`from`) +
+            FfiConverterByteArray.allocationSize(value.`to`) +
+            FfiConverterString.allocationSize(value.`kind`)
+    )
+
+    override fun write(value: FfiLink, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`from`, buf)
+            FfiConverterByteArray.write(value.`to`, buf)
+            FfiConverterString.write(value.`kind`, buf)
     }
 }
 
@@ -2331,7 +3349,10 @@ data class FfiMessage (
     var `author`: kotlin.ByteArray, 
     var `text`: kotlin.String, 
     var `lamport`: kotlin.ULong, 
-    var `wallTime`: kotlin.ULong
+    var `wallTime`: kotlin.ULong, 
+    var `edited`: kotlin.Boolean, 
+    var `deleted`: kotlin.Boolean, 
+    var `attachment`: FfiAttachment?
 ) {
     
     companion object
@@ -2349,6 +3370,9 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
             FfiConverterString.read(buf),
             FfiConverterULong.read(buf),
             FfiConverterULong.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterOptionalTypeFfiAttachment.read(buf),
         )
     }
 
@@ -2358,7 +3382,10 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
             FfiConverterByteArray.allocationSize(value.`author`) +
             FfiConverterString.allocationSize(value.`text`) +
             FfiConverterULong.allocationSize(value.`lamport`) +
-            FfiConverterULong.allocationSize(value.`wallTime`)
+            FfiConverterULong.allocationSize(value.`wallTime`) +
+            FfiConverterBoolean.allocationSize(value.`edited`) +
+            FfiConverterBoolean.allocationSize(value.`deleted`) +
+            FfiConverterOptionalTypeFfiAttachment.allocationSize(value.`attachment`)
     )
 
     override fun write(value: FfiMessage, buf: ByteBuffer) {
@@ -2368,6 +3395,9 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
             FfiConverterString.write(value.`text`, buf)
             FfiConverterULong.write(value.`lamport`, buf)
             FfiConverterULong.write(value.`wallTime`, buf)
+            FfiConverterBoolean.write(value.`edited`, buf)
+            FfiConverterBoolean.write(value.`deleted`, buf)
+            FfiConverterOptionalTypeFfiAttachment.write(value.`attachment`, buf)
     }
 }
 
@@ -2445,6 +3475,143 @@ public object FfiConverterTypeFfiOutgoing: FfiConverterRustBuffer<FfiOutgoing> {
 
 
 /**
+ * Заявка на владение в активных выборах.
+ */
+data class FfiOwnerClaim (
+    var `claimId`: kotlin.ByteArray, 
+    var `claimant`: kotlin.ByteArray, 
+    var `trigger`: kotlin.UInt, 
+    var `createdAt`: kotlin.ULong
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiOwnerClaim: FfiConverterRustBuffer<FfiOwnerClaim> {
+    override fun read(buf: ByteBuffer): FfiOwnerClaim {
+        return FfiOwnerClaim(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterULong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiOwnerClaim) = (
+            FfiConverterByteArray.allocationSize(value.`claimId`) +
+            FfiConverterByteArray.allocationSize(value.`claimant`) +
+            FfiConverterUInt.allocationSize(value.`trigger`) +
+            FfiConverterULong.allocationSize(value.`createdAt`)
+    )
+
+    override fun write(value: FfiOwnerClaim, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`claimId`, buf)
+            FfiConverterByteArray.write(value.`claimant`, buf)
+            FfiConverterUInt.write(value.`trigger`, buf)
+            FfiConverterULong.write(value.`createdAt`, buf)
+    }
+}
+
+
+
+/**
+ * Активные выборы владельца.
+ */
+data class FfiOwnerElection (
+    var `trigger`: kotlin.UInt, 
+    var `createdAt`: kotlin.ULong, 
+    var `voteStart`: kotlin.ULong, 
+    var `endsAt`: kotlin.ULong, 
+    var `claims`: List<FfiOwnerClaim>, 
+    var `votes`: List<FfiOwnerVote>
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiOwnerElection: FfiConverterRustBuffer<FfiOwnerElection> {
+    override fun read(buf: ByteBuffer): FfiOwnerElection {
+        return FfiOwnerElection(
+            FfiConverterUInt.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterSequenceTypeFfiOwnerClaim.read(buf),
+            FfiConverterSequenceTypeFfiOwnerVote.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiOwnerElection) = (
+            FfiConverterUInt.allocationSize(value.`trigger`) +
+            FfiConverterULong.allocationSize(value.`createdAt`) +
+            FfiConverterULong.allocationSize(value.`voteStart`) +
+            FfiConverterULong.allocationSize(value.`endsAt`) +
+            FfiConverterSequenceTypeFfiOwnerClaim.allocationSize(value.`claims`) +
+            FfiConverterSequenceTypeFfiOwnerVote.allocationSize(value.`votes`)
+    )
+
+    override fun write(value: FfiOwnerElection, buf: ByteBuffer) {
+            FfiConverterUInt.write(value.`trigger`, buf)
+            FfiConverterULong.write(value.`createdAt`, buf)
+            FfiConverterULong.write(value.`voteStart`, buf)
+            FfiConverterULong.write(value.`endsAt`, buf)
+            FfiConverterSequenceTypeFfiOwnerClaim.write(value.`claims`, buf)
+            FfiConverterSequenceTypeFfiOwnerVote.write(value.`votes`, buf)
+    }
+}
+
+
+
+/**
+ * Голос в активных выборах.
+ */
+data class FfiOwnerVote (
+    var `claimId`: kotlin.ByteArray, 
+    var `voter`: kotlin.ByteArray, 
+    var `approve`: kotlin.Boolean, 
+    var `keep`: kotlin.Boolean
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiOwnerVote: FfiConverterRustBuffer<FfiOwnerVote> {
+    override fun read(buf: ByteBuffer): FfiOwnerVote {
+        return FfiOwnerVote(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiOwnerVote) = (
+            FfiConverterByteArray.allocationSize(value.`claimId`) +
+            FfiConverterByteArray.allocationSize(value.`voter`) +
+            FfiConverterBoolean.allocationSize(value.`approve`) +
+            FfiConverterBoolean.allocationSize(value.`keep`)
+    )
+
+    override fun write(value: FfiOwnerVote, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`claimId`, buf)
+            FfiConverterByteArray.write(value.`voter`, buf)
+            FfiConverterBoolean.write(value.`approve`, buf)
+            FfiConverterBoolean.write(value.`keep`, buf)
+    }
+}
+
+
+
+/**
  * Пир для UI.
  */
 data class FfiPeer (
@@ -2478,6 +3645,76 @@ public object FfiConverterTypeFfiPeer: FfiConverterRustBuffer<FfiPeer> {
             FfiConverterByteArray.write(value.`peerId`, buf)
             FfiConverterULong.write(value.`lastSeen`, buf)
             FfiConverterBoolean.write(value.`isRelay`, buf)
+    }
+}
+
+
+
+/**
+ * Вход для публикации своих связей: с кем и как подключены.
+ */
+data class FfiPeerLink (
+    var `peerId`: kotlin.ByteArray, 
+    var `kind`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiPeerLink: FfiConverterRustBuffer<FfiPeerLink> {
+    override fun read(buf: ByteBuffer): FfiPeerLink {
+        return FfiPeerLink(
+            FfiConverterByteArray.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiPeerLink) = (
+            FfiConverterByteArray.allocationSize(value.`peerId`) +
+            FfiConverterString.allocationSize(value.`kind`)
+    )
+
+    override fun write(value: FfiPeerLink, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`peerId`, buf)
+            FfiConverterString.write(value.`kind`, buf)
+    }
+}
+
+
+
+/**
+ * Подписанная жалоба для серверного endpoint.
+ */
+data class FfiReport (
+    var `payload`: kotlin.ByteArray, 
+    var `signature`: kotlin.ByteArray
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiReport: FfiConverterRustBuffer<FfiReport> {
+    override fun read(buf: ByteBuffer): FfiReport {
+        return FfiReport(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiReport) = (
+            FfiConverterByteArray.allocationSize(value.`payload`) +
+            FfiConverterByteArray.allocationSize(value.`signature`)
+    )
+
+    override fun write(value: FfiReport, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`payload`, buf)
+            FfiConverterByteArray.write(value.`signature`, buf)
     }
 }
 
@@ -2613,6 +3850,38 @@ public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteA
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeFfiAttachment: FfiConverterRustBuffer<FfiAttachment?> {
+    override fun read(buf: ByteBuffer): FfiAttachment? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeFfiAttachment.read(buf)
+    }
+
+    override fun allocationSize(value: FfiAttachment?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeFfiAttachment.allocationSize(value)
+        }
+    }
+
+    override fun write(value: FfiAttachment?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeFfiAttachment.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypeFfiOutgoing: FfiConverterRustBuffer<FfiOutgoing?> {
     override fun read(buf: ByteBuffer): FfiOutgoing? {
         if (buf.get().toInt() == 0) {
@@ -2645,6 +3914,38 @@ public object FfiConverterOptionalTypeFfiOutgoing: FfiConverterRustBuffer<FfiOut
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeFfiOwnerElection: FfiConverterRustBuffer<FfiOwnerElection?> {
+    override fun read(buf: ByteBuffer): FfiOwnerElection? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeFfiOwnerElection.read(buf)
+    }
+
+    override fun allocationSize(value: FfiOwnerElection?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeFfiOwnerElection.allocationSize(value)
+        }
+    }
+
+    override fun write(value: FfiOwnerElection?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeFfiOwnerElection.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceByteArray: FfiConverterRustBuffer<List<kotlin.ByteArray>> {
     override fun read(buf: ByteBuffer): List<kotlin.ByteArray> {
         val len = buf.getInt()
@@ -2663,6 +3964,90 @@ public object FfiConverterSequenceByteArray: FfiConverterRustBuffer<List<kotlin.
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterByteArray.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiAttachment: FfiConverterRustBuffer<List<FfiAttachment>> {
+    override fun read(buf: ByteBuffer): List<FfiAttachment> {
+        val len = buf.getInt()
+        return List<FfiAttachment>(len) {
+            FfiConverterTypeFfiAttachment.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiAttachment>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiAttachment.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiAttachment>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiAttachment.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiAvatar: FfiConverterRustBuffer<List<FfiAvatar>> {
+    override fun read(buf: ByteBuffer): List<FfiAvatar> {
+        val len = buf.getInt()
+        return List<FfiAvatar>(len) {
+            FfiConverterTypeFfiAvatar.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiAvatar>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiAvatar.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiAvatar>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiAvatar.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiLink: FfiConverterRustBuffer<List<FfiLink>> {
+    override fun read(buf: ByteBuffer): List<FfiLink> {
+        val len = buf.getInt()
+        return List<FfiLink>(len) {
+            FfiConverterTypeFfiLink.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiLink>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiLink.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiLink>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiLink.write(it, buf)
         }
     }
 }
@@ -2785,6 +4170,62 @@ public object FfiConverterSequenceTypeFfiOutgoing: FfiConverterRustBuffer<List<F
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeFfiOwnerClaim: FfiConverterRustBuffer<List<FfiOwnerClaim>> {
+    override fun read(buf: ByteBuffer): List<FfiOwnerClaim> {
+        val len = buf.getInt()
+        return List<FfiOwnerClaim>(len) {
+            FfiConverterTypeFfiOwnerClaim.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiOwnerClaim>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiOwnerClaim.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiOwnerClaim>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiOwnerClaim.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiOwnerVote: FfiConverterRustBuffer<List<FfiOwnerVote>> {
+    override fun read(buf: ByteBuffer): List<FfiOwnerVote> {
+        val len = buf.getInt()
+        return List<FfiOwnerVote>(len) {
+            FfiConverterTypeFfiOwnerVote.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiOwnerVote>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiOwnerVote.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiOwnerVote>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiOwnerVote.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeFfiPeer: FfiConverterRustBuffer<List<FfiPeer>> {
     override fun read(buf: ByteBuffer): List<FfiPeer> {
         val len = buf.getInt()
@@ -2803,6 +4244,34 @@ public object FfiConverterSequenceTypeFfiPeer: FfiConverterRustBuffer<List<FfiPe
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeFfiPeer.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiPeerLink: FfiConverterRustBuffer<List<FfiPeerLink>> {
+    override fun read(buf: ByteBuffer): List<FfiPeerLink> {
+        val len = buf.getInt()
+        return List<FfiPeerLink>(len) {
+            FfiConverterTypeFfiPeerLink.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiPeerLink>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiPeerLink.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiPeerLink>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiPeerLink.write(it, buf)
         }
     }
 } fun `defaultGroupId`(): kotlin.ByteArray {

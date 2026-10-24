@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 //! Удаление участника (MLS Remove/Commit): оставшиеся меняют эпоху,
 //! удалённый новые сообщения не читает (forward secrecy).
 

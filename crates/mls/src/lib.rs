@@ -58,7 +58,11 @@ pub fn new_identity(identity: &[u8]) -> Result<MlsIdentity, MlsError> {
         credential: credential.into(),
         signature_key: signer.public().into(),
     };
-    let id = MlsIdentity { provider, signer, credential_with_key };
+    let id = MlsIdentity {
+        provider,
+        signer,
+        credential_with_key,
+    };
     persist::remember_signer(&id);
     Ok(id)
 }
@@ -82,7 +86,11 @@ pub fn from_parts(
         credential: credential.into(),
         signature_key: signer.public().into(),
     };
-    let id = MlsIdentity { provider, signer, credential_with_key };
+    let id = MlsIdentity {
+        provider,
+        signer,
+        credential_with_key,
+    };
     persist::remember_signer(&id);
     Ok(id)
 }
@@ -124,7 +132,10 @@ pub fn add_member(
     let (commit, welcome, _group_info) =
         mls(group.add_members(&id.provider, &id.signer, std::slice::from_ref(&kp)))?;
     mls(group.merge_pending_commit(&id.provider))?;
-    Ok((codec(commit.tls_serialize_detached())?, codec(welcome.tls_serialize_detached())?))
+    Ok((
+        codec(commit.tls_serialize_detached())?,
+        codec(welcome.tls_serialize_detached())?,
+    ))
 }
 
 /// Войти в группу по Welcome.
@@ -177,14 +188,31 @@ pub enum Received {
 }
 
 /// Обработать входящее MLS-сообщение. Commit'ы применяются (merge) автоматически.
-pub fn process(
+pub fn process(group: &mut MlsGroup, id: &MlsIdentity, bytes: &[u8]) -> Result<Received, MlsError> {
+    process_checked(group, id, bytes, None)
+}
+
+/// То же, но Commit принимается только от `allowed_identity` (владельца группы).
+/// Проверка выполняется **до** merge, поэтому чужой Commit не меняет состояние.
+pub fn process_checked(
     group: &mut MlsGroup,
     id: &MlsIdentity,
     bytes: &[u8],
+    allowed_identity: Option<&[u8]>,
 ) -> Result<Received, MlsError> {
     let msg = codec(MlsMessageIn::tls_deserialize_exact(bytes))?;
     let protocol = mls(msg.try_into_protocol_message())?;
     let processed = mls(group.process_message(&id.provider, protocol))?;
+    if matches!(
+        processed.content(),
+        ProcessedMessageContent::StagedCommitMessage(_)
+    ) {
+        if let Some(allowed) = allowed_identity {
+            if processed.credential().serialized_content() != allowed {
+                return Err(MlsError::Mls("commit не от владельца группы".into()));
+            }
+        }
+    }
     Ok(match processed.into_content() {
         ProcessedMessageContent::ApplicationMessage(app) => Received::Application(app.into_bytes()),
         ProcessedMessageContent::StagedCommitMessage(staged) => {

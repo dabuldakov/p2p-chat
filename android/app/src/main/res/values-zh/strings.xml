@@ -101,4 +101,25 @@
     <string name="seed_copied">助记词已复制</string>
     <string name="update_check_failed">无法检查更新</string>
     <string name="privacy_policy">隐私政策</string>
+    <string name="owner_absent">所有者已%1$d天未活跃</string>
+    <string name="owner_election_title">所有者选举</string>
+    <string name="owner_election_ends">剩余%1$d小时</string>
+    <string name="owner_claim_absence">所有者缺席</string>
+    <string name="owner_claim_challenge">挑战</string>
+    <string name="owner_claim_auto">自动继任者</string>
+    <string name="owner_votes_count">票数：%1$d</string>
+    <string name="owner_your_claim">你的申请</string>
+    <string name="owner_vote_for">投票</string>
+    <string name="owner_vote_against">反对</string>
+    <string name="owner_keep">保留所有者</string>
+    <string name="owner_request">申请所有权</string>
+    <string name="owner_challenge">挑战所有者</string>
+    <string name="owner_claim_unavailable">暂不可用</string>
+    <string name="owner_vote_unavailable">投票未被接受</string>
+    <string name="owner_channel">所有者选举</string>
+    <string name="owner_channel_desc">群组所有者选举通知</string>
+    <string name="owner_notification_title">所有者选举</string>
+    <string name="owner_notification_start">更改群组所有者的投票已开始</string>
+    <string name="owner_notification_vote">需要你的投票</string>
+    <string name="owner_changed">群组所有者已更改</string>
 </resources>

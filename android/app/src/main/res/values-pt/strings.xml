@@ -101,4 +101,25 @@
     <string name="seed_copied">Frase copiada</string>
     <string name="update_check_failed">Não foi possível verificar atualizações</string>
     <string name="privacy_policy">Política de privacidade</string>
+    <string name="owner_absent">Proprietário inativo há %1$d dias</string>
+    <string name="owner_election_title">Eleição do proprietário</string>
+    <string name="owner_election_ends">faltam %1$d h</string>
+    <string name="owner_claim_absence">proprietário ausente</string>
+    <string name="owner_claim_challenge">desafio</string>
+    <string name="owner_claim_auto">sucessor automático</string>
+    <string name="owner_votes_count">votos: %1$d</string>
+    <string name="owner_your_claim">Seu pedido</string>
+    <string name="owner_vote_for">Votar</string>
+    <string name="owner_vote_against">Contra</string>
+    <string name="owner_keep">Manter proprietário</string>
+    <string name="owner_request">Solicitar propriedade</string>
+    <string name="owner_challenge">Desafiar proprietário</string>
+    <string name="owner_claim_unavailable">Ainda indisponível</string>
+    <string name="owner_vote_unavailable">Voto não aceito</string>
+    <string name="owner_channel">Eleição do proprietário</string>
+    <string name="owner_channel_desc">Notificações sobre a eleição do proprietário do grupo</string>
+    <string name="owner_notification_title">Eleição do proprietário</string>
+    <string name="owner_notification_start">A votação para mudar o proprietário do grupo começou</string>
+    <string name="owner_notification_vote">Seu voto é necessário</string>
+    <string name="owner_changed">Proprietário do grupo alterado</string>
 </resources>

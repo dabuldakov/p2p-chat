@@ -70,7 +70,7 @@ fn named_group_id_is_random_and_name_comes_from_invite() {
     assert_ne!(gid, gid2, "одинаковые имена — разные id");
 
     let invite = host.create_invite(&gid, 3600, 1).unwrap();
-    let mut joiner = engine();
+    let joiner = engine();
     let (jgid, _) = joiner.join_request(&invite).unwrap();
     assert_eq!(jgid, gid);
     assert_eq!(joiner.group_name(&jgid), "Team Alpha", "имя берётся из подписанного билета");

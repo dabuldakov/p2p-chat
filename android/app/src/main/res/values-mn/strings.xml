@@ -101,4 +101,25 @@
     <string name="seed_copied">Фраз хуулагдлаа</string>
     <string name="update_check_failed">Шинэчлэлтийг шалгаж чадсангүй</string>
     <string name="privacy_policy">Нууцлалын бодлого</string>
+    <string name="owner_absent">Эзэмшигч %1$d хоног идэвхгүй байна</string>
+    <string name="owner_election_title">Эзэмшигчийн сонгууль</string>
+    <string name="owner_election_ends">%1$d цаг үлдлээ</string>
+    <string name="owner_claim_absence">эзэмшигч байхгүй</string>
+    <string name="owner_claim_challenge">сорилт</string>
+    <string name="owner_claim_auto">авто залгамжлагч</string>
+    <string name="owner_votes_count">санал: %1$d</string>
+    <string name="owner_your_claim">Таны хүсэлт</string>
+    <string name="owner_vote_for">Санал өгөх</string>
+    <string name="owner_vote_against">Эсрэг</string>
+    <string name="owner_keep">Эзэмшигчийг үлдээх</string>
+    <string name="owner_request">Эзэмших хүсэлт</string>
+    <string name="owner_challenge">Эзэмшигчийг сорих</string>
+    <string name="owner_claim_unavailable">Одоохондоо боломжгүй</string>
+    <string name="owner_vote_unavailable">Санал хүлээж аваагүй</string>
+    <string name="owner_channel">Эзэмшигчийн сонгууль</string>
+    <string name="owner_channel_desc">Бүлгийн эзэмшигчийн сонгуулийн мэдэгдэл</string>
+    <string name="owner_notification_title">Эзэмшигчийн сонгууль</string>
+    <string name="owner_notification_start">Бүлгийн эзэмшигчийг солих санал хураалт эхэллээ</string>
+    <string name="owner_notification_vote">Таны санал шаардлагатай</string>
+    <string name="owner_changed">Бүлгийн эзэмшигч өөрчлөгдлөө</string>
 </resources>

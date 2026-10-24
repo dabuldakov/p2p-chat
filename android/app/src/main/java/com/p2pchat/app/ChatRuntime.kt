@@ -30,6 +30,7 @@ import uniffi.p2pchat_ffi.FfiLink
 import uniffi.p2pchat_ffi.FfiMember
 import uniffi.p2pchat_ffi.FfiPeerLink
 import uniffi.p2pchat_ffi.FfiMessage
+import uniffi.p2pchat_ffi.FfiOwnerElection
 
 /**
  * Общепроцессный рантайм чата: ядро (Rust), signaling и WebRTC-транспорт.
@@ -147,6 +148,33 @@ object ChatRuntime {
     /** Когда мы последний раз отправляли heartbeat владельца (hex группы → ms). */
     private val ownerHeartbeatAt = HashMap<String, Long>()
 
+    /** Активные выборы владельца текущей группы. */
+    var ownerElection by mutableStateOf<FfiOwnerElection?>(null)
+        private set
+
+    /** Эпоха владельца текущей группы. */
+    var ownerEpoch by mutableStateOf(0uL)
+        private set
+
+    /** Название группы после смены владельца (для системного баннера). */
+    var ownerChangeNotice by mutableStateOf<String?>(null)
+        private set
+
+    private val ownerEpochSeen = HashMap<String, ULong>()
+
+    /** Когда последний раз завершался вызов владельца (unix сек; 0 — не было). */
+    var ownerChallengeAt by mutableStateOf(0uL)
+        private set
+
+    /** Не пытаться автоматически начать выборы чаще, чем раз в 10 минут. */
+    private val ownerAutoAt = HashMap<String, Long>()
+
+    /** Когда последний раз пересылали OwnerChange (hex группы → ms). */
+    private val ownerReplayAt = HashMap<String, Long>()
+
+    /** Подпись последнего показанного уведомления о выборах (hex группы → sig). */
+    private val ownerNotified = HashMap<String, String>()
+
     /** Заблокированные (hex peer_id) — их сообщения скрыты. */
     var blocked by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -224,6 +252,7 @@ object ChatRuntime {
                 connectAll()
                 syncAll()
                 maybeOwnerHeartbeat()
+                maybeAdvanceOwnerElection()
                 lastSignalingTs = signaling.lastActivityMs
             }
         }
@@ -308,11 +337,19 @@ object ChatRuntime {
         runCatching { core.profileEnvelope() }.getOrNull()?.let {
             transport.sendTargets(it.envelope, it.targets)
         }
+        val now = System.currentTimeMillis()
         for (g in core.listGroups()) {
             for (key in core.neighborKeys(g)) {
                 runCatching { core.syncDigestTo(g, key) }.getOrNull()?.let {
                     transport.sendTargets(it.envelope, it.targets)
                 }
+            }
+            val gkey = g.toHex()
+            if (now - (ownerReplayAt[gkey] ?: 0L) > 60_000L) {
+                runCatching { core.ownerChangeEnvelope(g) }.getOrNull()?.let {
+                    transport.sendTargets(it.envelope, it.targets)
+                }
+                ownerReplayAt[gkey] = now
             }
         }
     }
@@ -323,6 +360,9 @@ object ChatRuntime {
         }
         for (g in core.groupsWith(peerKey)) {
             runCatching { core.syncDigestTo(g, peerKey) }.getOrNull()?.let {
+                transport.sendTargets(it.envelope, it.targets)
+            }
+            runCatching { core.ownerChangeEnvelope(g) }.getOrNull()?.let {
                 transport.sendTargets(it.envelope, it.targets)
             }
         }
@@ -433,6 +473,7 @@ object ChatRuntime {
     }
 
     fun selectGroup(g: ByteArray) {
+        ownerChangeNotice = null
         currentGroup = g
         status = ""
         currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
@@ -469,8 +510,13 @@ object ChatRuntime {
     }
 
     fun backToList() {
+        ownerChangeNotice = null
         currentGroup = null
         currentGroupName = null
+    }
+
+    fun dismissOwnerChangeNotice() {
+        ownerChangeNotice = null
     }
 
     fun onSharedText(text: String) {
@@ -651,6 +697,21 @@ object ChatRuntime {
         ownerLastSeen = currentGroup?.let {
             runCatching { core.ownerLastSeen(it) }.getOrDefault(0uL).toLong() * 1000L
         } ?: 0L
+        val elections = ids.associateBy(
+            { it.toHex() },
+            { runCatching { core.ownerElection(it) }.getOrNull() },
+        )
+        ownerElection = currentGroup?.let { elections[it.toHex()] }
+        ownerEpoch = currentGroup?.let { runCatching { core.ownerEpoch(it) }.getOrDefault(0uL) } ?: 0uL
+        currentGroup?.let { g ->
+            val seen = ownerEpochSeen[g.toHex()]
+            if (seen != null && ownerEpoch > seen) ownerChangeNotice = currentGroupName
+            ownerEpochSeen[g.toHex()] = ownerEpoch
+        }
+        ownerChallengeAt = currentGroup?.let { runCatching { core.ownerChallengeAt(it) }.getOrDefault(0uL) } ?: 0uL
+        groupInfos.forEach { gi -> maybeNotifyOwnerElection(gi, elections[gi.id.toHex()]) }
+        val knownGroups = groupInfos.map { it.id.toHex() }.toSet()
+        ownerNotified.keys.filter { it !in knownGroups }.forEach { clearOwnerNotice(it) }
         maybeOwnerHeartbeat()
         currentGroup?.let { g ->
             val fresh = runCatching { core.groupAvatar(g) }.getOrNull()
@@ -678,6 +739,90 @@ object ChatRuntime {
         ownerHeartbeatAt[key] = now
         runCatching { core.ownerAlive(g) }.getOrNull()?.let {
             transport.sendTargets(it.envelope, it.targets)
+        }
+    }
+
+    private fun maybeNotifyOwnerElection(group: GroupInfo, election: FfiOwnerElection?) {
+        val key = group.id.toHex()
+        if (election == null) {
+            clearOwnerNotice(key)
+            return
+        }
+        if (appVisible && currentGroup?.contentEquals(group.id) == true) {
+            clearOwnerNotice(key)
+            return
+        }
+        val iAmClaimant = election.claims.any { it.claimant.toHex() == peerId }
+        val iVoted = election.votes.any { it.voter.toHex() == peerId }
+        val iAmOwner = runCatching { core.isOwner(group.id) }.getOrDefault(false)
+        val ownerNeedsVote = iAmOwner && election.trigger.toInt() == 1
+        if (iAmClaimant || iVoted || (iAmOwner && !ownerNeedsVote)) {
+            clearOwnerNotice(key)
+            return
+        }
+        val now = System.currentTimeMillis()
+        val voteStarted = now >= election.voteStart.toLong() * 1000L
+        val textRes = if (voteStarted) R.string.owner_notification_vote else R.string.owner_notification_start
+        val sig = election.claims.joinToString(",") { it.claimId.toHex() } +
+            ":" + election.trigger + ":" + voteStarted
+        if (ownerNotified[key] == sig) return
+        ownerNotified[key] = sig
+        Notifier.showOwnerElection(app, key, group.name, app.getString(textRes))
+    }
+
+    private fun clearOwnerNotice(key: String) {
+        ownerNotified.remove(key)
+        Notifier.clearOwnerElection(app, key)
+    }
+
+    /** Подать заявку на владение: 0 — отсутствие, 1 — вызов, 2 — авто. */
+    fun claimOwner(trigger: Int) {
+        val g = currentGroup ?: return
+        val out = runCatching { core.createOwnerClaim(g, trigger.toUInt()) }.getOrNull()
+        if (out == null) {
+            Toast.makeText(app, app.getString(R.string.owner_claim_unavailable), Toast.LENGTH_SHORT).show()
+            return
+        }
+        transport.sendTargets(out.envelope, out.targets)
+        refresh()
+    }
+
+    /** Голос за заявку или за сохранение владельца. */
+    fun voteOwner(claimId: ByteArray, approve: Boolean, keep: Boolean) {
+        val g = currentGroup ?: return
+        val out = runCatching { core.ownerVote(g, claimId, approve, keep) }.getOrNull()
+        if (out == null) {
+            Toast.makeText(app, app.getString(R.string.owner_vote_unavailable), Toast.LENGTH_SHORT).show()
+            return
+        }
+        transport.sendTargets(out.envelope, out.targets)
+        refresh()
+    }
+
+    /** Оставить текущего владельца (голос keep при вызове). */
+    fun keepOwner() = voteOwner(ByteArray(0), true, true)
+
+    private fun maybeAdvanceOwnerElection() {
+        val g = currentGroup ?: return
+        val now = System.currentTimeMillis()
+        val election = runCatching { core.ownerElection(g) }.getOrNull()
+        if (election != null) {
+            if (now >= election.endsAt.toLong() * 1000L) {
+                runCatching { core.finalizeOwnerElection(g) }.getOrNull()?.let {
+                    transport.sendTargets(it.envelope, it.targets)
+                }
+                refresh()
+            }
+            return
+        }
+        if (isOwner || ownerLastSeen <= 0L) return
+        if (now - ownerLastSeen < 8 * 86_400_000L) return
+        val key = g.toHex()
+        if (now - (ownerAutoAt[key] ?: 0L) < 10 * 60_000L) return
+        ownerAutoAt[key] = now
+        runCatching { core.createOwnerClaim(g, 2u) }.getOrNull()?.let {
+            transport.sendTargets(it.envelope, it.targets)
+            refresh()
         }
     }
 

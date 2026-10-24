@@ -101,4 +101,25 @@
     <string name="seed_copied">フレーズをコピーしました</string>
     <string name="update_check_failed">アップデートを確認できませんでした</string>
     <string name="privacy_policy">プライバシーポリシー</string>
+    <string name="owner_absent">オーナーが%1$d日間非アクティブです</string>
+    <string name="owner_election_title">オーナー選挙</string>
+    <string name="owner_election_ends">残り%1$d時間</string>
+    <string name="owner_claim_absence">オーナー不在</string>
+    <string name="owner_claim_challenge">異議</string>
+    <string name="owner_claim_auto">自動後継者</string>
+    <string name="owner_votes_count">票数: %1$d</string>
+    <string name="owner_your_claim">あなたの申請</string>
+    <string name="owner_vote_for">投票</string>
+    <string name="owner_vote_against">反対</string>
+    <string name="owner_keep">オーナーを維持</string>
+    <string name="owner_request">所有権を申請</string>
+    <string name="owner_challenge">オーナーに異議</string>
+    <string name="owner_claim_unavailable">まだ利用できません</string>
+    <string name="owner_vote_unavailable">投票は受け付けられませんでした</string>
+    <string name="owner_channel">オーナー選挙</string>
+    <string name="owner_channel_desc">グループオーナー選挙の通知</string>
+    <string name="owner_notification_title">オーナー選挙</string>
+    <string name="owner_notification_start">グループオーナーの変更投票が始まりました</string>
+    <string name="owner_notification_vote">投票が必要です</string>
+    <string name="owner_changed">グループオーナーが変更されました</string>
 </resources>

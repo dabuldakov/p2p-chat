@@ -31,12 +31,16 @@ const PER_KEY: usize = 5;
 const PER_IP: usize = 30;
 const WINDOW: Duration = Duration::from_secs(3600);
 
+type KeyRate = Mutex<HashMap<Vec<u8>, Vec<Instant>>>;
+type IpRate = Mutex<HashMap<String, Vec<Instant>>>;
+type Dedup = Mutex<HashMap<(Vec<u8>, Vec<u8>, Vec<u8>), Instant>>;
+
 #[derive(Clone)]
 struct AppState {
     dir: PathBuf,
-    per_key: Arc<Mutex<HashMap<Vec<u8>, Vec<Instant>>>>,
-    per_ip: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
-    seen: Arc<Mutex<HashMap<(Vec<u8>, Vec<u8>, Vec<u8>), Instant>>>,
+    per_key: Arc<KeyRate>,
+    per_ip: Arc<IpRate>,
+    seen: Arc<Dedup>,
 }
 
 #[derive(Deserialize)]
@@ -69,7 +73,7 @@ pub fn validate(payload: &[u8], signature: &[u8], now: u64) -> Result<Report, St
 }
 
 fn allow(
-    map: &Mutex<HashMap<Vec<u8>, Vec<Instant>>>,
+    map: &KeyRate,
     key: &[u8],
     max: usize,
     window: Duration,
@@ -84,7 +88,7 @@ fn allow(
     true
 }
 
-fn allow_ip(map: &Mutex<HashMap<String, Vec<Instant>>>, key: &str) -> bool {
+fn allow_ip(map: &IpRate, key: &str) -> bool {
     let mut m = map.lock().unwrap();
     let v = m.entry(key.to_string()).or_default();
     v.retain(|t| t.elapsed() < WINDOW);
@@ -96,7 +100,7 @@ fn allow_ip(map: &Mutex<HashMap<String, Vec<Instant>>>, key: &str) -> bool {
 }
 
 fn fresh_dedup(
-    map: &Mutex<HashMap<(Vec<u8>, Vec<u8>, Vec<u8>), Instant>>,
+    map: &Dedup,
     key: (Vec<u8>, Vec<u8>, Vec<u8>),
 ) -> bool {
     let mut m = map.lock().unwrap();
