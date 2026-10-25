@@ -40,6 +40,11 @@ pub struct StoredAttachment {
     pub width: u32,
     pub height: u32,
     pub url: String,
+    pub mime: String,
+    pub size: u64,
+    pub duration_ms: u64,
+    pub file_name: String,
+    pub thumbnail: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -230,6 +235,22 @@ impl Store {
             self.conn.execute_batch("PRAGMA user_version = 9;")?;
         }
 
+        if version < 10 {
+            for (col, ty) in [
+                ("attachment_mime", "TEXT"),
+                ("attachment_size", "INTEGER"),
+                ("attachment_duration", "INTEGER"),
+                ("attachment_name", "TEXT"),
+                ("attachment_thumb", "BLOB"),
+            ] {
+                if !self.has_column("messages", col)? {
+                    self.conn
+                        .execute_batch(&format!("ALTER TABLE messages ADD COLUMN {col} {ty};"))?;
+                }
+            }
+            self.conn.execute_batch("PRAGMA user_version = 10;")?;
+        }
+
         Ok(())
     }
 
@@ -325,16 +346,17 @@ impl Store {
     pub fn insert_message(&self, m: &StoredMessage, lamport: u64) -> Result<bool, StorageError> {
         let now = unix_now();
         let tx = self.conn.unchecked_transaction()?;
-        let (ak, ai, aw, ah, au) = attachment_cols(m);
+        let (ak, ai, aw, ah, au, am, asz, ad, an, at) = attachment_cols(m);
         let changed = tx.execute(
             "INSERT OR IGNORE INTO messages
              (id, group_id, author, lamport, wall_time, text, received,
-              attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+              attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url,
+              attachment_mime, attachment_size, attachment_duration, attachment_name, attachment_thumb)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
             params![
                 m.id, m.group_id, m.author, m.lamport as i64,
                 m.wall_time as i64, m.text, now as i64,
-                ak, ai, aw, ah, au
+                ak, ai, aw, ah, au, am, asz, ad, an, at
             ],
         )?;
         if changed > 0 {
@@ -367,18 +389,19 @@ impl Store {
             let mut stmt = tx.prepare(
                 "INSERT OR IGNORE INTO messages
                  (id, group_id, author, lamport, wall_time, text, received,
-                  attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+                  attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url,
+                  attachment_mime, attachment_size, attachment_duration, attachment_name, attachment_thumb)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
             )?;
             let mut pstmt = tx.prepare(
                 "INSERT OR IGNORE INTO message_parents (message_id, parent_id) VALUES (?1, ?2)",
             )?;
             for m in messages {
-                let (ak, ai, aw, ah, au) = attachment_cols(m);
+                let (ak, ai, aw, ah, au, am, asz, ad, an, at) = attachment_cols(m);
                 let n = stmt.execute(params![
                     m.id, m.group_id, m.author, m.lamport as i64,
                     m.wall_time as i64, m.text, now as i64,
-                    ak, ai, aw, ah, au
+                    ak, ai, aw, ah, au, am, asz, ad, an, at
                 ])?;
                 if n > 0 {
                     for p in &m.parents {
@@ -414,7 +437,8 @@ impl Store {
         let parents = self.parents_map()?;
         let mut stmt = self.conn.prepare(
             "SELECT id, group_id, author, lamport, wall_time, text,
-                    attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url
+                    attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url,
+                    attachment_mime, attachment_size, attachment_duration, attachment_name, attachment_thumb
              FROM messages WHERE group_id = ?1
              ORDER BY lamport ASC, id ASC LIMIT ?2",
         )?;
@@ -446,7 +470,8 @@ impl Store {
         let parents = self.parents_map()?;
         let mut stmt = self.conn.prepare(
             "SELECT id, group_id, author, lamport, wall_time, text,
-                    attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url
+                    attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url,
+                    attachment_mime, attachment_size, attachment_duration, attachment_name, attachment_thumb
              FROM messages ORDER BY lamport ASC, id ASC",
         )?;
         let rows = stmt.query_map([], |r| {
@@ -752,6 +777,11 @@ impl Store {
                 width: r.get::<_, Option<i64>>(2)?.unwrap_or(0) as u32,
                 height: r.get::<_, Option<i64>>(3)?.unwrap_or(0) as u32,
                 url: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                mime: String::new(),
+                size: 0,
+                duration_ms: 0,
+                file_name: String::new(),
+                thumbnail: Vec::new(),
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -765,6 +795,11 @@ type AttachmentCols<'a> = (
     Option<i64>,
     Option<i64>,
     Option<&'a str>,
+    Option<&'a str>,
+    Option<i64>,
+    Option<i64>,
+    Option<&'a str>,
+    Option<&'a [u8]>,
 );
 
 fn attachment_cols(m: &StoredMessage) -> AttachmentCols<'_> {
@@ -775,8 +810,13 @@ fn attachment_cols(m: &StoredMessage) -> AttachmentCols<'_> {
             Some(a.width as i64),
             Some(a.height as i64),
             Some(a.url.as_str()),
+            Some(a.mime.as_str()),
+            Some(a.size as i64),
+            Some(a.duration_ms as i64),
+            Some(a.file_name.as_str()),
+            Some(a.thumbnail.as_slice()),
         ),
-        None => (None, None, None, None, None),
+        None => (None, None, None, None, None, None, None, None, None, None),
     }
 }
 
@@ -790,6 +830,11 @@ fn read_attachment(r: &rusqlite::Row<'_>) -> rusqlite::Result<Option<StoredAttac
             width: r.get::<_, Option<i64>>(8)?.unwrap_or(0) as u32,
             height: r.get::<_, Option<i64>>(9)?.unwrap_or(0) as u32,
             url: r.get::<_, Option<String>>(10)?.unwrap_or_default(),
+            mime: r.get::<_, Option<String>>(11)?.unwrap_or_default(),
+            size: r.get::<_, Option<i64>>(12)?.unwrap_or(0) as u64,
+            duration_ms: r.get::<_, Option<i64>>(13)?.unwrap_or(0) as u64,
+            file_name: r.get::<_, Option<String>>(14)?.unwrap_or_default(),
+            thumbnail: r.get::<_, Option<Vec<u8>>>(15)?.unwrap_or_default(),
         }),
         None => None,
     })
@@ -835,7 +880,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 9);
+        assert_eq!(v, 10);
     }
 
     #[test]
@@ -901,7 +946,7 @@ mod tests {
         assert_eq!(msgs[0].parents, vec![vec![1u8, 2, 3]], "родители перенесены");
         assert!(!store.has_column("messages", "parents").unwrap(), "старый столбец убран");
         let v: i64 = store.conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(v, 9);
+        assert_eq!(v, 10);
 
         let _ = std::fs::remove_file(&path);
     }
@@ -917,6 +962,11 @@ mod tests {
             width: 220,
             height: 230,
             url: "https://static.klipy.com/x.mp4".into(),
+            mime: "video/mp4".into(),
+            size: 12345,
+            duration_ms: 6789,
+            file_name: "clip.mp4".into(),
+            thumbnail: vec![1, 2, 3],
         });
         assert!(store.insert_message(&m, 5).unwrap());
 
@@ -927,6 +977,11 @@ mod tests {
         assert_eq!(a.id, "abc123");
         assert_eq!((a.width, a.height), (220, 230));
         assert_eq!(a.url, "https://static.klipy.com/x.mp4");
+        assert_eq!(a.mime, "video/mp4");
+        assert_eq!(a.size, 12345);
+        assert_eq!(a.duration_ms, 6789);
+        assert_eq!(a.file_name, "clip.mp4");
+        assert_eq!(a.thumbnail, vec![1, 2, 3]);
 
         // у обычного сообщения вложения нет
         assert!(store.insert_message(&msg(b"m2", 6), 6).unwrap());
@@ -939,16 +994,16 @@ mod tests {
     fn gifs_queries_dedup_and_order() {
         let store = Store::open_in_memory().unwrap();
         let mut a = msg(b"a1", 1);
-        a.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g1".into(), width: 1, height: 1, url: String::new() });
+        a.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g1".into(), width: 1, height: 1, url: String::new(), mime: String::new(), size: 0, duration_ms: 0, file_name: String::new(), thumbnail: Vec::new() });
         a.wall_time = 100;
         let mut a2 = msg(b"a2", 2);
         a2.group_id = b"g2".to_vec();
         a2.author = b"b".to_vec();
-        a2.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g2".into(), width: 1, height: 1, url: String::new() });
+        a2.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g2".into(), width: 1, height: 1, url: String::new(), mime: String::new(), size: 0, duration_ms: 0, file_name: String::new(), thumbnail: Vec::new() });
         a2.wall_time = 200;
         // дубликат g1 тем же автором позже — не должен дублироваться
         let mut a1dup = msg(b"a1dup", 3);
-        a1dup.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g1".into(), width: 1, height: 1, url: String::new() });
+        a1dup.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g1".into(), width: 1, height: 1, url: String::new(), mime: String::new(), size: 0, duration_ms: 0, file_name: String::new(), thumbnail: Vec::new() });
         a1dup.wall_time = 300;
 
         store.insert_message(&a, 1).unwrap();
@@ -1051,6 +1106,11 @@ mod tests {
             width: 10,
             height: 20,
             url: "http://x".into(),
+            mime: String::new(),
+            size: 0,
+            duration_ms: 0,
+            file_name: String::new(),
+            thumbnail: Vec::new(),
         });
         let mut g2 = msg(b"g2m1", 1);
         g2.group_id = b"g2".to_vec();

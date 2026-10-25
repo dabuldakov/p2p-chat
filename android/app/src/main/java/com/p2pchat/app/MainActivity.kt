@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.MediaStore
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -15,6 +16,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
@@ -66,6 +68,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.QrCode
@@ -73,12 +76,14 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.HowToVote
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -97,6 +102,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -1022,6 +1028,10 @@ private fun GroupScreen(vm: ChatViewModel) {
     var confirmLeave by remember { mutableStateOf(false) }
     var removeTarget by remember { mutableStateOf<ByteArray?>(null) }
     var showGifPicker by remember { mutableStateOf(false) }
+    var showAttachMenu by remember { mutableStateOf(false) }
+    var mediaBusy by remember { mutableStateOf(false) }
+    var recording by remember { mutableStateOf(false) }
+    var recordSeconds by remember { mutableStateOf(0) }
     var editTarget by remember { mutableStateOf<FfiMessage?>(null) }
     var editText by remember { mutableStateOf("") }
     var actionTarget by remember { mutableStateOf<FfiMessage?>(null) }
@@ -1036,10 +1046,90 @@ private fun GroupScreen(vm: ChatViewModel) {
     var showRequestInfo by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
+    val recorder = remember { AudioRecorder(ctx) }
     val scope = rememberCoroutineScope()
     val pickGroupAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { u -> scope.launch { withContext(Dispatchers.IO) { downscaledJpeg(ctx, u) }?.let { vm.setGroupAvatar(it) } } }
     }
+
+    fun sendPicked(uri: android.net.Uri, kind: String, prep: suspend (android.net.Uri) -> PreparedMedia?) {
+        val group = vm.currentGroup ?: return
+        scope.launch {
+            mediaBusy = true
+            val p = prep(uri)
+            mediaBusy = false
+            if (p == null) Toast.makeText(ctx, ctx.getString(R.string.media_failed), Toast.LENGTH_LONG).show()
+            else vm.sendMediaTo(group, kind, p)
+        }
+    }
+
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { sendPicked(it, "image") { u -> MediaPrep.image(ctx, u) } }
+    }
+    val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { sendPicked(it, "video") { u -> MediaPrep.video(ctx, u) } }
+    }
+    val pickAudio = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { sendPicked(it, "audio") { u -> MediaPrep.audio(ctx, u) } }
+    }
+    val captureVideo = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        res.data?.data?.let { uri ->
+            sendPicked(uri, "video_note") { u -> MediaPrep.video(ctx, u) }
+        }
+    }
+
+    fun stopVoice(send: Boolean) {
+        val file = recorder.stop()
+        recording = false
+        if (!send) {
+            file?.delete()
+            return
+        }
+        if (file == null) {
+            Toast.makeText(ctx, ctx.getString(R.string.media_failed), Toast.LENGTH_LONG).show()
+            return
+        }
+        val group = vm.currentGroup ?: return
+        scope.launch {
+            mediaBusy = true
+            val p = MediaPrep.recorded(ctx, file, "voice", "audio/mp4")
+            mediaBusy = false
+            if (p == null) Toast.makeText(ctx, ctx.getString(R.string.media_failed), Toast.LENGTH_LONG).show()
+            else vm.sendMediaTo(group, "voice", p)
+        }
+    }
+
+    fun startVoice() {
+        if (recorder.start()) {
+            recordSeconds = 0
+            recording = true
+        } else {
+            Toast.makeText(ctx, ctx.getString(R.string.media_failed), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startVoice()
+        else Toast.makeText(ctx, ctx.getString(R.string.mic_permission), Toast.LENGTH_LONG).show()
+    }
+
+    fun requestVoice() {
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) startVoice()
+        else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    LaunchedEffect(recording) {
+        while (recording) {
+            kotlinx.coroutines.delay(1000)
+            if (recording) {
+                recordSeconds += 1
+                if (recordSeconds >= 300) stopVoice(true)
+            }
+        }
+    }
+    DisposableEffect(Unit) { onDispose { recorder.cancel() } }
     val invite = vm.invite
     val inviteQr = remember(invite) { invite?.let { generateQrBitmap(it, 640) } }
 
@@ -1456,9 +1546,31 @@ private fun GroupScreen(vm: ChatViewModel) {
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+        if (recording) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(Color(0xFFE53935)))
+                Text(
+                    "%d:%02d".format(recordSeconds / 60, recordSeconds % 60),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { stopVoice(false) }) {
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cancel), tint = MaterialTheme.colorScheme.error)
+                }
+                IconButton(onClick = { stopVoice(true) }) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.send))
+                }
+            }
+        } else Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            IconButton(onClick = { showAttachMenu = true }, enabled = !mediaBusy) {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.attachment))
+            }
             if (vm.gifEnabled) {
-                IconButton(onClick = { showGifPicker = true }) {
+                IconButton(onClick = { showGifPicker = true }, enabled = !mediaBusy) {
                     Icon(Icons.Filled.GifBox, contentDescription = stringResource(R.string.gif))
                 }
             }
@@ -1474,6 +1586,22 @@ private fun GroupScreen(vm: ChatViewModel) {
                     color = MaterialTheme.colorScheme.onSurface,
                 ),
             )
+            if (input.isBlank() && !mediaBusy) {
+                IconButton(onClick = { requestVoice() }) {
+                    Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.voice_message))
+                }
+                IconButton(onClick = {
+                    captureVideo.launch(
+                            Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60),
+                        )
+                }) {
+                    Icon(Icons.Filled.Videocam, contentDescription = stringResource(R.string.video_message))
+                }
+            }
+            if (mediaBusy) {
+                CircularProgressIndicator(Modifier.size(24.dp))
+                Spacer(Modifier.width(8.dp))
+            }
             Spacer(Modifier.width(8.dp))
             FilledIconButton(
                 onClick = { vm.send(input); input = "" },
@@ -1503,6 +1631,37 @@ private fun GroupScreen(vm: ChatViewModel) {
 
     reactionTarget?.let { target ->
         ReactionPickerDialog(vm, target, onDismiss = { reactionTarget = null })
+    }
+
+    if (showAttachMenu) {
+        AlertDialog(
+            onDismissRequest = { showAttachMenu = false },
+            title = { Text(stringResource(R.string.attachment)) },
+            text = {
+                Column {
+                    TextButton(onClick = {
+                        showAttachMenu = false
+                        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }) { Text(stringResource(R.string.attachment_photo)) }
+                    TextButton(onClick = {
+                        showAttachMenu = false
+                        pickVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                    }) { Text(stringResource(R.string.attachment_video)) }
+                    TextButton(onClick = {
+                        showAttachMenu = false
+                        pickAudio.launch(arrayOf("audio/*"))
+                    }) { Text(stringResource(R.string.attachment_audio)) }
+                    TextButton(onClick = {
+                        showAttachMenu = false
+                        captureVideo.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE))
+                    }) { Text(stringResource(R.string.video_message)) }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showAttachMenu = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 
     if (showGifPicker && vm.gifEnabled) {
@@ -1979,12 +2138,16 @@ private fun MessageRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else if (att != null) {
-                    GifAttachmentView(
-                        providerId = att.id,
-                        width = att.width.toInt(),
-                        height = att.height.toInt(),
-                        vm = vm,
-                    )
+                    if (att.kind in setOf("image", "video", "video_note", "audio", "voice")) {
+                        MediaAttachmentView(att, onLongPress)
+                    } else {
+                        GifAttachmentView(
+                            providerId = att.id,
+                            width = att.width.toInt(),
+                            height = att.height.toInt(),
+                            vm = vm,
+                        )
+                    }
                 } else {
                     val inv = extractInvite(message.text)
                     val url = singleUrl(message.text)

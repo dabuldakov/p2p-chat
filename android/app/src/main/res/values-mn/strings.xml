@@ -137,4 +137,12 @@
     <string name="reaction_cat_other">Бусад</string>
     <string name="owner_management">Эзэмшигчийн удирдлага</string>
     <string name="owner_election_in_progress">Эзэмшигчийн сонгууль аль хэдийн явагдаж байна.</string>
+    <string name="attachment">Хавсралт</string>
+    <string name="attachment_photo">Зураг</string>
+    <string name="attachment_video">Видео</string>
+    <string name="attachment_audio">Аудио</string>
+    <string name="video_message">Видео мессеж</string>
+    <string name="media_failed">Медиа бэлтгэж чадсангүй</string>
+    <string name="voice_message">Дуут мессеж</string>
+    <string name="mic_permission">Микрофоны зөвшөөрөл шаардлагатай.</string>
 </resources>

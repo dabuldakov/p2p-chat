@@ -154,4 +154,12 @@
     <string name="reaction_cat_other">Другое</string>
     <string name="owner_management">Управление владельцем</string>
     <string name="owner_election_in_progress">Выборы владельца уже идут.</string>
+    <string name="attachment">Вложение</string>
+    <string name="attachment_photo">Фото</string>
+    <string name="attachment_video">Видео</string>
+    <string name="attachment_audio">Аудио</string>
+    <string name="video_message">Видеосообщение</string>
+    <string name="media_failed">Не удалось подготовить медиа</string>
+    <string name="voice_message">Голосовое сообщение</string>
+    <string name="mic_permission">Нужно разрешение на микрофон.</string>
 </resources>

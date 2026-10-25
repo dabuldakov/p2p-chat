@@ -193,8 +193,8 @@ impl GossipEngine {
         Ok(out)
     }
 
-    /// Создать сообщение-гифку: между клиентами едет только ссылка-идентификатор.
-    pub fn post_gif(
+    /// Создать сообщение с вложением: в сообщении едут только метаданные.
+    pub fn post_attachment(
         &mut self,
         group: GroupId,
         attachment: crate::proto::Attachment,
@@ -205,6 +205,15 @@ impl GossipEngine {
         let out = self.out_msg(msg)?;
         self.persist_mls();
         Ok(out)
+    }
+
+    /// Совместимый алиас для GIF.
+    pub fn post_gif(
+        &mut self,
+        group: GroupId,
+        attachment: crate::proto::Attachment,
+    ) -> Result<Outgoing, CoreError> {
+        self.post_attachment(group, attachment)
     }
 
     /// Создать новую группу (MLS). Ключ раздаётся попарно при впуске.

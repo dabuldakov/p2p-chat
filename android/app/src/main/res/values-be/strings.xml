@@ -137,4 +137,12 @@
     <string name="reaction_cat_other">Іншае</string>
     <string name="owner_management">Кіраванне ўладальнікам</string>
     <string name="owner_election_in_progress">Выбары ўладальніка ўжо ідуць.</string>
+    <string name="attachment">Вакладка</string>
+    <string name="attachment_photo">Фота</string>
+    <string name="attachment_video">Відэа</string>
+    <string name="attachment_audio">Аўдыя</string>
+    <string name="video_message">Відэапаведамленне</string>
+    <string name="media_failed">Не ўдалося падгатаваць медыя</string>
+    <string name="voice_message">Галасавое паведамленне</string>
+    <string name="mic_permission">Патрэбна дазвол на мікрафон.</string>
 </resources>

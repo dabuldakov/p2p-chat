@@ -70,6 +70,11 @@ impl Log {
                     width: a.width,
                     height: a.height,
                     url: a.url,
+                    mime: a.mime,
+                    size: a.size,
+                    duration_ms: a.duration_ms,
+                    file_name: a.file_name,
+                    thumbnail: a.thumbnail,
                 }),
             });
         }
@@ -157,6 +162,11 @@ impl Log {
                         width: a.width,
                         height: a.height,
                         url: a.url.clone(),
+                        mime: a.mime.clone(),
+                        size: a.size,
+                        duration_ms: a.duration_ms,
+                        file_name: a.file_name.clone(),
+                        thumbnail: a.thumbnail.clone(),
                     }),
                 },
                 self.clock.value(),
@@ -458,6 +468,11 @@ fn to_attachment(a: p2pchat_storage::StoredAttachment) -> crate::proto::Attachme
         width: a.width,
         height: a.height,
         url: a.url,
+        mime: a.mime,
+        size: a.size,
+        duration_ms: a.duration_ms,
+        file_name: a.file_name,
+        thumbnail: a.thumbnail,
     }
 }
 
@@ -605,6 +620,11 @@ mod tests {
             width: 3,
             height: 4,
             url: String::new(),
+            mime: String::new(),
+            size: 0,
+            duration_ms: 0,
+            file_name: String::new(),
+            thumbnail: Vec::new(),
         };
         l.append_local(g.clone(), author.clone(), "".into(), Some(att)).unwrap();
         assert_eq!(l.gifs_for_group(&g, 10).unwrap().len(), 1);

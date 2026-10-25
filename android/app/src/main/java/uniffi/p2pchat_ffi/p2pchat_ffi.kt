@@ -840,6 +840,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -956,6 +958,8 @@ internal interface UniffiLib : Library {
     fun uniffi_p2pchat_ffi_fn_method_chatcore_peers(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_post(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_post_attachment(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`attachment`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_post_gif(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`attachment`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1195,6 +1199,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_post(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_post_attachment(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_post_gif(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_post_links(
@@ -1385,7 +1391,10 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post() != 30042.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post_gif() != 22888.toShort()) {
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post_attachment() != 38987.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post_gif() != 30532.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_post_links() != 13009.toShort()) {
@@ -2017,7 +2026,12 @@ public interface ChatCoreInterface {
     fun `post`(`groupId`: kotlin.ByteArray, `text`: kotlin.String): FfiOutgoing
     
     /**
-     * Отправить гифку (между клиентами едет только ссылка kind+id).
+     * Отправить вложение (гифка, фото, видео, аудио, голос).
+     */
+    fun `postAttachment`(`groupId`: kotlin.ByteArray, `attachment`: FfiAttachment): FfiOutgoing
+    
+    /**
+     * Совместимый алиас для GIF.
      */
     fun `postGif`(`groupId`: kotlin.ByteArray, `attachment`: FfiAttachment): FfiOutgoing
     
@@ -2893,7 +2907,23 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
-     * Отправить гифку (между клиентами едет только ссылка kind+id).
+     * Отправить вложение (гифка, фото, видео, аудио, голос).
+     */
+    @Throws(FfiException::class)override fun `postAttachment`(`groupId`: kotlin.ByteArray, `attachment`: FfiAttachment): FfiOutgoing {
+            return FfiConverterTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_post_attachment(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterTypeFfiAttachment.lower(`attachment`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Совместимый алиас для GIF.
      */
     @Throws(FfiException::class)override fun `postGif`(`groupId`: kotlin.ByteArray, `attachment`: FfiAttachment): FfiOutgoing {
             return FfiConverterTypeFfiOutgoing.lift(
@@ -3173,7 +3203,12 @@ data class FfiAttachment (
     var `id`: kotlin.String, 
     var `width`: kotlin.UInt, 
     var `height`: kotlin.UInt, 
-    var `url`: kotlin.String
+    var `url`: kotlin.String, 
+    var `mime`: kotlin.String, 
+    var `size`: kotlin.ULong, 
+    var `durationMs`: kotlin.ULong, 
+    var `fileName`: kotlin.String, 
+    var `thumbnail`: kotlin.ByteArray
 ) {
     
     companion object
@@ -3190,6 +3225,11 @@ public object FfiConverterTypeFfiAttachment: FfiConverterRustBuffer<FfiAttachmen
             FfiConverterUInt.read(buf),
             FfiConverterUInt.read(buf),
             FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterByteArray.read(buf),
         )
     }
 
@@ -3198,7 +3238,12 @@ public object FfiConverterTypeFfiAttachment: FfiConverterRustBuffer<FfiAttachmen
             FfiConverterString.allocationSize(value.`id`) +
             FfiConverterUInt.allocationSize(value.`width`) +
             FfiConverterUInt.allocationSize(value.`height`) +
-            FfiConverterString.allocationSize(value.`url`)
+            FfiConverterString.allocationSize(value.`url`) +
+            FfiConverterString.allocationSize(value.`mime`) +
+            FfiConverterULong.allocationSize(value.`size`) +
+            FfiConverterULong.allocationSize(value.`durationMs`) +
+            FfiConverterString.allocationSize(value.`fileName`) +
+            FfiConverterByteArray.allocationSize(value.`thumbnail`)
     )
 
     override fun write(value: FfiAttachment, buf: ByteBuffer) {
@@ -3207,6 +3252,11 @@ public object FfiConverterTypeFfiAttachment: FfiConverterRustBuffer<FfiAttachmen
             FfiConverterUInt.write(value.`width`, buf)
             FfiConverterUInt.write(value.`height`, buf)
             FfiConverterString.write(value.`url`, buf)
+            FfiConverterString.write(value.`mime`, buf)
+            FfiConverterULong.write(value.`size`, buf)
+            FfiConverterULong.write(value.`durationMs`, buf)
+            FfiConverterString.write(value.`fileName`, buf)
+            FfiConverterByteArray.write(value.`thumbnail`, buf)
     }
 }
 

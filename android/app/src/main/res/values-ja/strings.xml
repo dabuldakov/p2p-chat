@@ -137,4 +137,12 @@
     <string name="reaction_cat_other">その他</string>
     <string name="owner_management">オーナー管理</string>
     <string name="owner_election_in_progress">オーナー選挙はすでに進行中です。</string>
+    <string name="attachment">添付</string>
+    <string name="attachment_photo">写真</string>
+    <string name="attachment_video">動画</string>
+    <string name="attachment_audio">音声</string>
+    <string name="video_message">ビデオメッセージ</string>
+    <string name="media_failed">メディアを準備できませんでした</string>
+    <string name="voice_message">ボイスメッセージ</string>
+    <string name="mic_permission">マイクの権限が必要です。</string>
 </resources>

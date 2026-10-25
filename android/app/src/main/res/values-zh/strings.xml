@@ -137,4 +137,12 @@
     <string name="reaction_cat_other">其他</string>
     <string name="owner_management">所有者管理</string>
     <string name="owner_election_in_progress">所有者选举已在进行中。</string>
+    <string name="attachment">附件</string>
+    <string name="attachment_photo">照片</string>
+    <string name="attachment_video">视频</string>
+    <string name="attachment_audio">音频</string>
+    <string name="video_message">视频消息</string>
+    <string name="media_failed">无法准备媒体</string>
+    <string name="voice_message">语音消息</string>
+    <string name="mic_permission">需要麦克风权限。</string>
 </resources>

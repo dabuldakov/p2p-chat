@@ -137,4 +137,12 @@
     <string name="reaction_cat_other">Outros</string>
     <string name="owner_management">Gestão do proprietário</string>
     <string name="owner_election_in_progress">A eleição do proprietário já está em andamento.</string>
+    <string name="attachment">Anexo</string>
+    <string name="attachment_photo">Foto</string>
+    <string name="attachment_video">Vídeo</string>
+    <string name="attachment_audio">Áudio</string>
+    <string name="video_message">Mensagem de vídeo</string>
+    <string name="media_failed">Não foi possível preparar a mídia</string>
+    <string name="voice_message">Mensagem de voz</string>
+    <string name="mic_permission">É necessária permissão de microfone.</string>
 </resources>

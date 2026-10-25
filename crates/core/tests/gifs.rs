@@ -19,6 +19,11 @@ fn att(id: &str) -> Attachment {
         width: 220,
         height: 230,
         url: String::new(),
+        mime: String::new(),
+        size: 0,
+        duration_ms: 0,
+        file_name: String::new(),
+        thumbnail: Vec::new(),
     }
 }
 

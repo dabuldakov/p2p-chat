@@ -137,4 +137,12 @@
     <string name="reaction_cat_other">أخرى</string>
     <string name="owner_management">إدارة المالك</string>
     <string name="owner_election_in_progress">انتخابات المالك جارية بالفعل.</string>
+    <string name="attachment">مرفق</string>
+    <string name="attachment_photo">صورة</string>
+    <string name="attachment_video">فيديو</string>
+    <string name="attachment_audio">صوت</string>
+    <string name="video_message">رسالة فيديو</string>
+    <string name="media_failed">تعذر تجهيز الوسائط</string>
+    <string name="voice_message">رسالة صوتية</string>
+    <string name="mic_permission">مطلوب إذن الميكروفون.</string>
 </resources>

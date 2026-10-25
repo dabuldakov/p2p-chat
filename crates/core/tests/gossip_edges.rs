@@ -74,6 +74,11 @@ fn profile_group_links_edit_delete() {
                 width: 2,
                 height: 3,
                 url: String::new(),
+                mime: String::new(),
+                size: 0,
+                duration_ms: 0,
+                file_name: String::new(),
+                thumbnail: Vec::new(),
             },
         )
         .unwrap();

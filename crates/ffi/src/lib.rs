@@ -62,6 +62,11 @@ pub struct FfiAttachment {
     pub width: u32,
     pub height: u32,
     pub url: String,
+    pub mime: String,
+    pub size: u64,
+    pub duration_ms: u64,
+    pub file_name: String,
+    pub thumbnail: Vec<u8>,
 }
 
 /// Подписанная жалоба для серверного endpoint.
@@ -470,14 +475,14 @@ impl ChatCore {
         })
     }
 
-    /// Отправить гифку (между клиентами едет только ссылка kind+id).
-    pub fn post_gif(
+    /// Отправить вложение (гифка, фото, видео, аудио, голос).
+    pub fn post_attachment(
         &self,
         group_id: Vec<u8>,
         attachment: FfiAttachment,
     ) -> Result<FfiOutgoing, FfiError> {
         let mut engine = self.inner.lock().unwrap();
-        let o = engine.post_gif(
+        let o = engine.post_attachment(
             group_id,
             p2pchat_core::proto::Attachment {
                 kind: attachment.kind,
@@ -485,6 +490,11 @@ impl ChatCore {
                 width: attachment.width,
                 height: attachment.height,
                 url: attachment.url,
+                mime: attachment.mime,
+                size: attachment.size,
+                duration_ms: attachment.duration_ms,
+                file_name: attachment.file_name,
+                thumbnail: attachment.thumbnail,
             },
         )?;
         use prost::Message as _;
@@ -492,6 +502,15 @@ impl ChatCore {
             envelope: o.envelope.encode_to_vec(),
             targets: o.targets,
         })
+    }
+
+    /// Совместимый алиас для GIF.
+    pub fn post_gif(
+        &self,
+        group_id: Vec<u8>,
+        attachment: FfiAttachment,
+    ) -> Result<FfiOutgoing, FfiError> {
+        self.post_attachment(group_id, attachment)
     }
 
     /// Отредактировать своё сообщение (только автор). Возвращает конверт.
@@ -1016,6 +1035,11 @@ fn to_ffi_attachment(a: p2pchat_core::proto::Attachment) -> FfiAttachment {
         width: a.width,
         height: a.height,
         url: a.url,
+        mime: a.mime,
+        size: a.size,
+        duration_ms: a.duration_ms,
+        file_name: a.file_name,
+        thumbnail: a.thumbnail,
     }
 }
 

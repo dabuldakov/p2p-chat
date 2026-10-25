@@ -137,4 +137,12 @@
     <string name="reaction_cat_other">Andere</string>
     <string name="owner_management">Eigentümerverwaltung</string>
     <string name="owner_election_in_progress">Die Eigentümerwahl läuft bereits.</string>
+    <string name="attachment">Anhang</string>
+    <string name="attachment_photo">Foto</string>
+    <string name="attachment_video">Video</string>
+    <string name="attachment_audio">Audio</string>
+    <string name="video_message">Videonachricht</string>
+    <string name="media_failed">Medien konnten nicht vorbereitet werden</string>
+    <string name="voice_message">Sprachnachricht</string>
+    <string name="mic_permission">Mikrofonberechtigung erforderlich.</string>
 </resources>

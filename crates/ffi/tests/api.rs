@@ -94,6 +94,11 @@ fn ffi_api_smoke() {
         width: 10,
         height: 10,
         url: String::new(),
+        mime: String::new(),
+        size: 0,
+        duration_ms: 0,
+        file_name: String::new(),
+        thumbnail: Vec::new(),
     };
     let _ = a.post_gif(g.clone(), att).unwrap();
     assert_eq!(a.recent_gifs(10).len(), 1);

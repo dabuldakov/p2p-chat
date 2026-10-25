@@ -35,6 +35,7 @@ class WebRtcTransport(
     private val onPeerChange: (Int) -> Unit = {},
     private val onPeerConnected: (ByteArray) -> Unit = {},
     private val onConnectionKind: (ByteArray, String) -> Unit = { _, _ -> },
+    private val onMediaFrame: (ByteArray, ByteArray) -> Unit = { _, _ -> },
 ) : ChatTransport {
 
     companion object {
@@ -42,6 +43,7 @@ class WebRtcTransport(
             listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
         private const val DATA_CHANNEL_LABEL = "p2pchat"
         private const val RECONNECT_DELAY_MS = 3000L
+        private val MEDIA_MAGIC = byteArrayOf(0x50, 0x32, 0x50, 0x4D, 0x01)
         private const val RETRY_MS = 5000L
     }
 
@@ -162,6 +164,14 @@ class WebRtcTransport(
         }
     }
 
+    /** Отправить бинарный media-фрейм (внутри того же DataChannel). */
+    fun sendMedia(targets: List<ByteArray>, frame: ByteArray) {
+        val bytes = ByteArray(MEDIA_MAGIC.size + frame.size)
+        MEDIA_MAGIC.copyInto(bytes)
+        frame.copyInto(bytes, MEDIA_MAGIC.size)
+        handler.post { sendTargets(bytes, targets) }
+    }
+
     override fun onIncoming(envelope: ByteArray) {
         onEnvelope(envelope)
     }
@@ -249,7 +259,11 @@ class WebRtcTransport(
                     val bytes = ByteArray(buffer.data.remaining())
                     buffer.data.get(bytes)
                     Logs.d("dc recv ${bytes.size}b")
-                    onIncoming(bytes)
+                    if (bytes.size >= MEDIA_MAGIC.size && MEDIA_MAGIC.indices.all { bytes[it] == MEDIA_MAGIC[it] }) {
+                        onMediaFrame(conn.remoteKey, bytes.copyOfRange(MEDIA_MAGIC.size, bytes.size))
+                    } else {
+                        onIncoming(bytes)
+                    }
                 }.onFailure { Logs.w("dc recv error: $it") }
             }
         })

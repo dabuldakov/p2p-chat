@@ -92,6 +92,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     // --- Гифки -----------------------------------------------------------
     val gifEnabled get() = ChatRuntime.gifEnabled
     fun sendGif(gif: Gif) = ChatRuntime.sendGif(gif)
+    fun sendMedia(kind: String, prepared: PreparedMedia) {
+        val group = ChatRuntime.currentGroup ?: return
+        ChatRuntime.sendPrepared(group, kind, prepared)
+    }
+
+    fun sendMediaTo(group: ByteArray, kind: String, prepared: PreparedMedia) =
+        ChatRuntime.sendPrepared(group, kind, prepared)
     suspend fun searchGifs(query: String, page: Int): List<Gif> = ChatRuntime.searchGifs(query, page)
     suspend fun resolveGif(providerId: String): Gif? = ChatRuntime.resolveGif(providerId)
     fun cachedGif(providerId: String): Gif? = ChatRuntime.cachedGif(providerId)

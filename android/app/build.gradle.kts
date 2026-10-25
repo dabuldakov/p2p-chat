@@ -152,6 +152,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.3.1")
+    implementation("androidx.media3:media3-transformer:1.3.1")
+    implementation("androidx.media3:media3-effect:1.3.1")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     // LazyVerticalGrid и пр. фундамент Compose.
     implementation("androidx.compose.foundation:foundation")

@@ -137,4 +137,12 @@
     <string name="reaction_cat_other">Басқа</string>
     <string name="owner_management">Иесін басқару</string>
     <string name="owner_election_in_progress">Иесін сайлау қазірдің өзінде жүріп жатыр.</string>
+    <string name="attachment">Тіркеме</string>
+    <string name="attachment_photo">Фото</string>
+    <string name="attachment_video">Видео</string>
+    <string name="attachment_audio">Аудио</string>
+    <string name="video_message">Бейнехабарлама</string>
+    <string name="media_failed">Медианы дайындау мүмкін болмады</string>
+    <string name="voice_message">Дауыстық хабарлама</string>
+    <string name="mic_permission">Микрофонға рұқсат қажет.</string>
 </resources>

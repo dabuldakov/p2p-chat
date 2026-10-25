@@ -171,4 +171,12 @@
     <string name="reaction_cat_other">Other</string>
     <string name="owner_management">Owner management</string>
     <string name="owner_election_in_progress">Owner election is already in progress.</string>
+    <string name="attachment">Attachment</string>
+    <string name="attachment_photo">Photo</string>
+    <string name="attachment_video">Video</string>
+    <string name="attachment_audio">Audio</string>
+    <string name="video_message">Video message</string>
+    <string name="media_failed">Could not prepare media</string>
+    <string name="voice_message">Voice message</string>
+    <string name="mic_permission">Microphone permission is required.</string>
 </resources>

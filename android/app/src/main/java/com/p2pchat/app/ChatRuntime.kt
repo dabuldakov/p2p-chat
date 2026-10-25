@@ -67,6 +67,7 @@ object ChatRuntime {
     private lateinit var core: ChatCore
     private lateinit var signaling: SignalingClient
     private lateinit var transport: WebRtcTransport
+    private lateinit var media: MediaTransfer
     lateinit var gifs: GifRepository
         private set
 
@@ -242,6 +243,13 @@ object ChatRuntime {
                 val h = key.toHex()
                 peerKinds = if (kind == "offline") peerKinds - h else peerKinds + (h to kind)
             },
+            onMediaFrame = { from, frame -> media.onFrame(from, frame) },
+        )
+        media = MediaTransfer(
+            app,
+            core,
+            { targets, frame -> transport.sendMedia(targets, frame) },
+            { refresh() },
         )
 
         signaling.connect()
@@ -257,6 +265,7 @@ object ChatRuntime {
                 syncAll()
                 maybeOwnerHeartbeat()
                 maybeAdvanceOwnerElection()
+                currentGroup?.let { ensureMedia(it) }
                 lastSignalingTs = signaling.lastActivityMs
             }
         }
@@ -611,6 +620,40 @@ object ChatRuntime {
         refresh()
     }
 
+    private fun ensureMedia(group: ByteArray) {
+        for (m in messages) {
+            val a = m.attachment ?: continue
+            if (a.kind in setOf("image", "video", "audio", "voice", "video_note") &&
+                !MediaFiles.exists(app, a.id, a.mime)
+            ) {
+                media.ensure(group, a.id, a.mime)
+            }
+        }
+    }
+
+    /** Отправить подготовленное вложение. */
+    fun sendPrepared(group: ByteArray, kind: String, p: PreparedMedia) {
+        val out = runCatching {
+            core.postAttachment(
+                group,
+                FfiAttachment(
+                    kind = kind,
+                    id = p.id,
+                    width = p.width.toUInt(),
+                    height = p.height.toUInt(),
+                    url = "",
+                    mime = p.mime,
+                    size = p.size.toULong(),
+                    durationMs = p.durationMs.toULong(),
+                    fileName = p.fileName,
+                    thumbnail = p.thumbnail ?: ByteArray(0),
+                ),
+            )
+        }.getOrNull() ?: return
+        transport.sendTargets(out.envelope, out.targets)
+        refresh()
+    }
+
     /** Отправить гифку: между клиентами едет только ссылка (kind+id). */
     fun sendGif(gif: Gif) {
         val g = currentGroup ?: return
@@ -622,6 +665,11 @@ object ChatRuntime {
                 width = (gif.width ?: 0).toUInt(),
                 height = (gif.height ?: 0).toUInt(),
                 url = "",
+                mime = "",
+                size = 0uL,
+                durationMs = 0uL,
+                fileName = "",
+                thumbnail = ByteArray(0),
             ),
         )
         Logs.d("send gif ${gif.providerId} targets=${out.targets.size}")
@@ -692,6 +740,7 @@ object ChatRuntime {
             ownerId = runCatching { core.ownerId(g)?.toHex() }.getOrNull()
             members = core.members(g)
             reloadLatest(g)
+            ensureMedia(g)
             // Помечаем прочитанным только если экран реально виден.
             if (shouldMarkRead(appVisible, true)) runCatching { core.markRead(g) }
         }
@@ -951,6 +1000,7 @@ object ChatRuntime {
         if (page.messages.isNotEmpty()) {
             messages = page.messages + messages
         }
+        ensureMedia(g)
         hasMore = page.hasMore
     }
 }

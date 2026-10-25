@@ -46,6 +46,11 @@ fn memory_log_everything() {
                 width: 10,
                 height: 20,
                 url: "u".into(),
+                mime: String::new(),
+                size: 0,
+                duration_ms: 0,
+                file_name: String::new(),
+                thumbnail: Vec::new(),
             }),
         )
         .unwrap();
@@ -159,6 +164,11 @@ fn store_wrappers_and_recovery() {
                 width: 1,
                 height: 2,
                 url: String::new(),
+                mime: String::new(),
+                size: 0,
+                duration_ms: 0,
+                file_name: String::new(),
+                thumbnail: Vec::new(),
             }),
         )
         .unwrap();
