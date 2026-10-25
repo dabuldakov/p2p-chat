@@ -23,6 +23,8 @@ object Media3Cache {
 
     @Volatile
     private var factory: DataSource.Factory? = null
+    @Volatile
+    private var cacheRef: SimpleCache? = null
 
     fun install(context: Context) {
         if (factory != null) return
@@ -34,6 +36,7 @@ object Media3Cache {
                 LeastRecentlyUsedCacheEvictor(MAX_BYTES),
                 StandaloneDatabaseProvider(context),
             )
+            cacheRef = cache
             val upstream = OkHttpDataSource.Factory(
                 OkHttpClient.Builder()
                     .connectTimeout(15, TimeUnit.SECONDS)
@@ -49,6 +52,22 @@ object Media3Cache {
 
     fun dataSourceFactory(): DataSource.Factory =
         factory ?: error("Media3Cache.install() не вызван")
+
+    fun sizeBytes(context: Context): Long {
+        val dir = File(context.cacheDir, "media3")
+        return dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    }
+
+    @OptIn(coil.annotation.ExperimentalCoilApi::class)
+    fun clear(context: Context) {
+        synchronized(this) {
+            runCatching { cacheRef?.release() }
+            cacheRef = null
+            factory = null
+            File(context.cacheDir, "media3").deleteRecursively()
+            install(context)
+        }
+    }
 }
 
 /**
@@ -57,6 +76,12 @@ object Media3Cache {
 object CoilSetup {
     @Volatile
     private var installed = false
+
+    fun clear(context: Context) {
+        val loader = coil.Coil.imageLoader(context)
+        runCatching { loader.diskCache?.clear() }
+        runCatching { loader.memoryCache?.clear() }
+    }
 
     fun install(context: Context) {
         if (installed) return

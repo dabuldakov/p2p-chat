@@ -58,6 +58,17 @@ class MediaTransfer(
             if (now - (requestedAt[key] ?: 0L) < RETRY_MS) return
             requestedAt[key] = now
         }
+        request(group, hash)
+    }
+
+    fun retry(group: ByteArray, hash: String, mime: String) {
+        val key = group.toHex() + ":" + hash
+        synchronized(lock) { requestedAt.remove(key) }
+        mimeByHash[hash] = mime
+        ensure(group, hash, mime)
+    }
+
+    private fun request(group: ByteArray, hash: String) {
         val frame = ByteArray(3 + group.size + HASH_LEN)
         val bb = ByteBuffer.wrap(frame).order(ByteOrder.BIG_ENDIAN)
         bb.put(TYPE_REQUEST.toByte())

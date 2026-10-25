@@ -21,6 +21,8 @@ import org.json.JSONObject
 import com.p2pchat.app.gif.Gif
 import com.p2pchat.app.gif.GifCache
 import com.p2pchat.app.gif.GifMediaCache
+import com.p2pchat.app.gif.Media3Cache
+import com.p2pchat.app.gif.CoilSetup
 import com.p2pchat.app.gif.GifRef
 import com.p2pchat.app.gif.GifRepository
 import com.p2pchat.app.gif.KlipyApi
@@ -43,6 +45,8 @@ data class GraphEdge(val from: String, val to: String, val kind: String)
 
 /** Группа: уникальный id + отдельное отображаемое имя. */
 data class GroupInfo(val id: ByteArray, val name: String)
+
+data class StorageStat(val id: String, val size: Long, val count: Int = 0)
 
 object ChatRuntime {
 
@@ -176,6 +180,7 @@ object ChatRuntime {
 
     /** Когда последний раз пересылали OwnerChange (hex группы → ms). */
     private val ownerReplayAt = HashMap<String, Long>()
+    private val mediaSkip = mutableSetOf<String>()
 
     /** Подпись последнего показанного уведомления о выборах (hex группы → sig). */
     private val ownerNotified = HashMap<String, String>()
@@ -624,11 +629,18 @@ object ChatRuntime {
         for (m in messages) {
             val a = m.attachment ?: continue
             if (a.kind in setOf("image", "video", "audio", "voice", "video_note") &&
-                !MediaFiles.exists(app, a.id, a.mime)
+                !MediaFiles.exists(app, a.id, a.mime) &&
+                a.id !in mediaSkip
             ) {
                 media.ensure(group, a.id, a.mime)
             }
         }
+    }
+
+    fun retryMedia(id: String, mime: String) {
+        val g = currentGroup ?: return
+        mediaSkip.remove(id)
+        media.retry(g, id, mime)
     }
 
     /** Отправить подготовленное вложение. */
@@ -652,6 +664,58 @@ object ChatRuntime {
         }.getOrNull() ?: return
         transport.sendTargets(out.envelope, out.targets)
         refresh()
+    }
+
+    fun storageStats(): List<StorageStat> = buildList {
+        add(StorageStat("photos", MediaFiles.size(app, MediaCategory.PHOTOS), MediaFiles.count(app, MediaCategory.PHOTOS)))
+        add(StorageStat("videos", MediaFiles.size(app, MediaCategory.VIDEOS), MediaFiles.count(app, MediaCategory.VIDEOS)))
+        add(StorageStat("audio", MediaFiles.size(app, MediaCategory.AUDIO), MediaFiles.count(app, MediaCategory.AUDIO)))
+        add(StorageStat("temp", MediaFiles.size(app, MediaCategory.TEMP), MediaFiles.count(app, MediaCategory.TEMP)))
+        add(StorageStat("other", MediaFiles.size(app, MediaCategory.OTHER), MediaFiles.count(app, MediaCategory.OTHER)))
+        add(StorageStat("gifs", gifs.mediaCacheSizeBytes() + Media3Cache.sizeBytes(app)))
+        add(StorageStat("links", LinkPreviews.sizeBytes(app)))
+    }
+
+    fun clearStorage(id: String) {
+        val skip = when (id) {
+            "photos" -> { "image" }
+            "videos" -> { "video" }
+            "audio" -> { "audio" }
+            else -> null
+        }
+        if (skip != null) {
+            messages.mapNotNull { it.attachment }
+                .filter { it.kind == skip || (skip == "video" && it.kind == "video_note") || (skip == "audio" && it.kind == "voice") }
+                .forEach { mediaSkip.add(it.id) }
+        }
+        if (id == "all") {
+            messages.mapNotNull { it.attachment }
+                .filter { it.kind in setOf("image", "video", "video_note", "audio", "voice") }
+                .forEach { mediaSkip.add(it.id) }
+        }
+        when (id) {
+            "photos" -> { MediaFiles.clear(app, MediaCategory.PHOTOS); CoilSetup.clear(app) }
+            "videos" -> { MediaFiles.clear(app, MediaCategory.VIDEOS); CoilSetup.clear(app) }
+            "audio" -> MediaFiles.clear(app, MediaCategory.AUDIO)
+            "temp" -> MediaFiles.clear(app, MediaCategory.TEMP)
+            "other" -> MediaFiles.clear(app, MediaCategory.OTHER)
+            "gifs" -> {
+                gifs.clearMediaCache()
+                Media3Cache.clear(app)
+                CoilSetup.clear(app)
+            }
+            "links" -> {
+                LinkPreviews.clear(app)
+                CoilSetup.clear(app)
+            }
+            "all" -> {
+                MediaFiles.clearAll(app)
+                gifs.clearMediaCache()
+                Media3Cache.clear(app)
+                LinkPreviews.clear(app)
+                CoilSetup.clear(app)
+            }
+        }
     }
 
     /** Отправить гифку: между клиентами едет только ссылка (kind+id). */

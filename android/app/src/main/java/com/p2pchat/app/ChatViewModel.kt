@@ -92,6 +92,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     // --- Гифки -----------------------------------------------------------
     val gifEnabled get() = ChatRuntime.gifEnabled
     fun sendGif(gif: Gif) = ChatRuntime.sendGif(gif)
+    fun storageStats(): List<StorageStat> = ChatRuntime.storageStats()
+    fun clearStorage(id: String) = ChatRuntime.clearStorage(id)
     fun sendMedia(kind: String, prepared: PreparedMedia) {
         val group = ChatRuntime.currentGroup ?: return
         ChatRuntime.sendPrepared(group, kind, prepared)
@@ -123,6 +125,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     ) = ChatRuntime.sendReport(reportedPeer, groupId, messageId, reason, note, screenshot, onResult)
     fun renameGroup(name: String) = ChatRuntime.renameGroup(name)
     fun deleteMessage(id: ByteArray) = ChatRuntime.deleteMessage(id)
+    fun retryMedia(id: String, mime: String) = ChatRuntime.retryMedia(id, mime)
     fun react(messageId: ByteArray, emoji: String, add: Boolean): Boolean =
         ChatRuntime.react(messageId, emoji, add)
     fun regenInvite(maxUses: Int): String? = ChatRuntime.regenInvite(maxUses)

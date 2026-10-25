@@ -49,6 +49,10 @@ class GifRepository(
     /** Синхронно, только из кэша (для быстрого первичного рендера). */
     fun cached(providerId: String): Gif? = mediaCache.get(providerId)
 
+    fun mediaCacheSizeBytes(): Long = mediaCache.sizeBytes()
+
+    fun clearMediaCache() = mediaCache.clear()
+
     private suspend fun cached(page: Int, key: String, fetch: suspend () -> List<Gif>): List<Gif> {
         if (page == 0) {
             cache.getFresh(key, freshTtlMs)?.let { return it }

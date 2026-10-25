@@ -104,6 +104,27 @@ fn ffi_api_smoke() {
     assert_eq!(a.recent_gifs(10).len(), 1);
     assert_eq!(a.group_gifs(g.clone(), 10).len(), 1);
 
+    let media = FfiAttachment {
+        kind: "image".into(),
+        id: "sha".into(),
+        width: 640,
+        height: 480,
+        url: String::new(),
+        mime: "image/jpeg".into(),
+        size: 12345,
+        duration_ms: 0,
+        file_name: "photo.jpg".into(),
+        thumbnail: vec![1, 2, 3],
+    };
+    let _ = a.post_attachment(g.clone(), media).unwrap();
+    let hist = a.history(g.clone());
+    let msg = hist.iter().rev().find(|m| m.attachment.as_ref().is_some_and(|x| x.kind == "image")).unwrap();
+    let x = msg.attachment.as_ref().unwrap();
+    assert_eq!(x.mime, "image/jpeg");
+    assert_eq!(x.size, 12345);
+    assert_eq!(x.file_name, "photo.jpg");
+    assert_eq!(x.thumbnail, vec![1, 2, 3]);
+
     // Впуск второго узла
     let inv = a.group_invite(g.clone(), 1).unwrap().unwrap();
     let b = ChatCore::new(tmp("b")).unwrap();

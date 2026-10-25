@@ -134,6 +134,18 @@ object LinkPreviews {
         return mem.containsKey(url) || disk.containsKey(url)
     }
 
+    fun sizeBytes(ctx: Context): Long {
+        init(ctx)
+        return file?.takeIf { it.isFile }?.length() ?: 0L
+    }
+
+    fun clear(ctx: Context) {
+        init(ctx)
+        mem.clear()
+        disk.clear()
+        file?.delete()
+    }
+
     suspend fun fetch(ctx: Context, url: String): LinkPreview? {
         init(ctx)
         if (mem.containsKey(url)) return mem[url]

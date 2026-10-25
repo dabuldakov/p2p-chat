@@ -179,4 +179,18 @@
     <string name="media_failed">Could not prepare media</string>
     <string name="voice_message">Voice message</string>
     <string name="mic_permission">Microphone permission is required.</string>
+    <string name="storage_title">Storage and cache</string>
+    <string name="storage_total">Total</string>
+    <string name="storage_photos">Photos</string>
+    <string name="storage_videos">Video</string>
+    <string name="storage_audio">Audio and voice</string>
+    <string name="storage_temp">Temporary files</string>
+    <string name="storage_other">Other media</string>
+    <string name="storage_gifs">GIF cache</string>
+    <string name="storage_links">Link previews</string>
+    <string name="storage_clear">Clear</string>
+    <string name="storage_clear_all">Clear all</string>
+    <string name="storage_clear_confirm">Clear all cached media and previews? Messages and keys will stay.</string>
+    <string name="storage_media_note">Files from messages can be downloaded again from group members. Messages and keys are never deleted.</string>
+    <string name="storage_cleared">Cache cleared</string>
 </resources>

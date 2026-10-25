@@ -39,6 +39,8 @@ class GifMediaCache(private val file: File) {
         persist()
     }
 
+    fun sizeBytes(): Long = file.takeIf { it.isFile }?.length() ?: 0L
+
     private fun ensureLoaded() {
         if (loaded) return
         loaded = true

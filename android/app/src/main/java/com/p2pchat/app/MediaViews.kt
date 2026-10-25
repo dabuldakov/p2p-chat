@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -50,14 +51,14 @@ import uniffi.p2pchat_ffi.FfiAttachment
 import java.io.File
 
 @Composable
-fun MediaAttachmentView(att: FfiAttachment, onLongPress: () -> Unit) {
+fun MediaAttachmentView(att: FfiAttachment, onLongPress: () -> Unit, onRetry: () -> Unit) {
     val ctx = LocalContext.current
     val file = remember(att.id, att.mime) { MediaFiles.file(ctx, att.id, att.mime) }
     val exists = file.isFile && file.length() > 0
     when (att.kind) {
-        "image" -> ImageAttachment(att, file, exists, onLongPress)
-        "video", "video_note" -> VideoAttachment(att, file, exists, onLongPress)
-        "audio", "voice" -> AudioAttachment(att, file, exists)
+        "image" -> ImageAttachment(att, file, exists, onLongPress, onRetry)
+        "video", "video_note" -> VideoAttachment(att, file, exists, onLongPress, onRetry)
+        "audio", "voice" -> AudioAttachment(att, file, exists, onRetry)
     }
 }
 
@@ -67,6 +68,7 @@ private fun ImageAttachment(
     file: File,
     exists: Boolean,
     onLongPress: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     var full by remember { mutableStateOf(false) }
     val thumb = remember(att.thumbnail) { thumbBitmap(att.thumbnail) }
@@ -93,10 +95,10 @@ private fun ImageAttachment(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 280.dp),
             )
-            CircularProgressIndicator(Modifier.size(28.dp))
+            RetryOverlay(onRetry)
         } else {
             Box(Modifier.fillMaxWidth().height(160.dp).background(MaterialTheme.colorScheme.surfaceVariant))
-            CircularProgressIndicator(Modifier.size(28.dp))
+            RetryOverlay(onRetry)
         }
     }
     if (full && exists) {
@@ -123,6 +125,7 @@ private fun VideoAttachment(
     file: File,
     exists: Boolean,
     onLongPress: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     var play by remember { mutableStateOf(false) }
     val thumb = remember(att.thumbnail) { thumbBitmap(att.thumbnail) }
@@ -156,7 +159,7 @@ private fun VideoAttachment(
                 )
             }
         } else {
-            CircularProgressIndicator(Modifier.size(30.dp))
+            RetryOverlay(onRetry)
         }
     }
     if (play && exists) {
@@ -194,8 +197,7 @@ private fun VideoPlayerDialog(file: File, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun AudioAttachment(att: FfiAttachment, file: File, exists: Boolean) {
-    val ctx = LocalContext.current
+private fun AudioAttachment(att: FfiAttachment, file: File, exists: Boolean, onRetry: () -> Unit) {
     var playing by remember { mutableStateOf(false) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
     DisposableEffect(file) {
@@ -248,7 +250,15 @@ private fun AudioAttachment(att: FfiAttachment, file: File, exists: Boolean) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (!exists) CircularProgressIndicator(Modifier.size(22.dp))
+        if (!exists) RetryOverlay(onRetry)
+    }
+}
+
+@Composable
+private fun RetryOverlay(onRetry: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        CircularProgressIndicator(Modifier.size(24.dp))
+        TextButton(onClick = onRetry) { Text(stringResource(R.string.download)) }
     }
 }
 

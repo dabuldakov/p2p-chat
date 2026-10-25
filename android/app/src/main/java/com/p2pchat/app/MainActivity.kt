@@ -78,6 +78,7 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.HowToVote
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -392,6 +393,7 @@ private fun SettingsScreen(vm: ChatViewModel) {
     var explainKind by remember { mutableStateOf<String?>(null) }
     var showGraphAll by remember { mutableStateOf(false) }
     var showSeedConfirm by remember { mutableStateOf(false) }
+    var showStorage by remember { mutableStateOf(false) }
     var showSeed by remember { mutableStateOf(false) }
     var seedPhrase by remember { mutableStateOf<String?>(null) }
     var showRestore by remember { mutableStateOf(false) }
@@ -447,6 +449,23 @@ private fun SettingsScreen(vm: ChatViewModel) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                )
+            }
+        }
+
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { showStorage = true }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Storage, contentDescription = null)
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.storage_title), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    formatBytes(vm.storageStats().sumOf { it.size }),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -814,6 +833,10 @@ private fun SettingsScreen(vm: ChatViewModel) {
             },
         )
     }
+
+    if (showStorage) {
+        StorageDialog(vm) { showStorage = false }
+    }
 }
 
 /** Кликабельная метка типа соединения (STUN/TURN). */
@@ -1023,8 +1046,6 @@ private fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
 
 // --- Экран группы --------------------------------------------------------
 
-private enum class SendMode { TEXT, VOICE, VIDEO }
-
 @Composable
 private fun GroupScreen(vm: ChatViewModel) {
     var input by remember { mutableStateOf("") }
@@ -1134,11 +1155,7 @@ private fun GroupScreen(vm: ChatViewModel) {
             sendMode = SendMode.TEXT
             return
         }
-        sendMode = when (sendMode) {
-            SendMode.TEXT -> SendMode.VOICE
-            SendMode.VOICE -> SendMode.VIDEO
-            SendMode.VIDEO -> SendMode.TEXT
-        }
+        sendMode = nextSendMode(sendMode)
     }
 
     LaunchedEffect(recording) {
@@ -1604,7 +1621,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                 Spacer(Modifier.width(8.dp))
             }
             Spacer(Modifier.width(8.dp))
-            val mode = if (input.isNotBlank()) SendMode.TEXT else sendMode
+            val mode = effectiveSendMode(input, sendMode)
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -1697,10 +1714,6 @@ private fun GroupScreen(vm: ChatViewModel) {
                         showAttachMenu = false
                         pickAudio.launch(arrayOf("audio/*"))
                     }) { Text(stringResource(R.string.attachment_audio)) }
-                    TextButton(onClick = {
-                        showAttachMenu = false
-                        captureVideo.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE))
-                    }) { Text(stringResource(R.string.video_message)) }
                 }
             },
             confirmButton = {},
@@ -2185,7 +2198,7 @@ private fun MessageRow(
                     )
                 } else if (att != null) {
                     if (att.kind in setOf("image", "video", "video_note", "audio", "voice")) {
-                        MediaAttachmentView(att, onLongPress)
+                        MediaAttachmentView(att, onLongPress) { vm.retryMedia(att.id, att.mime) }
                     } else {
                         GifAttachmentView(
                             providerId = att.id,

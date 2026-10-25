@@ -56,3 +56,37 @@ object MediaFiles {
         return dest
     }
 }
+
+/** Категории файлового кэша медиа. */
+enum class MediaCategory(val id: String) {
+    PHOTOS("photos"),
+    VIDEOS("videos"),
+    AUDIO("audio"),
+    TEMP("temp"),
+    OTHER("other"),
+}
+
+fun MediaFiles.categoryOf(file: File): MediaCategory = when {
+    file.name.endsWith(".part") || file.name.startsWith("media-") -> MediaCategory.TEMP
+    file.extension.lowercase() in setOf("jpg", "jpeg", "png", "webp") -> MediaCategory.PHOTOS
+    file.extension.lowercase() in setOf("mp4", "webm", "mov", "mkv") -> MediaCategory.VIDEOS
+    file.extension.lowercase() in setOf("m4a", "mp3", "ogg", "wav", "aac") -> MediaCategory.AUDIO
+    else -> MediaCategory.OTHER
+}
+
+fun MediaFiles.files(ctx: Context): List<File> =
+    dir(ctx).listFiles()?.filter { it.isFile } ?: emptyList()
+
+fun MediaFiles.size(ctx: Context, category: MediaCategory): Long =
+    files(ctx).filter { categoryOf(it) == category }.sumOf { it.length() }
+
+fun MediaFiles.count(ctx: Context, category: MediaCategory): Int =
+    files(ctx).count { categoryOf(it) == category }
+
+fun MediaFiles.clear(ctx: Context, category: MediaCategory) {
+    files(ctx).filter { categoryOf(it) == category }.forEach { runCatching { it.delete() } }
+}
+
+fun MediaFiles.clearAll(ctx: Context) {
+    files(ctx).forEach { runCatching { it.delete() } }
+}

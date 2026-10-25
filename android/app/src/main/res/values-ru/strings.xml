@@ -162,4 +162,18 @@
     <string name="media_failed">Не удалось подготовить медиа</string>
     <string name="voice_message">Голосовое сообщение</string>
     <string name="mic_permission">Нужно разрешение на микрофон.</string>
+    <string name="storage_title">Хранилище и кэш</string>
+    <string name="storage_total">Всего</string>
+    <string name="storage_photos">Фото</string>
+    <string name="storage_videos">Видео</string>
+    <string name="storage_audio">Аудио и голосовые</string>
+    <string name="storage_temp">Временные файлы</string>
+    <string name="storage_other">Другие медиа</string>
+    <string name="storage_gifs">Кэш GIF</string>
+    <string name="storage_links">Превью ссылок</string>
+    <string name="storage_clear">Очистить</string>
+    <string name="storage_clear_all">Очистить всё</string>
+    <string name="storage_clear_confirm">Очистить весь кэш медиа и превью? Сообщения и ключи останутся.</string>
+    <string name="storage_media_note">Файлы из сообщений можно заново скачать у участников группы. Сообщения и ключи не удаляются.</string>
+    <string name="storage_cleared">Кэш очищен</string>
 </resources>
