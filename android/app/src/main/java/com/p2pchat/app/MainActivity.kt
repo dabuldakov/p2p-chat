@@ -62,7 +62,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Check
@@ -130,6 +129,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlin.math.absoluteValue
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
@@ -1643,21 +1643,21 @@ private fun GroupScreen(vm: ChatViewModel) {
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    when (mode) {
-                        SendMode.TEXT -> Icons.AutoMirrored.Filled.Send
-                        SendMode.VOICE -> Icons.Filled.Mic
-                        SendMode.VIDEO -> Icons.Filled.Videocam
-                    },
-                    contentDescription = stringResource(
-                        when (mode) {
-                            SendMode.TEXT -> R.string.send
-                            SendMode.VOICE -> R.string.voice_message
-                            SendMode.VIDEO -> R.string.video_message
-                        },
-                    ),
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                )
+                if (mode == SendMode.TEXT) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_send_logo),
+                        contentDescription = stringResource(R.string.send),
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Icon(
+                        if (mode == SendMode.VOICE) Icons.Filled.Mic else Icons.Filled.Videocam,
+                        contentDescription = stringResource(
+                            if (mode == SendMode.VOICE) R.string.voice_message else R.string.video_message,
+                        ),
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
             }
         }
     }
