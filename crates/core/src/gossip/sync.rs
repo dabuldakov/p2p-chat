@@ -108,3 +108,42 @@ impl GossipEngine {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Log;
+    use p2pchat_crypto::Identity;
+    use prost::Message as _;
+
+    #[test]
+    fn request_and_response_cover_empty_and_nonempty() {
+        let mut e = GossipEngine::new(Identity::generate(), Log::new());
+        e.create_group(b"g".to_vec()).unwrap();
+        e.post(b"g".to_vec(), "hi".into()).unwrap();
+
+        let env = e.sync_request(b"g").unwrap();
+        let g = Gossip::decode(env.payload.as_slice()).unwrap();
+        let req = match g.body {
+            Some(Body::SyncRequest(r)) => r,
+            _ => panic!("not request"),
+        };
+        assert_eq!(req.group_id, b"g");
+        assert_eq!(req.lamport_watermark, e.log().lamport());
+        let mut old = req.clone();
+        old.lamport_watermark = 0;
+        let resp = e.make_sync_response(&old);
+        assert_eq!(resp.messages.len(), 1);
+        assert!(!resp.more);
+
+        let empty = SyncRequest {
+            group_id: b"other".to_vec(),
+            have_heads: Vec::new(),
+            lamport_watermark: 0,
+        };
+        assert!(e.make_sync_response(&empty).messages.is_empty());
+
+        let out = e.sync_digest_to(b"g", b"peer").unwrap();
+        assert_eq!(out.targets, vec![b"peer".to_vec()]);
+    }
+}

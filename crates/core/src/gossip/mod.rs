@@ -1397,7 +1397,9 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         if wins {
             self.nicknames
                 .insert(ev.peer_id.clone(), (ev.nickname.clone(), ev.lamport));
-            if !ev.avatar.is_empty() {
+            if ev.avatar.is_empty() {
+                self.avatars.remove(&ev.peer_id);
+            } else {
                 self.avatars.insert(ev.peer_id.clone(), ev.avatar.clone());
             }
             let av = if ev.avatar.is_empty() { None } else { Some(ev.avatar.as_slice()) };

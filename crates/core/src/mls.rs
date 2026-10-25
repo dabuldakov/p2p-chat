@@ -199,6 +199,46 @@ mod tests {
     }
 
     #[test]
+    fn add_join_encrypt_remove_save_load() {
+        use p2pchat_crypto::Identity;
+
+        let dir = std::env::temp_dir().join(format!("p2pchat-mls-{}-life", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("db.sqlite").to_str().unwrap().to_string();
+
+        let a = Identity::generate();
+        let b = Identity::generate();
+        let mut ma = MlsGroups::load(&a, &db).unwrap();
+        let mut mb = MlsGroups::load(&b, &db).unwrap();
+        ma.create(b"team").unwrap();
+        let kp = mb.key_package().unwrap();
+        let (_commit, welcome) = ma.add_member(b"team", &kp).unwrap();
+        let joined = mb.join(&welcome).unwrap();
+        assert_eq!(joined, b"team");
+        assert_eq!(mb.members(b"team").len(), 2);
+
+        let ct = ma.encrypt(b"team", b"hello").unwrap();
+        assert!(matches!(
+            mb.process(b"team", &ct).unwrap(),
+            Received::Application(v) if v == b"hello"
+        ));
+        ma.save(&db).unwrap();
+        let mut reloaded = MlsGroups::load(&a, &db).unwrap();
+        assert!(reloaded.load_group(b"team").unwrap());
+        assert!(reloaded.load_group(b"team").unwrap());
+        assert!(!reloaded.load_group(b"missing").unwrap());
+        assert!(!reloaded.remove(b"missing"));
+
+        let rem = reloaded.remove_member(b"team", &b.public_key().to_bytes()).unwrap();
+        assert!(mb.process(b"team", &rem).is_ok());
+        assert!(reloaded.remove(b"team"));
+        assert!(reloaded.group_ids().is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn load_group_unknown_is_false() {
         let id = Identity::generate();
         let dir = std::env::temp_dir().join(format!("p2pchat-mls-{}-t", std::process::id()));
