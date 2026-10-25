@@ -34,6 +34,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
@@ -124,6 +127,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlin.math.absoluteValue
 import androidx.compose.ui.res.stringResource
@@ -1019,6 +1023,8 @@ private fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
 
 // --- Экран группы --------------------------------------------------------
 
+private enum class SendMode { TEXT, VOICE, VIDEO }
+
 @Composable
 private fun GroupScreen(vm: ChatViewModel) {
     var input by remember { mutableStateOf("") }
@@ -1032,6 +1038,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     var mediaBusy by remember { mutableStateOf(false) }
     var recording by remember { mutableStateOf(false) }
     var recordSeconds by remember { mutableStateOf(0) }
+    var sendMode by remember { mutableStateOf(SendMode.TEXT) }
     var editTarget by remember { mutableStateOf<FfiMessage?>(null) }
     var editText by remember { mutableStateOf("") }
     var actionTarget by remember { mutableStateOf<FfiMessage?>(null) }
@@ -1081,6 +1088,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     fun stopVoice(send: Boolean) {
         val file = recorder.stop()
         recording = false
+        sendMode = SendMode.TEXT
         if (!send) {
             file?.delete()
             return
@@ -1099,25 +1107,38 @@ private fun GroupScreen(vm: ChatViewModel) {
         }
     }
 
-    fun startVoice() {
-        if (recorder.start()) {
-            recordSeconds = 0
-            recording = true
-        } else {
-            Toast.makeText(ctx, ctx.getString(R.string.media_failed), Toast.LENGTH_LONG).show()
-        }
-    }
-
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) startVoice()
-        else Toast.makeText(ctx, ctx.getString(R.string.mic_permission), Toast.LENGTH_LONG).show()
+        if (!granted) Toast.makeText(ctx, ctx.getString(R.string.mic_permission), Toast.LENGTH_LONG).show()
     }
 
-    fun requestVoice() {
-        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) ==
+    fun startVoice(): Boolean {
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
-        ) startVoice()
-        else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        ) {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            return false
+        }
+        if (!recorder.start()) {
+            Toast.makeText(ctx, ctx.getString(R.string.media_failed), Toast.LENGTH_LONG).show()
+            return false
+        }
+        recordSeconds = 0
+        recording = true
+        return true
+    }
+
+    fun cycleSendMode() {
+        if (input.isNotBlank()) {
+            vm.send(input)
+            input = ""
+            sendMode = SendMode.TEXT
+            return
+        }
+        sendMode = when (sendMode) {
+            SendMode.TEXT -> SendMode.VOICE
+            SendMode.VOICE -> SendMode.VIDEO
+            SendMode.VIDEO -> SendMode.TEXT
+        }
     }
 
     LaunchedEffect(recording) {
@@ -1546,71 +1567,96 @@ private fun GroupScreen(vm: ChatViewModel) {
             }
         }
 
-        if (recording) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(Color(0xFFE53935)))
-                Text(
-                    "%d:%02d".format(recordSeconds / 60, recordSeconds % 60),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { stopVoice(false) }) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cancel), tint = MaterialTheme.colorScheme.error)
-                }
-                IconButton(onClick = { stopVoice(true) }) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.send))
-                }
-            }
-        } else Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-            IconButton(onClick = { showAttachMenu = true }, enabled = !mediaBusy) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            IconButton(onClick = { showAttachMenu = true }, enabled = !mediaBusy && !recording) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.attachment))
             }
             if (vm.gifEnabled) {
-                IconButton(onClick = { showGifPicker = true }, enabled = !mediaBusy) {
+                IconButton(onClick = { showGifPicker = true }, enabled = !mediaBusy && !recording) {
                     Icon(Icons.Filled.GifBox, contentDescription = stringResource(R.string.gif))
                 }
             }
             OutlinedTextField(
-                value = input,
-                onValueChange = { input = it },
+                value = if (recording) "%d:%02d".format(recordSeconds / 60, recordSeconds % 60) else input,
+                onValueChange = {
+                    if (!recording) {
+                        input = it
+                        if (it.isNotBlank()) sendMode = SendMode.TEXT
+                    }
+                },
                 modifier = Modifier.weight(1f),
+                enabled = !recording,
                 placeholder = { Text(stringResource(R.string.message_hint)) },
                 minLines = 1,
                 maxLines = 5,
                 shape = RoundedCornerShape(12.dp),
+                leadingIcon = if (recording) {
+                    {
+                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(Color(0xFFE53935)))
+                    }
+                } else null,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                 ),
             )
-            if (input.isBlank() && !mediaBusy) {
-                IconButton(onClick = { requestVoice() }) {
-                    Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.voice_message))
-                }
-                IconButton(onClick = {
-                    captureVideo.launch(
-                            Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60),
-                        )
-                }) {
-                    Icon(Icons.Filled.Videocam, contentDescription = stringResource(R.string.video_message))
-                }
-            }
             if (mediaBusy) {
                 CircularProgressIndicator(Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
             }
             Spacer(Modifier.width(8.dp))
-            FilledIconButton(
-                onClick = { vm.send(input); input = "" },
-                modifier = Modifier.size(48.dp),
-                shape = RoundedCornerShape(12.dp),
+            val mode = if (input.isNotBlank()) SendMode.TEXT else sendMode
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+                    .pointerInput(input, sendMode, mediaBusy) {
+                        if (mediaBusy) return@pointerInput
+                        awaitEachGesture {
+                            awaitFirstDown()
+                            val releasedEarly = withTimeoutOrNull(350L) {
+                                waitForUpOrCancellation() != null
+                            }
+                            if (releasedEarly == true) {
+                                cycleSendMode()
+                                return@awaitEachGesture
+                            }
+                            // Удержание.
+                            when {
+                                input.isNotBlank() -> Unit
+                                mode == SendMode.VOICE -> {
+                                    if (startVoice()) {
+                                        val released = waitForUpOrCancellation() != null
+                                        stopVoice(released)
+                                    }
+                                }
+                                mode == SendMode.VIDEO -> {
+                                    captureVideo.launch(
+                                        Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+                                            .putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60),
+                                    )
+                                    waitForUpOrCancellation()
+                                    sendMode = SendMode.TEXT
+                                }
+                            }
+                        }
+                    },
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.AutoMirrored.Filled.Send,
-                    contentDescription = stringResource(R.string.send),
+                    when (mode) {
+                        SendMode.TEXT -> Icons.AutoMirrored.Filled.Send
+                        SendMode.VOICE -> Icons.Filled.Mic
+                        SendMode.VIDEO -> Icons.Filled.Videocam
+                    },
+                    contentDescription = stringResource(
+                        when (mode) {
+                            SendMode.TEXT -> R.string.send
+                            SendMode.VOICE -> R.string.voice_message
+                            SendMode.VIDEO -> R.string.video_message
+                        },
+                    ),
+                    tint = MaterialTheme.colorScheme.onPrimary,
                 )
             }
         }
