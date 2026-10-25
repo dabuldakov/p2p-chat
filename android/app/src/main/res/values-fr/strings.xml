@@ -124,4 +124,5 @@
     <string name="owner_changed">Propriétaire du groupe modifié</string>
     <string name="owner_request_hint">La demande de propriété sera disponible après 7 jours d’inactivité du propriétaire.</string>
     <string name="owner_two_people_hint">Dans un groupe de 2 personnes, le changement de propriétaire nécessite l’accord du propriétaire actuel.</string>
+    <string name="owner_request_info">Disponible si le propriétaire est inactif depuis 7 jours. Ensuite, 24 h pour les candidatures et 24 h pour le vote ; une majorité de plus de 50 % des membres sans le propriétaire est requise. Dans un groupe de 2 personnes, votre vote suffit. Si le propriétaire revient avant la fin de l’élection, elle est annulée.</string>
 </resources>

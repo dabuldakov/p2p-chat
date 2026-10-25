@@ -124,4 +124,5 @@
     <string name="owner_changed">群组所有者已更改</string>
     <string name="owner_request_hint">所有者7天未活跃后即可申请所有权。</string>
     <string name="owner_two_people_hint">在只有2人的群组中，更换所有者需要当前所有者同意。</string>
+    <string name="owner_request_info">当所有者连续7天未活跃时可用。随后24小时接受申请，24小时投票；需要除所有者外超过50%成员的法定人数。在只有2人的群组中，你的一票就足够。若所有者在选举结束前返回，选举将取消。</string>
 </resources>

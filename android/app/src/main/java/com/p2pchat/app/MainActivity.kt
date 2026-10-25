@@ -105,6 +105,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -1024,6 +1025,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     var reportTarget by remember { mutableStateOf<ReportTarget?>(null) }
     var showTimes by remember { mutableStateOf(false) }
     var touching by remember { mutableStateOf(false) }
+    var showRequestInfo by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1314,9 +1316,8 @@ private fun GroupScreen(vm: ChatViewModel) {
                 nowSec >= vm.ownerChallengeAt + 7uL * 86_400uL
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
-                    onClick = { vm.claimOwner(0) },
-                    enabled = canRequest,
-                    modifier = Modifier.weight(1f),
+                    onClick = { if (canRequest) vm.claimOwner(0) else showRequestInfo = true },
+                    modifier = Modifier.weight(1f).alpha(if (canRequest) 1f else 0.55f),
                 ) { Text(stringResource(R.string.owner_request), style = MaterialTheme.typography.labelSmall) }
                 OutlinedButton(
                     onClick = { vm.claimOwner(1) },
@@ -1336,6 +1337,18 @@ private fun GroupScreen(vm: ChatViewModel) {
                     stringResource(R.string.owner_two_people_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (showRequestInfo) {
+                AlertDialog(
+                    onDismissRequest = { showRequestInfo = false },
+                    title = { Text(stringResource(R.string.owner_request)) },
+                    text = { Text(stringResource(R.string.owner_request_info)) },
+                    confirmButton = {
+                        TextButton(onClick = { showRequestInfo = false }) {
+                            Text(stringResource(R.string.close))
+                        }
+                    },
                 )
             }
         }
