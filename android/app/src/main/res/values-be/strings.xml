@@ -127,4 +127,13 @@
     <string name="owner_request_info">Даступна, калі ўладальнік неактыўны 7 дзён. Затым 24 гадзіны на заяўкі і 24 гадзіны на галасаванне; патрэбны кворум >50% удзельнікаў без уладальніка. У групе з 2 чалавек дастаткова вашага голасу. Калі ўладальнік вернецца да завяршэння выбараў, яны адмяняюцца.</string>
     <string name="owner_badge">Уладальнік</string>
     <string name="owner_challenge_cooldown">Аспрэчыць уладальніка можна раз у 7 дзён.</string>
+    <string name="reaction">Рэакцыя</string>
+    <string name="reaction_recent">Нядаўнія</string>
+    <string name="reaction_cat_smileys">Смайлы</string>
+    <string name="reaction_cat_gestures">Жэсты</string>
+    <string name="reaction_cat_hearts">Сэрцы</string>
+    <string name="reaction_cat_animals">Жывёлы</string>
+    <string name="reaction_cat_food">Ежа</string>
+    <string name="reaction_cat_other">Іншае</string>
+    <string name="owner_management">Кіраванне ўладальнікам</string>
 </resources>

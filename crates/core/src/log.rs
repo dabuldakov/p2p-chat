@@ -8,7 +8,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use p2pchat_storage::{Store, StoredMessage};
+use p2pchat_storage::{ReactionRow, Store, StoredMessage};
 
 use crate::clock::Lamport;
 use crate::proto::ChatMessage;
@@ -268,6 +268,39 @@ impl Log {
     pub fn load_deletes(&self) -> Result<Vec<Vec<u8>>, CoreError> {
         Ok(match &self.store {
             Some(s) => s.all_deletes()?,
+            None => Vec::new(),
+        })
+    }
+
+    pub fn store_reaction(
+        &self,
+        target_id: &[u8],
+        peer_id: &[u8],
+        emoji: &str,
+        lamport: u64,
+    ) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.set_reaction(target_id, peer_id, emoji, lamport)?;
+            s.set_meta("lamport", &self.clock.value().to_le_bytes())?;
+        }
+        Ok(())
+    }
+
+    pub fn remove_reaction(
+        &self,
+        target_id: &[u8],
+        peer_id: &[u8],
+        emoji: &str,
+    ) -> Result<(), CoreError> {
+        if let Some(s) = &self.store {
+            s.remove_reaction(target_id, peer_id, emoji)?;
+        }
+        Ok(())
+    }
+
+    pub fn load_reactions(&self) -> Result<Vec<ReactionRow>, CoreError> {
+        Ok(match &self.store {
+            Some(s) => s.all_reactions()?,
             None => Vec::new(),
         })
     }

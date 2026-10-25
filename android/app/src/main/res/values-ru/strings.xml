@@ -144,4 +144,13 @@
     <string name="owner_request_info">Доступно, если владелец неактивен 7 дней. Затем 24 ч на заявки и 24 ч на голосование; нужен кворум >50% участников без владельца. В группе из 2 человек достаточно вашего голоса. Если владелец вернётся до завершения выборов, они отменяются.</string>
     <string name="owner_badge">Владелец</string>
     <string name="owner_challenge_cooldown">Оспорить владельца можно раз в 7 дней.</string>
+    <string name="reaction">Реакция</string>
+    <string name="reaction_recent">Недавние</string>
+    <string name="reaction_cat_smileys">Смайлики</string>
+    <string name="reaction_cat_gestures">Жесты</string>
+    <string name="reaction_cat_hearts">Сердца</string>
+    <string name="reaction_cat_animals">Животные</string>
+    <string name="reaction_cat_food">Еда</string>
+    <string name="reaction_cat_other">Другое</string>
+    <string name="owner_management">Управление владельцем</string>
 </resources>

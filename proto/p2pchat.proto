@@ -142,6 +142,7 @@ message Gossip {
     OwnerClaim owner_claim = 20;
     OwnerVote owner_vote = 21;
     OwnerChange owner_change = 22;
+    ReactionEvent reaction = 23;
   }
 }
 
@@ -365,6 +366,18 @@ message OwnerChange {
   uint64 at = 5;
   uint64 epoch = 6;
   repeated OwnerClaim candidates = 7; // все заявки выборов (для проверки кворума)
+}
+
+// Локальное состояние активных выборов (persist в meta, не пересылается).
+// Реакция на сообщение. Одна активная реакция на участника (LWW по lamport).
+message ReactionEvent {
+  bytes group_id = 1;
+  bytes target_id = 2;
+  string emoji = 3;
+  bool add = 4;             // false — убрать
+  bytes author = 5;
+  uint64 lamport = 6;
+  uint64 wall_time = 7;
 }
 
 // Локальное состояние активных выборов (persist в meta, не пересылается).

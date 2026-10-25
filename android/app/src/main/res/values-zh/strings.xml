@@ -127,4 +127,13 @@
     <string name="owner_request_info">当所有者连续7天未活跃时可用。随后24小时接受申请，24小时投票；需要除所有者外超过50%成员的法定人数。在只有2人的群组中，你的一票就足够。若所有者在选举结束前返回，选举将取消。</string>
     <string name="owner_badge">所有者</string>
     <string name="owner_challenge_cooldown">每7天只能发起一次挑战。</string>
+    <string name="reaction">回应</string>
+    <string name="reaction_recent">最近</string>
+    <string name="reaction_cat_smileys">表情</string>
+    <string name="reaction_cat_gestures">手势</string>
+    <string name="reaction_cat_hearts">爱心</string>
+    <string name="reaction_cat_animals">动物</string>
+    <string name="reaction_cat_food">食物</string>
+    <string name="reaction_cat_other">其他</string>
+    <string name="owner_management">所有者管理</string>
 </resources>

@@ -43,6 +43,15 @@ pub struct FfiMessage {
     pub edited: bool,
     pub deleted: bool,
     pub attachment: Option<FfiAttachment>,
+    pub reactions: Vec<FfiReaction>,
+}
+
+/// Реакция на сообщение (агрегированная).
+#[derive(uniffi::Record)]
+pub struct FfiReaction {
+    pub emoji: String,
+    pub count: u32,
+    pub mine: bool,
 }
 
 /// Вложение-ссылка (гифка). Байты медиа не передаются — клиент тянет их сам.
@@ -362,6 +371,24 @@ impl ChatCore {
         use prost::Message as _;
         Ok(engine
             .owner_change_envelope(&group_id)?
+            .map(|o| FfiOutgoing {
+                envelope: o.envelope.encode_to_vec(),
+                targets: o.targets,
+            }))
+    }
+
+    /// Поставить/снять реакцию на сообщение.
+    pub fn react(
+        &self,
+        group_id: Vec<u8>,
+        target_id: Vec<u8>,
+        emoji: String,
+        add: bool,
+    ) -> Result<Option<FfiOutgoing>, FfiError> {
+        let mut engine = self.inner.lock().unwrap();
+        use prost::Message as _;
+        Ok(engine
+            .react(&group_id, &target_id, &emoji, add)?
             .map(|o| FfiOutgoing {
                 envelope: o.envelope.encode_to_vec(),
                 targets: o.targets,
@@ -951,6 +978,19 @@ fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage, engine: &GossipEngine) -> Ffi
     } else {
         engine.effective_text(&m.id, &m.text)
     };
+    let reactions = if deleted {
+        Vec::new()
+    } else {
+        engine
+            .reactions_for(&m.id, &engine.peer_id())
+            .into_iter()
+            .map(|r| FfiReaction {
+                emoji: r.emoji,
+                count: r.count,
+                mine: r.mine,
+            })
+            .collect()
+    };
     FfiMessage {
         id: m.id,
         group_id: m.group_id,
@@ -965,6 +1005,7 @@ fn to_ffi_msg(m: p2pchat_core::proto::ChatMessage, engine: &GossipEngine) -> Ffi
         } else {
             m.attachment.map(to_ffi_attachment)
         },
+        reactions,
     }
 }
 

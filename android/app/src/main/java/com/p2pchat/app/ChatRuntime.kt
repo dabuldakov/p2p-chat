@@ -592,6 +592,14 @@ object ChatRuntime {
         refresh()
     }
 
+    /** Поставить/снять реакцию на сообщение. */
+    fun react(messageId: ByteArray, emoji: String, add: Boolean) {
+        val g = currentGroup ?: return
+        val out = runCatching { core.react(g, messageId, emoji, add) }.getOrNull() ?: return
+        transport.sendTargets(out.envelope, out.targets)
+        refresh()
+    }
+
     /** Отредактировать своё сообщение (только автор). */
     fun editMessage(id: ByteArray, text: String) {
         val g = currentGroup ?: return

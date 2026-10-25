@@ -79,12 +79,15 @@ fn memory_log_everything() {
     assert!(l.load_deletes().unwrap().is_empty());
     assert!(l.load_group_keys().unwrap().is_empty());
     assert!(l.load_membership().unwrap().is_empty());
+    assert!(l.load_reactions().unwrap().is_empty());
     assert!(l.gifs_for_group(b"g", 10).unwrap().is_empty());
     assert!(l.gifs_by_author(b"alice", 10).unwrap().is_empty());
     l.store_group_key(b"g", b"k").unwrap();
     l.store_profile(b"p", "Ann", 1, None).unwrap();
     l.store_edit(b"m", "e", 1, 1).unwrap();
     l.store_delete(b"d").unwrap();
+    l.store_reaction(b"m", b"p", "👍", 1).unwrap();
+    l.remove_reaction(b"m", b"p", "👍").unwrap();
     l.store_membership(&MembershipEvent {
         group_id: b"g".to_vec(),
         peer_id: b"p".to_vec(),
@@ -132,6 +135,9 @@ fn store_wrappers_and_recovery() {
     l.store_profile(b"alice", "Alice", 2, Some(&[1, 2, 3])).unwrap();
     l.store_edit(&m.id, "edited", 3, 4).unwrap();
     l.store_delete(&m.id).unwrap();
+    l.store_reaction(&m.id, b"alice", "👍", 5).unwrap();
+    l.store_reaction(&m.id, b"bob", "🔥", 6).unwrap();
+    l.remove_reaction(&m.id, b"bob", "🔥").unwrap();
     l.store_membership(&MembershipEvent {
         group_id: b"g".to_vec(),
         peer_id: b"alice".to_vec(),
@@ -164,6 +170,7 @@ fn store_wrappers_and_recovery() {
     assert_eq!(l.load_edits().unwrap().len(), 1);
     assert_eq!(l.load_deletes().unwrap().len(), 1);
     assert_eq!(l.load_membership().unwrap().len(), 1);
+    assert_eq!(l.load_reactions().unwrap().len(), 1);
     assert_eq!(l.gifs_for_group(b"g", 10).unwrap().len(), 1);
     assert_eq!(l.gifs_by_author(b"alice", 10).unwrap().len(), 1);
     assert_eq!(l.gifs_for_group(b"other", 10).unwrap().len(), 0);

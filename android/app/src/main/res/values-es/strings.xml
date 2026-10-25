@@ -127,4 +127,13 @@
     <string name="owner_request_info">Disponible si el propietario ha estado inactivo durante 7 días. Después hay 24 h para solicitudes y 24 h para votar; se requiere una mayoría superior al 50 % de los miembros sin el propietario. En un grupo de 2 personas basta con tu voto. Si el propietario vuelve antes de que termine la elección, se cancela.</string>
     <string name="owner_badge">Propietario</string>
     <string name="owner_challenge_cooldown">El desafío se puede iniciar una vez cada 7 días.</string>
+    <string name="reaction">Reacción</string>
+    <string name="reaction_recent">Recientes</string>
+    <string name="reaction_cat_smileys">Emoticonos</string>
+    <string name="reaction_cat_gestures">Gestos</string>
+    <string name="reaction_cat_hearts">Corazones</string>
+    <string name="reaction_cat_animals">Animales</string>
+    <string name="reaction_cat_food">Comida</string>
+    <string name="reaction_cat_other">Otros</string>
+    <string name="owner_management">Gestión del propietario</string>
 </resources>

@@ -47,6 +47,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -58,6 +59,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -1022,6 +1024,7 @@ private fun GroupScreen(vm: ChatViewModel) {
     var editTarget by remember { mutableStateOf<FfiMessage?>(null) }
     var editText by remember { mutableStateOf("") }
     var actionTarget by remember { mutableStateOf<FfiMessage?>(null) }
+    var reactionTarget by remember { mutableStateOf<FfiMessage?>(null) }
     var deleteTarget by remember { mutableStateOf<FfiMessage?>(null) }
     var showRename by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
@@ -1093,6 +1096,9 @@ private fun GroupScreen(vm: ChatViewModel) {
     val canChallenge = !vm.isOwner && (
         vm.ownerChallengeAt == 0uL || nowSec >= vm.ownerChallengeAt + 7uL * 86_400uL
         )
+    val electionActive = vm.ownerElection != null
+    val showOwnerActions = ownerActionsVisible(vm.isOwner, electionActive)
+    val showOwnerHint = ownerManagementHintVisible(vm.isOwner, electionActive, inviteExpanded)
 
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -1121,6 +1127,15 @@ private fun GroupScreen(vm: ChatViewModel) {
                 Spacer(Modifier.weight(1f))
                 Text(stringResource(R.string.members_count, vm.members.size), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (showOwnerHint) {
+                    IconButton(onClick = { inviteExpanded = true }) {
+                        Icon(
+                            Icons.Filled.AdminPanelSettings,
+                            contentDescription = stringResource(R.string.owner_management),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 if (vm.isOwner) {
                     IconButton(onClick = { renameText = vm.currentGroupName ?: ""; showRename = true }) {
                         Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename_group))
@@ -1180,7 +1195,13 @@ private fun GroupScreen(vm: ChatViewModel) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
                         Text(stringResource(R.string.participants), style = MaterialTheme.typography.titleSmall)
                         vm.members.forEach { m ->
                             val hex = m.peerId.toHex()
@@ -1225,7 +1246,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (!vm.isOwner && vm.ownerElection == null) {
+                        if (showOwnerActions) {
                             IconButton(
                                 onClick = {
                                     if (canRequest) vm.claimOwner(0) else showRequestInfo = true
@@ -1464,6 +1485,10 @@ private fun GroupScreen(vm: ChatViewModel) {
         )
     }
 
+    reactionTarget?.let { target ->
+        ReactionPickerDialog(vm, target, onDismiss = { reactionTarget = null })
+    }
+
     if (showGifPicker && vm.gifEnabled) {
         GifPickerDialog(vm = vm, onDismiss = { showGifPicker = false })
     }
@@ -1562,6 +1587,10 @@ private fun GroupScreen(vm: ChatViewModel) {
             title = { Text(stringResource(R.string.message_actions)) },
             text = {
                 Column {
+                    TextButton(onClick = {
+                        reactionTarget = am
+                        actionTarget = null
+                    }) { Text(stringResource(R.string.reaction)) }
                     if (am.author.toHex() == vm.peerId) {
                         TextButton(onClick = {
                             actionTarget = null
@@ -1917,6 +1946,32 @@ private fun MessageRow(
                                 MessageText(message.text, onLongPress)
                             }
                         else -> MessageText(message.text, onLongPress)
+                    }
+                }
+                if (!message.deleted && message.reactions.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        message.reactions.forEach { r ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (r.mine) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
+                                    vm.react(message.id, r.emoji, !r.mine)
+                                },
+                            ) {
+                                Text(
+                                    "${r.emoji} ${r.count}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                )
+                            }
+                        }
                     }
                 }
             }

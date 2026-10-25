@@ -12,7 +12,7 @@ mod owner;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, Envelope, Gossip, GroupProfile, LeaveEvent, Link, Links, Mls, OwnerAlive, OwnerChange, OwnerClaim, OwnerTrigger, OwnerVote, PeerInfo, Presence, ProfileEvent};
+use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, Envelope, Gossip, GroupProfile, LeaveEvent, Link, Links, Mls, OwnerAlive, OwnerChange, OwnerClaim, OwnerTrigger, OwnerVote, PeerInfo, Presence, ProfileEvent, ReactionEvent};
 use crate::{CoreError, GroupId, MessageId, PeerId};
 
 mod sync;
@@ -51,6 +51,8 @@ pub struct GossipEngine {
     seen: std::collections::HashSet<u64>,
     /// Локально заблокированные пользователи (их сообщения скрываются).
     blocked: std::collections::HashSet<PeerId>,
+    /// Реакции: target_id → peer_id → (emoji, lamport).
+    reactions: std::collections::HashMap<MessageId, std::collections::HashMap<PeerId, (String, u64)>>,
     /// Активные выборы владельца по группам (в памяти).
     owner_elections: std::collections::HashMap<GroupId, OwnerElection>,
     /// Тестовые часы (None — реальное время).
@@ -61,6 +63,14 @@ const OWNER_ABSENT_SECS: u64 = 7 * 24 * 3600;
 const OWNER_APPLY_SECS: u64 = 24 * 3600;
 const OWNER_VOTE_SECS: u64 = 24 * 3600;
 const OWNER_CHALLENGE_COOLDOWN: u64 = 7 * 24 * 3600;
+
+/// Агрегированная реакция для UI.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReactionSummary {
+    pub emoji: String,
+    pub count: u32,
+    pub mine: bool,
+}
 
 /// Активные выборы владельца группы.
 #[derive(Clone)]
@@ -112,6 +122,7 @@ impl GossipEngine {
             nicknames: Default::default(),
             seen: Default::default(),
             blocked: Default::default(),
+            reactions: Default::default(),
             owner_elections: Default::default(),
             now_override: None,
         }
@@ -327,6 +338,12 @@ impl GossipEngine {
         }
         for id in self.log.load_deletes()? {
             self.deletes.insert(id);
+        }
+        for (target, peer, emoji, lamport) in self.log.load_reactions()? {
+            self.reactions
+                .entry(target)
+                .or_default()
+                .insert(peer, (emoji, lamport));
         }
         if let Ok(Some(b)) = self.log.get_meta("blocked") {
             for line in String::from_utf8_lossy(&b).split('\n').filter(|s| !s.is_empty()) {
@@ -707,6 +724,9 @@ impl GossipEngine {
             }
             Some(Body::OwnerChange(ch)) => {
                 self.on_owner_change(ch, &origin)?;
+            }
+            Some(Body::Reaction(r)) => {
+                self.on_reaction(r, &origin)?;
             }
             None => {}
         }
@@ -1199,6 +1219,154 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             .unwrap_or(0)
     }
 
+    /// Поставить/снять свою реакцию (одна активная на сообщение).
+    pub fn react(
+        &mut self,
+        group: &[u8],
+        target_id: &[u8],
+        emoji: &str,
+        add: bool,
+    ) -> Result<Option<Outgoing>, CoreError> {
+        if !self.mls.has(group) {
+            return Ok(None);
+        }
+        let Some(msg) = self.log.get(target_id) else {
+            return Ok(None);
+        };
+        if msg.group_id != group {
+            return Ok(None);
+        }
+        let emoji = emoji.trim();
+        if emoji.is_empty() || emoji.len() > 64 {
+            return Ok(None);
+        }
+        let me = self.peer_id();
+        let cur = self
+            .reactions
+            .get(target_id)
+            .and_then(|m| m.get(&me))
+            .cloned();
+        if add {
+            if cur.as_ref().map(|(e, _)| e.as_str()) == Some(emoji) {
+                return Ok(None);
+            }
+        } else if cur.as_ref().map(|(e, _)| e.as_str()) != Some(emoji) {
+            return Ok(None);
+        }
+        let lamport = self.log.tick();
+        let wt = crate::unix_now();
+        if add {
+            self.reactions
+                .entry(target_id.to_vec())
+                .or_default()
+                .insert(me.clone(), (emoji.to_string(), lamport));
+            let _ = self.log.store_reaction(target_id, &me, emoji, lamport);
+        } else {
+            if let Some(m) = self.reactions.get_mut(target_id) {
+                m.remove(&me);
+                if m.is_empty() {
+                    self.reactions.remove(target_id);
+                }
+            }
+            let _ = self.log.remove_reaction(target_id, &me, emoji);
+        }
+        let ev = ReactionEvent {
+            group_id: group.to_vec(),
+            target_id: target_id.to_vec(),
+            emoji: emoji.to_string(),
+            add,
+            author: me,
+            lamport,
+            wall_time: wt,
+        };
+        let env = self.seal(Gossip {
+            body: Some(Body::Reaction(ev)),
+        })?;
+        Ok(Some(Outgoing {
+            envelope: env,
+            targets: self.neighbor_keys(group),
+        }))
+    }
+
+    /// Принять реакцию участника (LWW для пары сообщение+участник).
+    fn on_reaction(&mut self, ev: ReactionEvent, origin: &[u8]) -> Result<(), CoreError> {
+        if p2pchat_crypto::content_id(origin).to_vec() != ev.author {
+            return Ok(());
+        }
+        if !self.mls.has(&ev.group_id) {
+            return Ok(());
+        }
+        if !self
+            .members(&ev.group_id)
+            .iter()
+            .any(|m| m.peer_id == ev.author)
+        {
+            return Ok(());
+        }
+        if let Some(m) = self.log.get(&ev.target_id) {
+            if m.group_id != ev.group_id {
+                return Ok(());
+            }
+        }
+        let emoji = ev.emoji.trim();
+        if emoji.is_empty() || emoji.len() > 64 {
+            return Ok(());
+        }
+        let cur = self
+            .reactions
+            .get(&ev.target_id)
+            .and_then(|m| m.get(&ev.author))
+            .cloned();
+        if let Some((_, lamport)) = &cur {
+            if *lamport > ev.lamport {
+                return Ok(());
+            }
+        }
+        if ev.add {
+            self.reactions
+                .entry(ev.target_id.clone())
+                .or_default()
+                .insert(ev.author.clone(), (emoji.to_string(), ev.lamport));
+            let _ = self
+                .log
+                .store_reaction(&ev.target_id, &ev.author, emoji, ev.lamport);
+        } else {
+            if cur.as_ref().map(|(e, _)| e.as_str()) != Some(emoji) {
+                return Ok(());
+            }
+            if let Some(m) = self.reactions.get_mut(&ev.target_id) {
+                m.remove(&ev.author);
+                if m.is_empty() {
+                    self.reactions.remove(&ev.target_id);
+                }
+            }
+            let _ = self.log.remove_reaction(&ev.target_id, &ev.author, emoji);
+        }
+        Ok(())
+    }
+
+    /// Сводка реакций сообщения: количество по emoji и признак «моя».
+    pub fn reactions_for(&self, target_id: &[u8], me: &[u8]) -> Vec<ReactionSummary> {
+        let Some(map) = self.reactions.get(target_id) else {
+            return Vec::new();
+        };
+        let mut counts: std::collections::HashMap<String, (u32, bool)> =
+            std::collections::HashMap::new();
+        for (peer, (emoji, _)) in map {
+            let e = counts.entry(emoji.clone()).or_default();
+            e.0 += 1;
+            if peer == me {
+                e.1 = true;
+            }
+        }
+        let mut out: Vec<ReactionSummary> = counts
+            .into_iter()
+            .map(|(emoji, (count, mine))| ReactionSummary { emoji, count, mine })
+            .collect();
+        out.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.emoji.cmp(&b.emoji)));
+        out
+    }
+
     pub fn is_deleted(&self, id: &[u8]) -> bool {
         self.deletes.contains(id)
     }
@@ -1473,6 +1641,7 @@ fn mls_group_of(g: &Gossip) -> Option<GroupId> {
         Some(Body::OwnerClaim(c)) => Some(c.group_id.clone()),
         Some(Body::OwnerVote(v)) => Some(v.group_id.clone()),
         Some(Body::OwnerChange(c)) => Some(c.group_id.clone()),
+        Some(Body::Reaction(r)) => Some(r.group_id.clone()),
         _ => None,
     }
 }

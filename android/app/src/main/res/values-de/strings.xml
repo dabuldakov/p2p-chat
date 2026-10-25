@@ -127,4 +127,13 @@
     <string name="owner_request_info">Verfügbar, wenn der Eigentümer 7 Tage inaktiv war. Danach 24 Std. für Bewerbungen und 24 Std. für die Abstimmung; erforderlich ist eine Mehrheit von über 50 % der Mitglieder ohne den Eigentümer. In einer 2-Personen-Gruppe reicht deine Stimme. Kehrt der Eigentümer vor Ende der Wahl zurück, wird sie abgebrochen.</string>
     <string name="owner_badge">Eigentümer</string>
     <string name="owner_challenge_cooldown">Eine Herausforderung ist einmal alle 7 Tage möglich.</string>
+    <string name="reaction">Reaktion</string>
+    <string name="reaction_recent">Zuletzt</string>
+    <string name="reaction_cat_smileys">Smileys</string>
+    <string name="reaction_cat_gestures">Gesten</string>
+    <string name="reaction_cat_hearts">Herzen</string>
+    <string name="reaction_cat_animals">Tiere</string>
+    <string name="reaction_cat_food">Essen</string>
+    <string name="reaction_cat_other">Andere</string>
+    <string name="owner_management">Eigentümerverwaltung</string>
 </resources>

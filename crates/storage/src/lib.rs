@@ -9,6 +9,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 pub type ProfileRow = (Vec<u8>, String, u64, Option<Vec<u8>>);
 /// Строка правки: (message_id, text, lamport, wall_time).
 pub type EditRow = (Vec<u8>, String, u64, u64);
+/// Строка реакции: (target_id, peer_id, emoji, lamport).
+pub type ReactionRow = (Vec<u8>, Vec<u8>, String, u64);
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -192,6 +194,21 @@ impl Store {
                 "#,
             )?;
             self.conn.execute_batch("PRAGMA user_version = 7;")?;
+        }
+
+        if version < 8 {
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS message_reactions (
+                    target_id BLOB NOT NULL,
+                    peer_id   BLOB NOT NULL,
+                    emoji     TEXT NOT NULL,
+                    lamport   INTEGER NOT NULL,
+                    PRIMARY KEY (target_id, peer_id)
+                );
+                "#,
+            )?;
+            self.conn.execute_batch("PRAGMA user_version = 8;")?;
         }
 
         Ok(())
@@ -569,6 +586,54 @@ impl Store {
     pub fn all_deletes(&self) -> Result<Vec<Vec<u8>>, StorageError> {
         let mut stmt = self.conn.prepare("SELECT message_id FROM message_deletes")?;
         let rows = stmt.query_map([], |r| r.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Поставить/заменить реакцию (LWW по lamport для пары target+peer).
+    pub fn set_reaction(
+        &self,
+        target_id: &[u8],
+        peer_id: &[u8],
+        emoji: &str,
+        lamport: u64,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            "INSERT INTO message_reactions (target_id, peer_id, emoji, lamport)
+             VALUES (?1,?2,?3,?4)
+             ON CONFLICT(target_id, peer_id) DO UPDATE SET
+                emoji = excluded.emoji, lamport = excluded.lamport
+             WHERE excluded.lamport >= message_reactions.lamport",
+            params![target_id, peer_id, emoji, lamport as i64],
+        )?;
+        Ok(())
+    }
+
+    pub fn remove_reaction(
+        &self,
+        target_id: &[u8],
+        peer_id: &[u8],
+        emoji: &str,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            "DELETE FROM message_reactions WHERE target_id = ?1 AND peer_id = ?2 AND emoji = ?3",
+            params![target_id, peer_id, emoji],
+        )?;
+        Ok(())
+    }
+
+    /// Все реакции: (target_id, peer_id, emoji, lamport).
+    pub fn all_reactions(&self) -> Result<Vec<ReactionRow>, StorageError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT target_id, peer_id, emoji, lamport FROM message_reactions")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get::<_, i64>(3)? as u64,
+            ))
+        })?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 

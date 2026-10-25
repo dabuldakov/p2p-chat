@@ -838,6 +838,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -962,6 +964,8 @@ internal interface UniffiLib : Library {
     fun uniffi_p2pchat_ffi_fn_method_chatcore_profile_envelope(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_public_key(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_react(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`targetId`: RustBuffer.ByValue,`emoji`: RustBuffer.ByValue,`add`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_receive(`ptr`: Pointer,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1199,6 +1203,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_public_key(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_react(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_receive(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_recent_gifs(
@@ -1389,6 +1395,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_public_key() != 17771.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_react() != 26771.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_receive() != 36340.toShort()) {
@@ -2026,6 +2035,11 @@ public interface ChatCoreInterface {
      * Наш публичный ключ (его передаём собеседникам).
      */
     fun `publicKey`(): kotlin.ByteArray
+    
+    /**
+     * Поставить/снять реакцию на сообщение.
+     */
+    fun `react`(`groupId`: kotlin.ByteArray, `targetId`: kotlin.ByteArray, `emoji`: kotlin.String, `add`: kotlin.Boolean): FfiOutgoing?
     
     /**
      * Обработать входящий конверт. Возвращает конверты для пересылки (с адресатами).
@@ -2942,6 +2956,22 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
 
     
     /**
+     * Поставить/снять реакцию на сообщение.
+     */
+    @Throws(FfiException::class)override fun `react`(`groupId`: kotlin.ByteArray, `targetId`: kotlin.ByteArray, `emoji`: kotlin.String, `add`: kotlin.Boolean): FfiOutgoing? {
+            return FfiConverterOptionalTypeFfiOutgoing.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_react(
+        it, FfiConverterByteArray.lower(`groupId`),FfiConverterByteArray.lower(`targetId`),FfiConverterString.lower(`emoji`),FfiConverterBoolean.lower(`add`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Обработать входящий конверт. Возвращает конверты для пересылки (с адресатами).
      */
     @Throws(FfiException::class)override fun `receive`(`envelope`: kotlin.ByteArray): List<FfiOutgoing> {
@@ -3381,7 +3411,8 @@ data class FfiMessage (
     var `wallTime`: kotlin.ULong, 
     var `edited`: kotlin.Boolean, 
     var `deleted`: kotlin.Boolean, 
-    var `attachment`: FfiAttachment?
+    var `attachment`: FfiAttachment?, 
+    var `reactions`: List<FfiReaction>
 ) {
     
     companion object
@@ -3402,6 +3433,7 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
             FfiConverterBoolean.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterOptionalTypeFfiAttachment.read(buf),
+            FfiConverterSequenceTypeFfiReaction.read(buf),
         )
     }
 
@@ -3414,7 +3446,8 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
             FfiConverterULong.allocationSize(value.`wallTime`) +
             FfiConverterBoolean.allocationSize(value.`edited`) +
             FfiConverterBoolean.allocationSize(value.`deleted`) +
-            FfiConverterOptionalTypeFfiAttachment.allocationSize(value.`attachment`)
+            FfiConverterOptionalTypeFfiAttachment.allocationSize(value.`attachment`) +
+            FfiConverterSequenceTypeFfiReaction.allocationSize(value.`reactions`)
     )
 
     override fun write(value: FfiMessage, buf: ByteBuffer) {
@@ -3427,6 +3460,7 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
             FfiConverterBoolean.write(value.`edited`, buf)
             FfiConverterBoolean.write(value.`deleted`, buf)
             FfiConverterOptionalTypeFfiAttachment.write(value.`attachment`, buf)
+            FfiConverterSequenceTypeFfiReaction.write(value.`reactions`, buf)
     }
 }
 
@@ -3709,6 +3743,45 @@ public object FfiConverterTypeFfiPeerLink: FfiConverterRustBuffer<FfiPeerLink> {
     override fun write(value: FfiPeerLink, buf: ByteBuffer) {
             FfiConverterByteArray.write(value.`peerId`, buf)
             FfiConverterString.write(value.`kind`, buf)
+    }
+}
+
+
+
+/**
+ * Реакция на сообщение (агрегированная).
+ */
+data class FfiReaction (
+    var `emoji`: kotlin.String, 
+    var `count`: kotlin.UInt, 
+    var `mine`: kotlin.Boolean
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiReaction: FfiConverterRustBuffer<FfiReaction> {
+    override fun read(buf: ByteBuffer): FfiReaction {
+        return FfiReaction(
+            FfiConverterString.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterBoolean.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiReaction) = (
+            FfiConverterString.allocationSize(value.`emoji`) +
+            FfiConverterUInt.allocationSize(value.`count`) +
+            FfiConverterBoolean.allocationSize(value.`mine`)
+    )
+
+    override fun write(value: FfiReaction, buf: ByteBuffer) {
+            FfiConverterString.write(value.`emoji`, buf)
+            FfiConverterUInt.write(value.`count`, buf)
+            FfiConverterBoolean.write(value.`mine`, buf)
     }
 }
 
@@ -4301,6 +4374,34 @@ public object FfiConverterSequenceTypeFfiPeerLink: FfiConverterRustBuffer<List<F
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeFfiPeerLink.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiReaction: FfiConverterRustBuffer<List<FfiReaction>> {
+    override fun read(buf: ByteBuffer): List<FfiReaction> {
+        val len = buf.getInt()
+        return List<FfiReaction>(len) {
+            FfiConverterTypeFfiReaction.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiReaction>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiReaction.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiReaction>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiReaction.write(it, buf)
         }
     }
 } fun `defaultGroupId`(): kotlin.ByteArray {
