@@ -21,6 +21,7 @@ p2pchat is a decentralized messenger: messages go directly between phones, are e
 • End-to-end encryption (MLS). The server only helps devices find each other for a few seconds.
 • GIF search, link previews, avatars, message editing and deletion.
 • Send photos, videos and audio; record voice and video messages.
+• Emoji reactions: up to 100 per participant, grouped with counters.
 • Group owner transfer: if the owner disappears or members challenge them, the group can vote a new owner.
 • Seed-phrase backup to restore your identity on a new device.
 • Open source.
@@ -41,6 +42,7 @@ p2pchat — децентрализованный мессенджер: сооб�
 • Сквозное шифрование (MLS). Сервер лишь помогает устройствам найти друг друга на несколько секунд.
 • Поиск гифок, превью ссылок, аватары, редактирование и удаление сообщений.
 • Отправка фото, видео и аудио; запись голосовых и видеосообщений.
+• Реакции на сообщения: до 100 на участника, с группировкой и счётчиками.
 • Передача владения группой: если владелец пропал или участники инициировали вызов, группа может выбрать нового владельца.
 • Резервная копия seed-фразой для восстановления на новом устройстве.
 • Открытый исходный код.
