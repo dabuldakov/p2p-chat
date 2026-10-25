@@ -116,7 +116,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     ) = ChatRuntime.sendReport(reportedPeer, groupId, messageId, reason, note, screenshot, onResult)
     fun renameGroup(name: String) = ChatRuntime.renameGroup(name)
     fun deleteMessage(id: ByteArray) = ChatRuntime.deleteMessage(id)
-    fun react(messageId: ByteArray, emoji: String, add: Boolean) = ChatRuntime.react(messageId, emoji, add)
+    fun react(messageId: ByteArray, emoji: String, add: Boolean): Boolean =
+        ChatRuntime.react(messageId, emoji, add)
     fun regenInvite(maxUses: Int): String? = ChatRuntime.regenInvite(maxUses)
 }
 

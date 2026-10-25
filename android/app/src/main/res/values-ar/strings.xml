@@ -136,4 +136,5 @@
     <string name="reaction_cat_food">الطعام</string>
     <string name="reaction_cat_other">أخرى</string>
     <string name="owner_management">إدارة المالك</string>
+    <string name="owner_election_in_progress">انتخابات المالك جارية بالفعل.</string>
 </resources>

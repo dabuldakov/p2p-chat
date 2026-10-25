@@ -1,12 +1,12 @@
 package com.p2pchat.app
 
-/** Показывать ли иконки запроса/вызова владельца в списке участников. */
-internal fun ownerActionsVisible(isOwner: Boolean, electionActive: Boolean): Boolean =
-    !isOwner && !electionActive
+/** Иконки управления владельцем показываем всем, кроме владельца. */
+internal fun ownerActionsVisible(isOwner: Boolean): Boolean = !isOwner
 
-/** Показывать ли подсказку-иконку в свёрнутой шапке, чтобы открыть управление. */
-internal fun ownerManagementHintVisible(
-    isOwner: Boolean,
-    electionActive: Boolean,
-    expanded: Boolean,
-): Boolean = ownerActionsVisible(isOwner, electionActive) && !expanded
+/** Действие доступно, только если оно разрешено и нет активных выборов. */
+internal fun ownerActionEnabled(allowed: Boolean, electionActive: Boolean): Boolean =
+    allowed && !electionActive
+
+/** Подсказка-иконка в свёрнутой шапке. */
+internal fun ownerManagementHintVisible(isOwner: Boolean, expanded: Boolean): Boolean =
+    ownerActionsVisible(isOwner) && !expanded

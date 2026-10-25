@@ -593,11 +593,12 @@ object ChatRuntime {
     }
 
     /** Поставить/снять реакцию на сообщение. */
-    fun react(messageId: ByteArray, emoji: String, add: Boolean) {
-        val g = currentGroup ?: return
-        val out = runCatching { core.react(g, messageId, emoji, add) }.getOrNull() ?: return
+    fun react(messageId: ByteArray, emoji: String, add: Boolean): Boolean {
+        val g = currentGroup ?: return false
+        val out = runCatching { core.react(g, messageId, emoji, add) }.getOrNull() ?: return false
         transport.sendTargets(out.envelope, out.targets)
         refresh()
+        return true
     }
 
     /** Отредактировать своё сообщение (только автор). */

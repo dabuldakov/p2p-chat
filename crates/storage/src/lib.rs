@@ -211,6 +211,25 @@ impl Store {
             self.conn.execute_batch("PRAGMA user_version = 8;")?;
         }
 
+        if version < 9 {
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS message_reactions_v9 (
+                    target_id BLOB NOT NULL,
+                    peer_id   BLOB NOT NULL,
+                    emoji     TEXT NOT NULL,
+                    lamport   INTEGER NOT NULL,
+                    PRIMARY KEY (target_id, peer_id, emoji)
+                );
+                INSERT OR IGNORE INTO message_reactions_v9 (target_id, peer_id, emoji, lamport)
+                    SELECT target_id, peer_id, emoji, lamport FROM message_reactions;
+                DROP TABLE message_reactions;
+                ALTER TABLE message_reactions_v9 RENAME TO message_reactions;
+                "#,
+            )?;
+            self.conn.execute_batch("PRAGMA user_version = 9;")?;
+        }
+
         Ok(())
     }
 
@@ -600,7 +619,7 @@ impl Store {
         self.conn.execute(
             "INSERT INTO message_reactions (target_id, peer_id, emoji, lamport)
              VALUES (?1,?2,?3,?4)
-             ON CONFLICT(target_id, peer_id) DO UPDATE SET
+             ON CONFLICT(target_id, peer_id, emoji) DO UPDATE SET
                 emoji = excluded.emoji, lamport = excluded.lamport
              WHERE excluded.lamport >= message_reactions.lamport",
             params![target_id, peer_id, emoji, lamport as i64],
@@ -816,7 +835,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 7);
+        assert_eq!(v, 9);
     }
 
     #[test]
@@ -882,7 +901,7 @@ mod tests {
         assert_eq!(msgs[0].parents, vec![vec![1u8, 2, 3]], "родители перенесены");
         assert!(!store.has_column("messages", "parents").unwrap(), "старый столбец убран");
         let v: i64 = store.conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(v, 7);
+        assert_eq!(v, 9);
 
         let _ = std::fs::remove_file(&path);
     }

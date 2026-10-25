@@ -51,8 +51,11 @@ pub struct GossipEngine {
     seen: std::collections::HashSet<u64>,
     /// Локально заблокированные пользователи (их сообщения скрываются).
     blocked: std::collections::HashSet<PeerId>,
-    /// Реакции: target_id → peer_id → (emoji, lamport).
-    reactions: std::collections::HashMap<MessageId, std::collections::HashMap<PeerId, (String, u64)>>,
+    /// Реакции: target_id → peer_id → emoji → lamport.
+    reactions: std::collections::HashMap<
+        MessageId,
+        std::collections::HashMap<PeerId, std::collections::HashMap<String, u64>>,
+    >,
     /// Активные выборы владельца по группам (в памяти).
     owner_elections: std::collections::HashMap<GroupId, OwnerElection>,
     /// Тестовые часы (None — реальное время).
@@ -63,6 +66,7 @@ const OWNER_ABSENT_SECS: u64 = 7 * 24 * 3600;
 const OWNER_APPLY_SECS: u64 = 24 * 3600;
 const OWNER_VOTE_SECS: u64 = 24 * 3600;
 const OWNER_CHALLENGE_COOLDOWN: u64 = 7 * 24 * 3600;
+const MAX_REACTIONS_PER_USER: usize = 100;
 
 /// Агрегированная реакция для UI.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -343,7 +347,9 @@ impl GossipEngine {
             self.reactions
                 .entry(target)
                 .or_default()
-                .insert(peer, (emoji, lamport));
+                .entry(peer)
+                .or_default()
+                .insert(emoji, lamport);
         }
         if let Ok(Some(b)) = self.log.get_meta("blocked") {
             for line in String::from_utf8_lossy(&b).split('\n').filter(|s| !s.is_empty()) {
@@ -1241,16 +1247,19 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             return Ok(None);
         }
         let me = self.peer_id();
-        let cur = self
+        let mine = self
             .reactions
             .get(target_id)
-            .and_then(|m| m.get(&me))
-            .cloned();
+            .and_then(|m| m.get(&me));
+        let cur = mine.and_then(|e| e.get(emoji)).copied();
         if add {
-            if cur.as_ref().map(|(e, _)| e.as_str()) == Some(emoji) {
+            if cur.is_some() {
                 return Ok(None);
             }
-        } else if cur.as_ref().map(|(e, _)| e.as_str()) != Some(emoji) {
+            if mine.map(|e| e.len()).unwrap_or(0) >= MAX_REACTIONS_PER_USER {
+                return Ok(None);
+            }
+        } else if cur.is_none() {
             return Ok(None);
         }
         let lamport = self.log.tick();
@@ -1259,11 +1268,18 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             self.reactions
                 .entry(target_id.to_vec())
                 .or_default()
-                .insert(me.clone(), (emoji.to_string(), lamport));
+                .entry(me.clone())
+                .or_default()
+                .insert(emoji.to_string(), lamport);
             let _ = self.log.store_reaction(target_id, &me, emoji, lamport);
         } else {
             if let Some(m) = self.reactions.get_mut(target_id) {
-                m.remove(&me);
+                if let Some(by_peer) = m.get_mut(&me) {
+                    by_peer.remove(emoji);
+                    if by_peer.is_empty() {
+                        m.remove(&me);
+                    }
+                }
                 if m.is_empty() {
                     self.reactions.remove(target_id);
                 }
@@ -1316,26 +1332,32 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             .reactions
             .get(&ev.target_id)
             .and_then(|m| m.get(&ev.author))
-            .cloned();
-        if let Some((_, lamport)) = &cur {
-            if *lamport > ev.lamport {
-                return Ok(());
-            }
+            .and_then(|e| e.get(emoji))
+            .copied();
+        if cur.is_some_and(|lamport| lamport > ev.lamport) {
+            return Ok(());
         }
         if ev.add {
             self.reactions
                 .entry(ev.target_id.clone())
                 .or_default()
-                .insert(ev.author.clone(), (emoji.to_string(), ev.lamport));
+                .entry(ev.author.clone())
+                .or_default()
+                .insert(emoji.to_string(), ev.lamport);
             let _ = self
                 .log
                 .store_reaction(&ev.target_id, &ev.author, emoji, ev.lamport);
         } else {
-            if cur.as_ref().map(|(e, _)| e.as_str()) != Some(emoji) {
+            if cur.is_none() {
                 return Ok(());
             }
             if let Some(m) = self.reactions.get_mut(&ev.target_id) {
-                m.remove(&ev.author);
+                if let Some(by_peer) = m.get_mut(&ev.author) {
+                    by_peer.remove(emoji);
+                    if by_peer.is_empty() {
+                        m.remove(&ev.author);
+                    }
+                }
                 if m.is_empty() {
                     self.reactions.remove(&ev.target_id);
                 }
@@ -1352,11 +1374,13 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         };
         let mut counts: std::collections::HashMap<String, (u32, bool)> =
             std::collections::HashMap::new();
-        for (peer, (emoji, _)) in map {
-            let e = counts.entry(emoji.clone()).or_default();
-            e.0 += 1;
-            if peer == me {
-                e.1 = true;
+        for (peer, by_peer) in map {
+            for emoji in by_peer.keys() {
+                let e = counts.entry(emoji.clone()).or_default();
+                e.0 += 1;
+                if peer == me {
+                    e.1 = true;
+                }
             }
         }
         let mut out: Vec<ReactionSummary> = counts

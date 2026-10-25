@@ -12,7 +12,7 @@ fn rid(e: &p2pchat_core::GossipEngine, _g: &[u8], id: &[u8], me: &[u8]) -> Vec<(
 }
 
 #[test]
-fn add_replace_remove_and_count() {
+fn add_multiple_and_remove() {
     let (mut engines, keys, g) = build_group(3);
     let msg = engines[0].post(g.clone(), "hello".into()).unwrap();
     pump(&mut engines, &keys, vec![(0, msg)]);
@@ -22,51 +22,57 @@ fn add_replace_remove_and_count() {
 
     let r1 = engines[1].react(&g, &id, "👍", true).unwrap().unwrap();
     pump(&mut engines, &keys, vec![(1, r1)]);
+    // Второй участник ставит другую — обе сохраняются.
+    let r2 = engines[2].react(&g, &id, "❤️", true).unwrap().unwrap();
+    pump(&mut engines, &keys, vec![(2, r2)]);
     for e in &engines {
-        assert_eq!(rid(e, &g, &id, &me1), vec![("👍".into(), 1, true)]);
-        assert_eq!(rid(e, &g, &id, &me2), vec![("👍".into(), 1, false)]);
+        let mine = rid(e, &g, &id, &me1);
+        assert!(mine.contains(&("👍".into(), 1, true)));
+        assert!(mine.contains(&("❤️".into(), 1, false)));
+        let other = rid(e, &g, &id, &me2);
+        assert!(other.contains(&("❤️".into(), 1, true)));
+        assert!(other.contains(&("👍".into(), 1, false)));
     }
 
-    // Замена реакции тем же участником.
-    let r2 = engines[1].react(&g, &id, "❤️", true).unwrap().unwrap();
-    pump(&mut engines, &keys, vec![(1, r2)]);
+    // Один участник может поставить несколько реакций на одно сообщение.
+    let r3 = engines[1].react(&g, &id, "🔥", true).unwrap().unwrap();
+    pump(&mut engines, &keys, vec![(1, r3)]);
     for e in &engines {
-        assert_eq!(rid(e, &g, &id, &me1), vec![("❤️".into(), 1, true)]);
-        assert!(rid(e, &g, &id, &me1).iter().all(|r| r.0 != "👍"));
+        let mine = rid(e, &g, &id, &me1);
+        assert!(mine.contains(&("👍".into(), 1, true)));
+        assert!(mine.contains(&("🔥".into(), 1, true)));
     }
 
-    // Второй участник — счётчик 2.
-    let r3 = engines[2].react(&g, &id, "❤️", true).unwrap().unwrap();
-    pump(&mut engines, &keys, vec![(2, r3)]);
-    for e in &engines {
-        assert_eq!(rid(e, &g, &id, &me2), vec![("❤️".into(), 2, true)]);
-    }
-
-    // Снятие одним участником.
-    let r4 = engines[1].react(&g, &id, "❤️", false).unwrap().unwrap();
+    // Убираем только одну свою реакцию, остальные остаются.
+    let r4 = engines[1].react(&g, &id, "👍", false).unwrap().unwrap();
     pump(&mut engines, &keys, vec![(1, r4)]);
     for e in &engines {
-        assert_eq!(rid(e, &g, &id, &me1), vec![("❤️".into(), 1, false)]);
-        assert_eq!(rid(e, &g, &id, &me2), vec![("❤️".into(), 1, true)]);
+        let mine = rid(e, &g, &id, &me1);
+        assert!(mine.iter().all(|r| r.0 != "👍"));
+        assert!(mine.contains(&("🔥".into(), 1, true)));
+        assert!(mine.contains(&("❤️".into(), 1, false)));
     }
+
+    // Повторное снятие/постановка уже не меняет состояние.
+    assert!(engines[1].react(&g, &id, "👍", false).unwrap().is_none());
+    assert!(engines[1].react(&g, &id, "🔥", true).unwrap().is_none());
 }
 
 #[test]
-fn late_old_event_does_not_override_newer() {
+fn multiple_reactors_count_together() {
     let (mut engines, keys, g) = build_group(3);
     let msg = engines[0].post(g.clone(), "hello".into()).unwrap();
     pump(&mut engines, &keys, vec![(0, msg)]);
     let id = engines[0].log().ordered(&g).last().unwrap().id.clone();
 
-    let old = engines[1].react(&g, &id, "👍", true).unwrap().unwrap();
-    let new = engines[1].react(&g, &id, "🔥", true).unwrap().unwrap();
-    // Доставляем новый раньше старого.
-    let _ = engines[2].handle(&enc(&new)).unwrap();
-    let _ = engines[2].handle(&enc(&old)).unwrap();
-    assert_eq!(
-        rid(&engines[2], &g, &id, &engines[1].peer_id()),
-        vec![("🔥".into(), 1, true)]
-    );
+    let a = engines[1].react(&g, &id, "❤️", true).unwrap().unwrap();
+    let b = engines[2].react(&g, &id, "❤️", true).unwrap().unwrap();
+    pump(&mut engines, &keys, vec![(1, a), (2, b)]);
+    for e in &engines {
+        assert_eq!(rid(e, &g, &id, &engines[1].peer_id()), vec![("❤️".into(), 2, true)]);
+        assert_eq!(rid(e, &g, &id, &engines[2].peer_id()), vec![("❤️".into(), 2, true)]);
+        assert_eq!(rid(e, &g, &id, &engines[0].peer_id()), vec![("❤️".into(), 2, false)]);
+    }
 }
 
 #[test]
@@ -77,4 +83,25 @@ fn reject_unknown_or_invalid() {
     assert!(engines[1].react(&g, b"nope", "👍", true).unwrap().is_none());
     assert!(engines[1].react(&g, b"nope", "", true).unwrap().is_none());
     assert!(engines[1].react(b"other", b"nope", "👍", true).unwrap().is_none());
+}
+
+#[test]
+fn limit_100_reactions_per_user() {
+    let (mut engines, keys, g) = build_group(2);
+    let msg = engines[1].post(g.clone(), "hello".into()).unwrap();
+    pump(&mut engines, &keys, vec![(1, msg)]);
+    let id = engines[0].log().ordered(&g).last().unwrap().id.clone();
+
+    for i in 0..100 {
+        assert!(
+            engines[1]
+                .react(&g, &id, &format!("e{i}"), true)
+                .unwrap()
+                .is_some(),
+            "reaction {i}"
+        );
+    }
+    assert!(engines[1].react(&g, &id, "overflow", true).unwrap().is_none());
+    assert!(engines[1].react(&g, &id, "e0", false).unwrap().is_some());
+    assert!(engines[1].react(&g, &id, "overflow", true).unwrap().is_some());
 }

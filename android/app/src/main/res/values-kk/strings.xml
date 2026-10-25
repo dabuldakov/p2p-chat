@@ -136,4 +136,5 @@
     <string name="reaction_cat_food">Тағам</string>
     <string name="reaction_cat_other">Басқа</string>
     <string name="owner_management">Иесін басқару</string>
+    <string name="owner_election_in_progress">Иесін сайлау қазірдің өзінде жүріп жатыр.</string>
 </resources>

@@ -136,4 +136,5 @@
     <string name="reaction_cat_food">食物</string>
     <string name="reaction_cat_other">其他</string>
     <string name="owner_management">所有者管理</string>
+    <string name="owner_election_in_progress">所有者选举已在进行中。</string>
 </resources>

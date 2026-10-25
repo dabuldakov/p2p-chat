@@ -136,4 +136,5 @@
     <string name="reaction_cat_food">Cibo</string>
     <string name="reaction_cat_other">Altro</string>
     <string name="owner_management">Gestione proprietario</string>
+    <string name="owner_election_in_progress">L’elezione del proprietario è già in corso.</string>
 </resources>

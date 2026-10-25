@@ -136,4 +136,5 @@
     <string name="reaction_cat_food">Ежа</string>
     <string name="reaction_cat_other">Іншае</string>
     <string name="owner_management">Кіраванне ўладальнікам</string>
+    <string name="owner_election_in_progress">Выбары ўладальніка ўжо ідуць.</string>
 </resources>

@@ -170,4 +170,5 @@
     <string name="reaction_cat_food">Food</string>
     <string name="reaction_cat_other">Other</string>
     <string name="owner_management">Owner management</string>
+    <string name="owner_election_in_progress">Owner election is already in progress.</string>
 </resources>

@@ -132,6 +132,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.p2pchat.app.gif.GifAttachmentView
 import com.p2pchat.app.gif.GifPickerDialog
 import uniffi.p2pchat_ffi.FfiMessage
@@ -1097,8 +1098,10 @@ private fun GroupScreen(vm: ChatViewModel) {
         vm.ownerChallengeAt == 0uL || nowSec >= vm.ownerChallengeAt + 7uL * 86_400uL
         )
     val electionActive = vm.ownerElection != null
-    val showOwnerActions = ownerActionsVisible(vm.isOwner, electionActive)
-    val showOwnerHint = ownerManagementHintVisible(vm.isOwner, electionActive, inviteExpanded)
+    val showOwnerActions = ownerActionsVisible(vm.isOwner)
+    val requestEnabled = ownerActionEnabled(canRequest, electionActive)
+    val challengeEnabled = ownerActionEnabled(canChallenge, electionActive)
+    val showOwnerHint = ownerManagementHintVisible(vm.isOwner, inviteExpanded)
 
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -1249,35 +1252,47 @@ private fun GroupScreen(vm: ChatViewModel) {
                         if (showOwnerActions) {
                             IconButton(
                                 onClick = {
-                                    if (canRequest) vm.claimOwner(0) else showRequestInfo = true
+                                    when {
+                                        requestEnabled -> vm.claimOwner(0)
+                                        electionActive -> Toast.makeText(
+                                            ctx,
+                                            ctx.getString(R.string.owner_election_in_progress),
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                        else -> showRequestInfo = true
+                                    }
                                 },
-                                modifier = Modifier.alpha(if (canRequest) 1f else 0.45f),
+                                modifier = Modifier.alpha(if (requestEnabled) 1f else 0.45f),
                             ) {
                                 Icon(
                                     Icons.Filled.PersonAdd,
                                     contentDescription = stringResource(R.string.owner_request),
-                                    tint = if (canRequest) MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = if (requestEnabled) MaterialTheme.colorScheme.onSurfaceVariant
                                     else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                                 )
                             }
                             IconButton(
                                 onClick = {
-                                    if (canChallenge) {
-                                        vm.claimOwner(1)
-                                    } else {
-                                        Toast.makeText(
+                                    when {
+                                        challengeEnabled -> vm.claimOwner(1)
+                                        electionActive -> Toast.makeText(
+                                            ctx,
+                                            ctx.getString(R.string.owner_election_in_progress),
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                        else -> Toast.makeText(
                                             ctx,
                                             ctx.getString(R.string.owner_challenge_cooldown),
                                             Toast.LENGTH_LONG,
                                         ).show()
                                     }
                                 },
-                                modifier = Modifier.alpha(if (canChallenge) 1f else 0.45f),
+                                modifier = Modifier.alpha(if (challengeEnabled) 1f else 0.45f),
                             ) {
                                 Icon(
                                     Icons.Filled.Gavel,
                                     contentDescription = stringResource(R.string.owner_challenge),
-                                    tint = if (canChallenge) MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = if (challengeEnabled) MaterialTheme.colorScheme.onSurfaceVariant
                                     else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                                 )
                             }
@@ -1424,6 +1439,7 @@ private fun GroupScreen(vm: ChatViewModel) {
                             ?: m.author.toHexShort()
                         MessageRow(
                             mine = mine, name = name, message = m, vm = vm,
+                            onTap = { if (!m.deleted) actionTarget = m },
                             onLongPress = { if (!m.deleted) actionTarget = m },
                             onOpenProfile = { profileTarget = it },
                             showTime = showTimes,
@@ -1582,46 +1598,78 @@ private fun GroupScreen(vm: ChatViewModel) {
         )
     }
     actionTarget?.let { am ->
-        AlertDialog(
-            onDismissRequest = { actionTarget = null },
-            title = { Text(stringResource(R.string.message_actions)) },
-            text = {
-                Column {
-                    TextButton(onClick = {
-                        reactionTarget = am
-                        actionTarget = null
-                    }) { Text(stringResource(R.string.reaction)) }
+        Dialog(onDismissRequest = { actionTarget = null }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                Column(Modifier.widthIn(min = 240.dp).padding(vertical = 8.dp)) {
+                    TextButton(
+                        onClick = {
+                            reactionTarget = am
+                            actionTarget = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            stringResource(R.string.reaction),
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Start,
+                        )
+                    }
                     if (am.author.toHex() == vm.peerId) {
-                        TextButton(onClick = {
-                            actionTarget = null
-                            editText = am.text
-                            editTarget = am
-                        }) { Text(stringResource(R.string.edit_message)) }
-                        TextButton(onClick = {
-                            actionTarget = null
-                            deleteTarget = am
-                        }) {
-                            Text(stringResource(R.string.delete_message), color = MaterialTheme.colorScheme.error)
+                        TextButton(
+                            onClick = {
+                                actionTarget = null
+                                editText = am.text
+                                editTarget = am
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                stringResource(R.string.edit_message),
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.Start,
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                actionTarget = null
+                                deleteTarget = am
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                stringResource(R.string.delete_message),
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.Start,
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         }
                     } else {
-                        TextButton(onClick = {
-                            actionTarget = null
-                            reportTarget = ReportTarget(
-                                am.author,
-                                vm.currentGroup ?: ByteArray(0),
-                                am.id,
+                        TextButton(
+                            onClick = {
+                                actionTarget = null
+                                reportTarget = ReportTarget(
+                                    am.author,
+                                    vm.currentGroup ?: ByteArray(0),
+                                    am.id,
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                stringResource(R.string.report),
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.Start,
+                                color = MaterialTheme.colorScheme.error,
                             )
-                        }) {
-                            Text(stringResource(R.string.report), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { actionTarget = null }) { Text(stringResource(R.string.cancel)) }
-            },
-        )
+            }
+        }
     }
     deleteTarget?.let { dm ->
         AlertDialog(
@@ -1867,6 +1915,7 @@ private fun MessageRow(
     name: String,
     message: FfiMessage,
     vm: ChatViewModel,
+    onTap: () -> Unit,
     onLongPress: () -> Unit,
     onOpenProfile: (String) -> Unit,
     showTime: Boolean,
@@ -1911,7 +1960,7 @@ private fun MessageRow(
             tonalElevation = 1.dp,
             modifier = Modifier
                 .widthIn(max = 260.dp)
-                .combinedClickable(onClick = {}, onLongClick = onLongPress),
+                .combinedClickable(onClick = onTap, onLongClick = onLongPress),
         ) {
             Column(Modifier.padding(8.dp)) {
                 if (!mine) {
@@ -1943,9 +1992,9 @@ private fun MessageRow(
                         inv != null -> InviteCard(inv.first, inv.second, vm, onLongPress)
                         url != null ->
                             LinkPreviewCard(url, onLongPress = onLongPress) {
-                                MessageText(message.text, onLongPress)
+                                MessageText(message.text, onLongPress, onTap)
                             }
-                        else -> MessageText(message.text, onLongPress)
+                        else -> MessageText(message.text, onLongPress, onTap)
                     }
                 }
                 if (!message.deleted && message.reactions.isNotEmpty()) {
@@ -1993,7 +2042,11 @@ private fun MessageRow(
 
 /** Текст сообщения: тап по ссылке открывает её, долгий тап — редактирование. */
 @Composable
-private fun MessageText(text: String, onLongPress: () -> Unit = {}) {
+private fun MessageText(
+    text: String,
+    onLongPress: () -> Unit = {},
+    onTap: () -> Unit = {},
+) {
     val ctx = LocalContext.current
     val annotated = remember(text) { linksAnnotated(text) }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -2007,8 +2060,11 @@ private fun MessageText(text: String, onLongPress: () -> Unit = {}) {
                 onTap = { pos ->
                     val l = layout ?: return@detectTapGestures
                     val offset = l.getOffsetForPosition(pos)
-                    annotated.getStringAnnotations(URL_TAG, offset, offset).firstOrNull()?.let { ann ->
+                    val ann = annotated.getStringAnnotations(URL_TAG, offset, offset).firstOrNull()
+                    if (ann != null) {
                         runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ann.item))) }
+                    } else {
+                        onTap()
                     }
                 },
             )

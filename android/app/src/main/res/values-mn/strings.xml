@@ -136,4 +136,5 @@
     <string name="reaction_cat_food">Хоол</string>
     <string name="reaction_cat_other">Бусад</string>
     <string name="owner_management">Эзэмшигчийн удирдлага</string>
+    <string name="owner_election_in_progress">Эзэмшигчийн сонгууль аль хэдийн явагдаж байна.</string>
 </resources>

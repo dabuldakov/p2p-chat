@@ -153,4 +153,5 @@
     <string name="reaction_cat_food">Еда</string>
     <string name="reaction_cat_other">Другое</string>
     <string name="owner_management">Управление владельцем</string>
+    <string name="owner_election_in_progress">Выборы владельца уже идут.</string>
 </resources>

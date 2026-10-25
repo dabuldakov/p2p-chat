@@ -90,13 +90,16 @@ fun ReactionPickerDialog(
     val ctx = LocalContext.current
     val prefs = remember { ctx.getSharedPreferences("p2pchat", 0) }
     var recent by remember { mutableStateOf(recentFrom(prefs)) }
-    val current = message.reactions.firstOrNull { it.mine }?.emoji
+    var selected by remember(message.id) {
+        mutableStateOf(message.reactions.filter { it.mine }.map { it.emoji }.toSet())
+    }
 
     fun choose(emoji: String) {
-        val add = current != emoji
-        vm.react(message.id, emoji, add)
-        if (add) recent = pushRecent(prefs, emoji)
-        onDismiss()
+        val add = emoji !in selected
+        if (vm.react(message.id, emoji, add)) {
+            selected = if (add) selected + emoji else selected - emoji
+            if (add) recent = pushRecent(prefs, emoji)
+        }
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -128,7 +131,7 @@ fun ReactionPickerDialog(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        recent.forEach { e -> EmojiButton(e, current == e) { choose(e) } }
+                        recent.forEach { e -> EmojiButton(e, e in selected) { choose(e) } }
                     }
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                 }
@@ -146,7 +149,7 @@ fun ReactionPickerDialog(
                         )
                         cat.emojis.chunked(7).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                row.forEach { e -> EmojiButton(e, current == e) { choose(e) } }
+                                row.forEach { e -> EmojiButton(e, e in selected) { choose(e) } }
                             }
                         }
                     }

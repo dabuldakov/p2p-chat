@@ -136,4 +136,5 @@
     <string name="reaction_cat_food">음식</string>
     <string name="reaction_cat_other">기타</string>
     <string name="owner_management">소유자 관리</string>
+    <string name="owner_election_in_progress">소유자 선거가 이미 진행 중입니다.</string>
 </resources>
