@@ -34,6 +34,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -50,6 +55,43 @@ data class LinkPreview(
     val description: String? = null,
 )
 
+private fun normalizedHost(raw: String): String? =
+    raw.toHttpUrlOrNull()?.host?.removePrefix("www.")?.removePrefix("m.")
+
+internal fun youtubeId(raw: String): String? {
+    val u = raw.toHttpUrlOrNull() ?: return null
+    val host = normalizedHost(raw) ?: return null
+    val id = when (host) {
+        "youtu.be" -> u.pathSegments.firstOrNull()
+        "youtube.com", "music.youtube.com" -> when (u.pathSegments.firstOrNull()) {
+            "watch" -> u.queryParameter("v")
+            "shorts", "embed", "live", "v" -> u.pathSegments.getOrNull(1)
+            else -> null
+        }
+        else -> null
+    }
+    return id?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{6,}")) }
+}
+
+internal fun rutubeId(raw: String): String? {
+    val u = raw.toHttpUrlOrNull() ?: return null
+    if (normalizedHost(raw) != "rutube.ru") return null
+    val p = u.pathSegments
+    val id = when (p.firstOrNull()) {
+        "video", "shorts" -> p.getOrNull(1)
+        "play" -> if (p.getOrNull(1) == "embed") p.getOrNull(2) else null
+        else -> null
+    }
+    return id?.substringBefore('.')?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{6,}")) }
+}
+
+internal fun instagramCode(raw: String): String? {
+    val u = raw.toHttpUrlOrNull() ?: return null
+    if (normalizedHost(raw) !in setOf("instagram.com", "instagr.am")) return null
+    if (u.pathSegments.firstOrNull() !in setOf("p", "reel", "tv")) return null
+    return u.pathSegments.getOrNull(1)?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{4,}")) }
+}
+
 /**
  * Загрузка и кэш превью ссылок (Open Graph). Тянем HTML с клиента, парсим
  * `og:title`/`og:image`/`<title>`, кэшируем в памяти и на диске (по URL).
@@ -61,6 +103,9 @@ object LinkPreviews {
         .build()
     private val json = Json { ignoreUnknownKeys = true }
     private const val MAX_HTML = 512 * 1024
+    private const val BROWSER_UA =
+        "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+    private const val FACEBOOK_UA = "facebookexternalhit/1.1"
 
     private val mem = HashMap<String, LinkPreview?>()
     private var file: File? = null
@@ -93,19 +138,7 @@ object LinkPreviews {
         init(ctx)
         if (mem.containsKey(url)) return mem[url]
         val preview = withContext(Dispatchers.IO) {
-            runCatching {
-                val req = Request.Builder()
-                    .url(url)
-                    .header("User-Agent", "Mozilla/5.0 (compatible; p2pchat/1.0)")
-                    .build()
-                client.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) return@use null
-                    val src = resp.body?.source() ?: return@use null
-                    src.request(MAX_HTML.toLong())
-                    val html = src.buffer.readUtf8()
-                    parse(html, url)
-                }
-            }.getOrNull()
+            runCatching { resolve(url) }.getOrNull()
         }
         mem[url] = preview
         if (preview != null) {
@@ -116,6 +149,96 @@ object LinkPreviews {
         }
         return preview
     }
+
+    private fun resolve(url: String): LinkPreview? {
+        val host = normalizedHost(url) ?: return null
+
+        youtubeId(url)?.let { id ->
+            oembed("https://www.youtube.com/oembed?url=${enc(url)}&format=json")?.let {
+                return it.copy(
+                    url = url,
+                    site = "YouTube",
+                    image = it.image ?: "https://img.youtube.com/vi/$id/hqdefault.jpg",
+                )
+            }
+            return fetchHtml(url, BROWSER_UA)?.let { parse(it, url)?.copy(site = "YouTube") }
+        }
+
+        rutubeId(url)?.let {
+            oembed("https://rutube.ru/api/oembed/?url=${enc(url)}&format=json")?.let { p ->
+                return p.copy(url = url, site = "RuTube")
+            }
+            return fetchHtml(url, BROWSER_UA)?.let { parse(it, url)?.copy(site = "RuTube") }
+        }
+
+        instagramCode(url)?.let { code ->
+            return instagramPreview(url, code)
+                ?: fetchHtml(url, BROWSER_UA)?.let { parse(it, url)?.copy(site = "Instagram") }
+        }
+
+        if (host.endsWith("facebook.com") || host in setOf("fb.com", "fb.watch", "fb.me")) {
+            return fetchHtml(url, FACEBOOK_UA)?.let { parse(it, url)?.copy(site = "Facebook") }
+        }
+        if (host.endsWith("vk.com") || host.endsWith("vk.ru") || host == "vk.cc") {
+            return fetchHtml(url, BROWSER_UA)?.let { parse(it, url)?.copy(site = "VK") }
+        }
+        return fetchHtml(url, BROWSER_UA)?.let { parse(it, url) }
+    }
+
+    private fun fetchHtml(url: String, ua: String): String? = runCatching {
+        val req = Request.Builder()
+            .url(url)
+            .header("User-Agent", ua)
+            .header("Accept-Language", "ru-RU,ru;q=0.9,en;q=0.8")
+            .build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return@use null
+            val src = resp.body?.source() ?: return@use null
+            src.request(MAX_HTML.toLong())
+            src.buffer.readUtf8()
+        }
+    }.getOrNull()
+
+    private fun oembed(endpoint: String): LinkPreview? = runCatching {
+        val body = fetchHtml(endpoint, BROWSER_UA) ?: return null
+        val obj = json.parseToJsonElement(body).jsonObject
+        val title = obj["title"]?.jsonPrimitive?.contentOrNull ?: return null
+        val image = obj["thumbnail_url"]?.jsonPrimitive?.contentOrNull
+        val author = obj["author_name"]?.jsonPrimitive?.contentOrNull
+        LinkPreview(
+            url = "",
+            title = unescape(title),
+            image = image,
+            description = author,
+        )
+    }.getOrNull()
+
+    private fun instagramPreview(url: String, code: String): LinkPreview? {
+        val html = fetchHtml("https://www.instagram.com/p/$code/embed/captioned/", BROWSER_UA)
+        if (html != null) {
+            val title = meta(html, "og:title")
+                ?: Regex("\"title\":\"([^\"]+)\"").find(html)?.groupValues?.get(1)
+            val rawImage = Regex("\"(?:thumbnail_src|display_url)\":\"(https:[^\"]+)\"")
+                .find(html)?.groupValues?.get(1)?.replace("\\/", "/")
+            if (title != null || rawImage != null) {
+                return LinkPreview(
+                    url = url,
+                    title = unescape(title ?: "Instagram"),
+                    image = rawImage?.let(::unescape),
+                    site = "Instagram",
+                )
+            }
+        }
+        return LinkPreview(
+            url = url,
+            title = "Instagram",
+            image = "https://www.instagram.com/p/$code/media/?size=l",
+            site = "Instagram",
+        )
+    }
+
+    private fun enc(s: String): String =
+        URLEncoder.encode(s, StandardCharsets.UTF_8.toString())
 
     private fun save() {
         runCatching { file?.writeText(json.encodeToString(LinkedHashMap(disk))) }
