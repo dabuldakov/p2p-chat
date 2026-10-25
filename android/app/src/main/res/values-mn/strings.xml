@@ -122,4 +122,6 @@
     <string name="owner_notification_start">Бүлгийн эзэмшигчийг солих санал хураалт эхэллээ</string>
     <string name="owner_notification_vote">Таны санал шаардлагатай</string>
     <string name="owner_changed">Бүлгийн эзэмшигч өөрчлөгдлөө</string>
+    <string name="owner_request_hint">Эзэмших хүсэлт нь эзэмшигч 7 хоног идэвхгүй болсны дараа боломжтой.</string>
+    <string name="owner_two_people_hint">2 хүнтэй бүлэгт эзэмшигчийг солихын тулд одоогийн эзэмшигчийн зөвшөөрөл шаардлагатай.</string>
 </resources>

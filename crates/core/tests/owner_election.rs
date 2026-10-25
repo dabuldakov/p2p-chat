@@ -578,3 +578,32 @@ fn owner_change_replays_to_offline_member() {
     );
     let _ = keys;
 }
+
+#[test]
+fn two_person_challenge_starts_and_owner_keeps() {
+    let (mut engines, keys, g) = build_group(2);
+    let owner = engines[0].peer_id();
+    let last = engines[1].owner_last_seen(&g);
+    let t = last + 3600;
+    set_now(&mut engines, t);
+
+    let claim = engines[1]
+        .create_owner_claim(&g, OwnerTrigger::Challenge)
+        .unwrap()
+        .expect("в группе из 2 вызов должен создаваться");
+    pump(&mut engines, &keys, vec![(1, claim)]);
+
+    set_now(&mut engines, t + DAY + 3600);
+    let keep = engines[0]
+        .owner_vote(&g, &[], true, true)
+        .unwrap()
+        .expect("владелец голосует за себя");
+    pump(&mut engines, &keys, vec![(0, keep)]);
+
+    set_now(&mut engines, t + 2 * DAY + 60);
+    assert!(
+        engines[1].finalize_owner_election(&g).unwrap().is_none(),
+        "без согласия владельца смены нет"
+    );
+    assert!(is_owner(&engines[0], &g, &owner));
+}

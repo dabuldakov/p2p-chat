@@ -780,7 +780,13 @@ object ChatRuntime {
         val g = currentGroup ?: return
         val out = runCatching { core.createOwnerClaim(g, trigger.toUInt()) }.getOrNull()
         if (out == null) {
-            Toast.makeText(app, app.getString(R.string.owner_claim_unavailable), Toast.LENGTH_SHORT).show()
+            refresh()
+            val msg = when {
+                ownerElection != null -> R.string.owner_election_title
+                members.size <= 2 -> R.string.owner_two_people_hint
+                else -> R.string.owner_claim_unavailable
+            }
+            Toast.makeText(app, app.getString(msg), Toast.LENGTH_LONG).show()
             return
         }
         transport.sendTargets(out.envelope, out.targets)

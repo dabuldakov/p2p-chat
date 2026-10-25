@@ -122,4 +122,6 @@
     <string name="owner_notification_start">更改群组所有者的投票已开始</string>
     <string name="owner_notification_vote">需要你的投票</string>
     <string name="owner_changed">群组所有者已更改</string>
+    <string name="owner_request_hint">所有者7天未活跃后即可申请所有权。</string>
+    <string name="owner_two_people_hint">在只有2人的群组中，更换所有者需要当前所有者同意。</string>
 </resources>

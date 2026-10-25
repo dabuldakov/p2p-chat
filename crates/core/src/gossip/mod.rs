@@ -232,9 +232,20 @@ impl GossipEngine {
     /// Кто владелец группы (peer_id), если известен.
     pub fn owner_of(&self, group: &[u8]) -> Option<PeerId> {
         if let Some(o) = self.owners.get(group) {
-            return Some(o.clone());
+            if !o.is_empty() {
+                return Some(o.clone());
+            }
         }
-        self.log.get_meta(&format!("owner:{}", hex(group))).ok().flatten()
+        if let Ok(Some(o)) = self.log.get_meta(&format!("owner:{}", hex(group))) {
+            if !o.is_empty() {
+                return Some(o);
+            }
+        }
+        // Старые группы без owner-меты: детерминированный fallback по peer_id.
+        self.members(group)
+            .into_iter()
+            .map(|m| m.peer_id)
+            .min()
     }
 
     /// Мы владелец группы (её создатель)?
@@ -354,7 +365,9 @@ impl GossipEngine {
             if let Ok(gid) = unhex(&h) {
                 self.mls.load_group(&gid)?;
                 if let Some(owner) = self.log.get_meta(&format!("owner:{}", hex(&gid)))? {
-                    self.owners.insert(gid.clone(), owner);
+                    if !owner.is_empty() {
+                        self.owners.insert(gid.clone(), owner);
+                    }
                 }
                 self.load_owner_election(&gid);
             }

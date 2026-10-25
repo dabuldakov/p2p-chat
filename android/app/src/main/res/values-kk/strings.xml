@@ -122,4 +122,6 @@
     <string name="owner_notification_start">Топ иесін ауыстыруға дауыс беру басталды</string>
     <string name="owner_notification_vote">Сіздің дауысыңыз қажет</string>
     <string name="owner_changed">Топ иесі өзгертілді</string>
+    <string name="owner_request_hint">Иелікті сұрау иесі 7 күн белсенді болмағаннан кейін қолжетімді болады.</string>
+    <string name="owner_two_people_hint">2 адамнан тұратын топта иесін ауыстыру үшін қазіргі иесінің келісімі қажет.</string>
 </resources>

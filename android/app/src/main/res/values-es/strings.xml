@@ -122,4 +122,6 @@
     <string name="owner_notification_start">Comenzó la votación para cambiar al propietario del grupo</string>
     <string name="owner_notification_vote">Se necesita tu voto</string>
     <string name="owner_changed">Propietario del grupo cambiado</string>
+    <string name="owner_request_hint">La solicitud de propiedad estará disponible tras 7 días de inactividad del propietario.</string>
+    <string name="owner_two_people_hint">En un grupo de 2 personas, cambiar el propietario requiere el consentimiento del propietario actual.</string>
 </resources>

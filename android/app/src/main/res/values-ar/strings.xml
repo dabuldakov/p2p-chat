@@ -122,4 +122,6 @@
     <string name="owner_notification_start">بدأ التصويت على تغيير مالك المجموعة</string>
     <string name="owner_notification_vote">مطلوب تصويتك</string>
     <string name="owner_changed">تم تغيير مالك المجموعة</string>
+    <string name="owner_request_hint">يصبح طلب الملكية متاحًا بعد 7 أيام من عدم نشاط المالك.</string>
+    <string name="owner_two_people_hint">في مجموعة من شخصين، يتطلب تغيير المالك موافقة المالك الحالي.</string>
 </resources>

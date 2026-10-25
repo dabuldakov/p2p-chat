@@ -122,4 +122,6 @@
     <string name="owner_notification_start">グループオーナーの変更投票が始まりました</string>
     <string name="owner_notification_vote">投票が必要です</string>
     <string name="owner_changed">グループオーナーが変更されました</string>
+    <string name="owner_request_hint">所有権の申請は、オーナーが7日間非アクティブになると利用できます。</string>
+    <string name="owner_two_people_hint">2人のグループでオーナーを変更するには、現在のオーナーの同意が必要です。</string>
 </resources>

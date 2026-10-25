@@ -156,4 +156,6 @@
     <string name="owner_notification_start">Voting to change the group owner has started</string>
     <string name="owner_notification_vote">Your vote is needed</string>
     <string name="owner_changed">Group owner changed</string>
+    <string name="owner_request_hint">Request ownership becomes available after 7 days of owner inactivity.</string>
+    <string name="owner_two_people_hint">In a 2-person group, changing the owner requires the owner\'s consent.</string>
 </resources>

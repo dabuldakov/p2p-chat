@@ -122,4 +122,6 @@
     <string name="owner_notification_start">Почалося голосування за зміну власника групи</string>
     <string name="owner_notification_vote">Потрібен ваш голос</string>
     <string name="owner_changed">Власника групи змінено</string>
+    <string name="owner_request_hint">Запит володіння стане доступним після 7 днів неактивності власника.</string>
+    <string name="owner_two_people_hint">У групі з 2 осіб для зміни власника потрібна згода поточного власника.</string>
 </resources>

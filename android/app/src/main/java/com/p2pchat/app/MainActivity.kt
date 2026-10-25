@@ -1324,6 +1324,20 @@ private fun GroupScreen(vm: ChatViewModel) {
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.owner_challenge), style = MaterialTheme.typography.labelSmall) }
             }
+            if (!canRequest) {
+                Text(
+                    stringResource(R.string.owner_request_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (vm.members.size <= 2) {
+                Text(
+                    stringResource(R.string.owner_two_people_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         Box(

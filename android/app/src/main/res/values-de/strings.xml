@@ -122,4 +122,6 @@
     <string name="owner_notification_start">Abstimmung zur Änderung des Gruppeneigentümers gestartet</string>
     <string name="owner_notification_vote">Deine Stimme wird benötigt</string>
     <string name="owner_changed">Gruppeneigentümer geändert</string>
+    <string name="owner_request_hint">Eigentum kann nach 7 Tagen Inaktivität des Eigentümers angefordert werden.</string>
+    <string name="owner_two_people_hint">In einer 2-Personen-Gruppe ist die Zustimmung des aktuellen Eigentümers erforderlich.</string>
 </resources>
