@@ -125,4 +125,6 @@
     <string name="owner_request_hint">所有権の申請は、オーナーが7日間非アクティブになると利用できます。</string>
     <string name="owner_two_people_hint">2人のグループでオーナーを変更するには、現在のオーナーの同意が必要です。</string>
     <string name="owner_request_info">オーナーが7日間非アクティブな場合に利用できます。その後24時間が申請、24時間が投票です。オーナーを除くメンバーの50%超の定足数が必要です。2人のグループではあなたの投票だけで足ります。選挙終了前にオーナーが戻ると選挙は中止されます。</string>
+    <string name="owner_badge">オーナー</string>
+    <string name="owner_challenge_cooldown">異議は7日に1回だけ開始できます。</string>
 </resources>

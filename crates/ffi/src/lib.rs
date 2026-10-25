@@ -628,6 +628,11 @@ impl ChatCore {
         Ok(self.inner.lock().unwrap().is_owner(&group_id)?)
     }
 
+    /// peer_id владельца группы (для звезды в списке участников).
+    pub fn owner_id(&self, group_id: Vec<u8>) -> Option<Vec<u8>> {
+        self.inner.lock().unwrap().owner_of(&group_id)
+    }
+
     /// Задать свой никнейм; возвращает конверт для рассылки.
     pub fn set_nickname(&self, name: String) -> Result<Option<FfiOutgoing>, FfiError> {
         let mut engine = self.inner.lock().unwrap();

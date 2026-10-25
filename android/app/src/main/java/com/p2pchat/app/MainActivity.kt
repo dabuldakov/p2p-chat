@@ -55,18 +55,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.GifBox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.HowToVote
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -1079,6 +1083,17 @@ private fun GroupScreen(vm: ChatViewModel) {
         }.collect { near -> if (near && vm.hasMore) vm.loadOlder() }
     }
 
+    val nowSec = (System.currentTimeMillis() / 1000L).toULong()
+    val ownerAbsentDays = if (!vm.isOwner && vm.ownerLastSeen > 0L) {
+        ((System.currentTimeMillis() - vm.ownerLastSeen) / 86_400_000L).toInt()
+    } else {
+        0
+    }
+    val canRequest = !vm.isOwner && ownerAbsentDays >= 7
+    val canChallenge = !vm.isOwner && (
+        vm.ownerChallengeAt == 0uL || nowSec >= vm.ownerChallengeAt + 7uL * 86_400uL
+        )
+
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1178,6 +1193,15 @@ private fun GroupScreen(vm: ChatViewModel) {
                                 Avatar(vm.avatars[hex], hex, 26.dp)
                                 Spacer(Modifier.width(8.dp))
                                 Text(label, style = MaterialTheme.typography.bodySmall)
+                                if (hex == vm.ownerId) {
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        Icons.Filled.Star,
+                                        contentDescription = stringResource(R.string.owner_badge),
+                                        tint = Color(0xFF5B8CFF),
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
                                 Spacer(Modifier.weight(1f))
                                 val conn = vm.peerKinds[m.publicKey.toHex()]
                                 if (conn == "turn" || conn == "direct") {
@@ -1196,21 +1220,59 @@ private fun GroupScreen(vm: ChatViewModel) {
                             }
                         }
                     }
-                    OutlinedButton(
-                        onClick = { confirmLeave = true },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(stringResource(R.string.leave_group), color = MaterialTheme.colorScheme.error)
+                        if (!vm.isOwner && vm.ownerElection == null) {
+                            IconButton(
+                                onClick = {
+                                    if (canRequest) vm.claimOwner(0) else showRequestInfo = true
+                                },
+                                modifier = Modifier.alpha(if (canRequest) 1f else 0.45f),
+                            ) {
+                                Icon(
+                                    Icons.Filled.PersonAdd,
+                                    contentDescription = stringResource(R.string.owner_request),
+                                    tint = if (canRequest) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (canChallenge) {
+                                        vm.claimOwner(1)
+                                    } else {
+                                        Toast.makeText(
+                                            ctx,
+                                            ctx.getString(R.string.owner_challenge_cooldown),
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    }
+                                },
+                                modifier = Modifier.alpha(if (canChallenge) 1f else 0.45f),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Gavel,
+                                    contentDescription = stringResource(R.string.owner_challenge),
+                                    tint = if (canChallenge) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                )
+                            }
+                        }
+                        IconButton(onClick = { confirmLeave = true }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = stringResource(R.string.leave_group),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 }
             }
         }
 
-        val ownerAbsentDays = if (!vm.isOwner && vm.ownerLastSeen > 0L) {
-            ((System.currentTimeMillis() - vm.ownerLastSeen) / 86_400_000L).toInt()
-        } else {
-            0
-        }
         if (ownerAbsentDays >= 7) {
             Card {
                 Row(
@@ -1249,7 +1311,6 @@ private fun GroupScreen(vm: ChatViewModel) {
         }
 
         val election = vm.ownerElection
-        val nowSec = (System.currentTimeMillis() / 1000L).toULong()
         if (election != null) {
             val canVote = nowSec >= election.voteStart && nowSec < election.endsAt
             val myVote = election.votes.any { it.voter.toHex() == vm.peerId }
@@ -1309,47 +1370,6 @@ private fun GroupScreen(vm: ChatViewModel) {
                         }
                     }
                 }
-            }
-        } else if (!vm.isOwner) {
-            val canRequest = ownerAbsentDays >= 7
-            val canChallenge = vm.ownerChallengeAt == 0uL ||
-                nowSec >= vm.ownerChallengeAt + 7uL * 86_400uL
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { if (canRequest) vm.claimOwner(0) else showRequestInfo = true },
-                    modifier = Modifier.weight(1f).alpha(if (canRequest) 1f else 0.55f),
-                ) { Text(stringResource(R.string.owner_request), style = MaterialTheme.typography.labelSmall) }
-                OutlinedButton(
-                    onClick = { vm.claimOwner(1) },
-                    enabled = canChallenge,
-                    modifier = Modifier.weight(1f),
-                ) { Text(stringResource(R.string.owner_challenge), style = MaterialTheme.typography.labelSmall) }
-            }
-            if (!canRequest) {
-                Text(
-                    stringResource(R.string.owner_request_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (vm.members.size <= 2) {
-                Text(
-                    stringResource(R.string.owner_two_people_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (showRequestInfo) {
-                AlertDialog(
-                    onDismissRequest = { showRequestInfo = false },
-                    title = { Text(stringResource(R.string.owner_request)) },
-                    text = { Text(stringResource(R.string.owner_request_info)) },
-                    confirmButton = {
-                        TextButton(onClick = { showRequestInfo = false }) {
-                            Text(stringResource(R.string.close))
-                        }
-                    },
-                )
             }
         }
 
@@ -1429,6 +1449,19 @@ private fun GroupScreen(vm: ChatViewModel) {
                 )
             }
         }
+    }
+
+    if (showRequestInfo) {
+        AlertDialog(
+            onDismissRequest = { showRequestInfo = false },
+            title = { Text(stringResource(R.string.owner_request)) },
+            text = { Text(stringResource(R.string.owner_request_info)) },
+            confirmButton = {
+                TextButton(onClick = { showRequestInfo = false }) {
+                    Text(stringResource(R.string.close))
+                }
+            },
+        )
     }
 
     if (showGifPicker && vm.gifEnabled) {

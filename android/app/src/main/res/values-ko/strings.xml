@@ -125,4 +125,6 @@
     <string name="owner_request_hint">소유권 요청은 소유자가 7일 동안 비활성 상태일 때 사용할 수 있습니다.</string>
     <string name="owner_two_people_hint">2인 그룹에서 소유자를 변경하려면 현재 소유자의 동의가 필요합니다.</string>
     <string name="owner_request_info">소유자가 7일 동안 비활성 상태이면 사용할 수 있습니다. 이후 24시간은 신청, 24시간은 투표입니다. 소유자를 제외한 구성원의 50% 초과 정족수가 필요합니다. 2인 그룹에서는 내 투표만으로 충분합니다. 선거가 끝나기 전에 소유자가 돌아오면 취소됩니다.</string>
+    <string name="owner_badge">소유자</string>
+    <string name="owner_challenge_cooldown">이의 제기는 7일마다 한 번만 시작할 수 있습니다.</string>
 </resources>

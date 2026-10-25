@@ -109,6 +109,10 @@ object ChatRuntime {
         private set
     var isOwner by mutableStateOf(false)
         private set
+
+    /** peer_id владельца текущей группы (hex). */
+    var ownerId by mutableStateOf<String?>(null)
+        private set
     var update by mutableStateOf<AppUpdate?>(null)
         private set
     var sharedDraft by mutableStateOf<String?>(null)
@@ -676,6 +680,7 @@ object ChatRuntime {
             currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
             // Владение могло перейти (выход владельца) — обновляем и в UI.
             isOwner = runCatching { core.isOwner(g) }.getOrDefault(false)
+            ownerId = runCatching { core.ownerId(g)?.toHex() }.getOrNull()
             members = core.members(g)
             reloadLatest(g)
             // Помечаем прочитанным только если экран реально виден.

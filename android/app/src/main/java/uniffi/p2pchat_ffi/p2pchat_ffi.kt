@@ -836,6 +836,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -941,6 +943,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_epoch(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
+    fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_id(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_last_seen(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     fun uniffi_p2pchat_ffi_fn_method_chatcore_owner_vote(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`claimId`: RustBuffer.ByValue,`approve`: Byte,`keep`: Byte,uniffi_out_err: UniffiRustCallStatus, 
@@ -1175,6 +1179,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_epoch(
     ): Short
+    fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_id(
+    ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_last_seen(
     ): Short
     fun uniffi_p2pchat_ffi_checksum_method_chatcore_owner_vote(
@@ -1353,6 +1359,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_epoch() != 53222.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_id() != 4795.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_p2pchat_ffi_checksum_method_chatcore_owner_last_seen() != 1868.toShort()) {
@@ -1967,6 +1976,11 @@ public interface ChatCoreInterface {
      * Номер эпохи владельца группы.
      */
     fun `ownerEpoch`(`groupId`: kotlin.ByteArray): kotlin.ULong
+    
+    /**
+     * peer_id владельца группы (для звезды в списке участников).
+     */
+    fun `ownerId`(`groupId`: kotlin.ByteArray): kotlin.ByteArray?
     
     /**
      * Когда владелец последний раз был активен (unix seconds; 0 — нет данных).
@@ -2764,6 +2778,21 @@ open class ChatCore: Disposable, AutoCloseable, ChatCoreInterface {
     callWithPointer {
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_epoch(
+        it, FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * peer_id владельца группы (для звезды в списке участников).
+     */override fun `ownerId`(`groupId`: kotlin.ByteArray): kotlin.ByteArray? {
+            return FfiConverterOptionalByteArray.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_p2pchat_ffi_fn_method_chatcore_owner_id(
         it, FfiConverterByteArray.lower(`groupId`),_status)
 }
     }

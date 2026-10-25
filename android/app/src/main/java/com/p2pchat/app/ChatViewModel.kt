@@ -39,6 +39,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val inviteMaxUses get() = ChatRuntime.inviteMaxUses
     val inviteAt get() = ChatRuntime.inviteAt
     val isOwner get() = ChatRuntime.isOwner
+    val ownerId get() = ChatRuntime.ownerId
     val update get() = ChatRuntime.update
     val updateCheckFailed get() = ChatRuntime.updateCheckFailed
     val sharedDraft get() = ChatRuntime.sharedDraft

@@ -125,4 +125,6 @@
     <string name="owner_request_hint">Eigentum kann nach 7 Tagen Inaktivität des Eigentümers angefordert werden.</string>
     <string name="owner_two_people_hint">In einer 2-Personen-Gruppe ist die Zustimmung des aktuellen Eigentümers erforderlich.</string>
     <string name="owner_request_info">Verfügbar, wenn der Eigentümer 7 Tage inaktiv war. Danach 24 Std. für Bewerbungen und 24 Std. für die Abstimmung; erforderlich ist eine Mehrheit von über 50 % der Mitglieder ohne den Eigentümer. In einer 2-Personen-Gruppe reicht deine Stimme. Kehrt der Eigentümer vor Ende der Wahl zurück, wird sie abgebrochen.</string>
+    <string name="owner_badge">Eigentümer</string>
+    <string name="owner_challenge_cooldown">Eine Herausforderung ist einmal alle 7 Tage möglich.</string>
 </resources>
