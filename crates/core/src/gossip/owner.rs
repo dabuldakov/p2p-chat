@@ -294,9 +294,13 @@ impl GossipEngine {
                 }
             }
             OwnerTrigger::Challenge => {
-                let ch = self.owner_challenge_at(group);
-                if ch != 0 && now < ch + OWNER_CHALLENGE_COOLDOWN {
-                    return Ok(None);
+                // В паре кулдаун не нужен: новый вызов — только после завершения
+                // текущих выборов (это уже проверяется ниже через active election).
+                if self.members(group).len() > 2 {
+                    let ch = self.owner_challenge_at(group);
+                    if ch != 0 && now < ch + OWNER_CHALLENGE_COOLDOWN {
+                        return Ok(None);
+                    }
                 }
             }
         }

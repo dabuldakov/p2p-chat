@@ -111,7 +111,7 @@ impl GossipEngine {
                 return false;
             }
         } else if c.trigger == OwnerTrigger::Challenge as i32 {
-            if fresh {
+            if fresh && self.members(&c.group_id).len() > 2 {
                 let last = self.owner_challenge_at(&c.group_id);
                 if last != 0 && c.created_at < last + OWNER_CHALLENGE_COOLDOWN {
                     return false;

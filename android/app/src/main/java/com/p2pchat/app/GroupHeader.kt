@@ -177,7 +177,9 @@ internal fun GroupHeader(state: ChatUiState, dialogs: GroupDialogsState, actions
     }
     val canRequest = !state.isOwner && ownerAbsentDays >= 7
     val canChallenge = !state.isOwner && (
-        state.ownerChallengeAt == 0uL || nowSec >= state.ownerChallengeAt + 7uL * 86_400uL
+        state.members.size <= 2 ||
+            state.ownerChallengeAt == 0uL ||
+            nowSec >= state.ownerChallengeAt + 7uL * 86_400uL
         )
     val electionActive = state.ownerElection != null
     val showOwnerActions = ownerActionsVisible(state.isOwner)

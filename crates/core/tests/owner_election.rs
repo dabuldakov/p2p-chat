@@ -651,6 +651,37 @@ fn two_person_challenge_owner_can_approve_immediately() {
 }
 
 #[test]
+fn two_person_challenge_can_repeat_immediately_after_finish() {
+    let (mut engines, keys, g) = build_group(2);
+    let last = engines[1].owner_last_seen(&g);
+    let t = last + 3600;
+    set_now(&mut engines, t);
+
+    let claim = engines[1]
+        .create_owner_claim(&g, OwnerTrigger::Challenge)
+        .unwrap()
+        .expect("первый вызов");
+    pump(&mut engines, &keys, vec![(1, claim)]);
+
+    let keep = engines[0]
+        .owner_vote(&g, &[], true, true)
+        .unwrap()
+        .expect("владелец оставляет владение");
+    pump(&mut engines, &keys, vec![(0, keep)]);
+    for e in engines.iter_mut() {
+        assert!(e.finalize_owner_election(&g).unwrap().is_none());
+    }
+
+    // 7-дневный cooldown для пары отключён; важно только отсутствие активных выборов.
+    let again = engines[1]
+        .create_owner_claim(&g, OwnerTrigger::Challenge)
+        .unwrap()
+        .expect("повторный вызов сразу после завершения");
+    let cid = claim_id(&again);
+    assert!(!cid.is_empty());
+}
+
+#[test]
 fn two_person_challenge_starts_and_owner_keeps() {
     let (mut engines, keys, g) = build_group(2);
     let owner = engines[0].peer_id();
