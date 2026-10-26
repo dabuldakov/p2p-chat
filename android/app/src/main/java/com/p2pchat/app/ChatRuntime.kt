@@ -75,7 +75,9 @@ object ChatRuntime {
     private lateinit var updates: UpdateController
     private lateinit var snapshots: SnapshotRepository
     private lateinit var gifRuntime: GifRuntime
+    private lateinit var bridge: CoreBridge
     private lateinit var notifications: NotificationCoordinator
+    private lateinit var owners: OwnerRuntime
     private lateinit var connections: ConnectionCoordinator
     lateinit var gifs: GifRepository
         private set
@@ -162,9 +164,6 @@ object ChatRuntime {
     var ownerLastSeen by mutableLongStateOf(0L)
         private set
 
-    /** Когда мы последний раз отправляли heartbeat владельца (hex группы → ms). */
-    private val ownerHeartbeatAt = HashMap<String, Long>()
-
     /** Активные выборы владельца текущей группы. */
     var ownerElection by mutableStateOf<FfiOwnerElection?>(null)
         private set
@@ -182,9 +181,6 @@ object ChatRuntime {
     /** Когда последний раз завершался вызов владельца (unix сек; 0 — не было). */
     var ownerChallengeAt by mutableStateOf(0uL)
         private set
-
-    /** Не пытаться автоматически начать выборы чаще, чем раз в 10 минут. */
-    private val ownerAutoAt = HashMap<String, Long>()
 
     /** Когда последний раз пересылали OwnerChange (hex группы → ms). */
     private val mediaSkip = mutableSetOf<String>()
@@ -244,7 +240,7 @@ object ChatRuntime {
             context,
             publicKey,
             signaling,
-            { env -> handleIncoming(env) },
+            { env -> bridge.receive(env) },
             onPeerChange = { n -> connected = n },
             onPeerConnected = { key -> onPeerConnected(key) },
             onConnectionKind = { key, kind ->
@@ -269,11 +265,18 @@ object ChatRuntime {
             currentGroup = { currentGroup },
             peerKinds = { peerKinds },
         )
+        bridge = CoreBridge(
+            core = core,
+            transport = transport,
+            scope = scope,
+            onDone = { refresh() },
+            onReceived = { runCatching { notifications.updateBadge(silent = appVisible) } },
+        )
         gifRuntime = GifRuntime(
             core = core,
             gifs = gifs,
             currentGroup = { currentGroup },
-            post = { block -> runCoreOut(block) },
+            post = { block -> bridge.out(block) },
         )
         notifications = NotificationCoordinator(
             app = app,
@@ -284,6 +287,18 @@ object ChatRuntime {
             appVisible = { appVisible },
             currentGroup = { currentGroup },
             myPeerId = { peerId },
+        )
+        owners = OwnerRuntime(
+            core = core,
+            scope = scope,
+            currentGroup = { currentGroup },
+            isOwner = { isOwner },
+            ownerLastSeen = { ownerLastSeen },
+            ownerElection = { ownerElection },
+            memberCount = { members.size },
+            send = { out -> transport.sendTargets(out.envelope, out.targets) },
+            refresh = { refresh() },
+            toast = { res -> Toast.makeText(app, app.getString(res), Toast.LENGTH_SHORT).show() },
         )
         signaling.connect()
         scope.launch {
@@ -296,8 +311,8 @@ object ChatRuntime {
                 kotlinx.coroutines.delay(15_000)
                 connections.connectAll()
                 connections.syncAll()
-                maybeOwnerHeartbeat()
-                maybeAdvanceOwnerElection()
+                owners.heartbeat()
+                owners.advance()
                 currentGroup?.let { ensureMedia(it) }
                 lastSignalingTs = signaling.lastActivityMs
             }
@@ -479,7 +494,7 @@ object ChatRuntime {
 
     fun removeMember(peerId: ByteArray) {
         val g = currentGroup ?: return
-        runCoreOuts { it.removeMember(g, peerId) }
+        bridge.outs { it.removeMember(g, peerId) }
     }
 
     fun backToList() {
@@ -522,7 +537,7 @@ object ChatRuntime {
     fun send(text: String) {
         val g = currentGroup ?: return
         if (text.isBlank()) return
-        runCoreOut { it.post(g, text) }
+        bridge.out { it.post(g, text) }
     }
 
     /** Поставить/снять реакцию на сообщение. */
@@ -546,7 +561,7 @@ object ChatRuntime {
     fun editMessage(id: ByteArray, text: String) {
         val g = currentGroup ?: return
         if (text.isBlank()) return
-        runCoreOut { it.editMessage(g, id, text) }
+        bridge.out { it.editMessage(g, id, text) }
     }
 
     private fun ensureMedia(group: ByteArray) {
@@ -569,7 +584,7 @@ object ChatRuntime {
 
     /** Отправить подготовленное вложение. */
     fun sendPrepared(group: ByteArray, kind: String, p: PreparedMedia) {
-        runCoreOut {
+        bridge.out {
             it.postAttachment(
                 group,
                 FfiAttachment(
@@ -607,45 +622,7 @@ object ChatRuntime {
     fun myGifRefs(limit: Int = 60): List<GifRef> = gifRuntime.recentRefs(limit)
     fun groupGifRefs(limit: Int = 60): List<GifRef> = gifRuntime.groupRefs(limit)
 
-    private fun runCoreOut(block: (ChatCore) -> FfiOutgoing?) {
-        scope.launch {
-            val out = withContext(Dispatchers.IO) {
-                runCatching { block(core) }.onFailure { Logs.w("core action: $it") }.getOrNull()
-            } ?: return@launch
-            transport.sendTargets(out.envelope, out.targets)
-            refresh()
-        }
-    }
-
-    private fun runCoreOuts(block: (ChatCore) -> List<FfiOutgoing>) {
-        scope.launch {
-            val outs = withContext(Dispatchers.IO) {
-                runCatching { block(core) }.onFailure { Logs.w("core action: $it") }.getOrNull()
-            } ?: return@launch
-            outs.forEach { transport.sendTargets(it.envelope, it.targets) }
-            refresh()
-        }
-    }
-
     private fun onPeerConnected(peerKey: ByteArray) = connections.onPeerConnected(peerKey)
-
-    private fun handleIncoming(envelope: ByteArray) {
-        scope.launch {
-            val outs = withContext(Dispatchers.IO) {
-                runCatching { core.receive(envelope) }.getOrElse {
-                    Logs.w("receive error: $it")
-                    null
-                }
-            } ?: return@launch
-            Logs.d("incoming env -> out=${outs.size}")
-            outs.forEach { out ->
-                runCatching { transport.sendTargets(out.envelope, out.targets) }
-            }
-            refresh()
-            runCatching { notifications.updateBadge(silent = appVisible) }
-        }
-    }
-
 
     private var refreshSeq = 0L
 
@@ -733,102 +710,19 @@ object ChatRuntime {
         notifications.clearMissing(knownGroups)
         if (!sameBytes(groupAvatarBytes, s.groupAvatarBytes)) groupAvatarBytes = s.groupAvatarBytes
         s.group?.let { ensureMedia(it) }
-        maybeOwnerHeartbeat()
+        owners.heartbeat()
     }
 
     /** Задать свой аватар и разослать профиль. */
     fun setAvatar(bytes: ByteArray) {
-        runCoreOut { it.setAvatar(bytes) }
+        bridge.out { it.setAvatar(bytes) }
     }
 
-    private fun maybeOwnerHeartbeat() {
-        val g = currentGroup ?: return
-        if (!isOwner) return
-        val key = g.toHex()
-        val now = System.currentTimeMillis()
-        if (now - (ownerHeartbeatAt[key] ?: 0L) < 12 * 60 * 60_000L) return
-        ownerHeartbeatAt[key] = now
-        scope.launch {
-            val out = withContext(Dispatchers.IO) {
-                runCatching { core.ownerAlive(g) }.getOrNull()
-            }
-            out?.let { transport.sendTargets(it.envelope, it.targets) }
-        }
-    }
+    fun claimOwner(trigger: Int) = owners.claim(trigger)
 
-    /** Подать заявку на владение: 0 — отсутствие, 1 — вызов, 2 — авто. */
-    fun claimOwner(trigger: Int) {
-        val g = currentGroup ?: return
-        scope.launch {
-            val out = withContext(Dispatchers.IO) {
-                runCatching { core.createOwnerClaim(g, trigger.toUInt()) }.getOrNull()
-            }
-            if (out == null) {
-                refresh()
-                val msg = when {
-                    ownerElection != null -> R.string.owner_election_title
-                    members.size <= 2 -> R.string.owner_two_people_hint
-                    else -> R.string.owner_claim_unavailable
-                }
-                Toast.makeText(app, app.getString(msg), Toast.LENGTH_LONG).show()
-                return@launch
-            }
-            transport.sendTargets(out.envelope, out.targets)
-            refresh()
-        }
-    }
+    fun voteOwner(claimId: ByteArray, approve: Boolean, keep: Boolean) = owners.vote(claimId, approve, keep)
 
-    /** Голос за заявку или за сохранение владельца. */
-    fun voteOwner(claimId: ByteArray, approve: Boolean, keep: Boolean) {
-        val g = currentGroup ?: return
-        scope.launch {
-            val out = withContext(Dispatchers.IO) {
-                runCatching { core.ownerVote(g, claimId, approve, keep) }.getOrNull()
-            }
-            if (out == null) {
-                Toast.makeText(app, app.getString(R.string.owner_vote_unavailable), Toast.LENGTH_SHORT).show()
-                return@launch
-            }
-            transport.sendTargets(out.envelope, out.targets)
-            refresh()
-            maybeAdvanceOwnerElection()
-        }
-    }
-
-    /** Оставить текущего владельца (голос keep при вызове). */
-    fun keepOwner() = voteOwner(ByteArray(0), true, true)
-
-    private fun maybeAdvanceOwnerElection() {
-        val g = currentGroup ?: return
-        val now = System.currentTimeMillis()
-        val ownerNow = isOwner
-        val lastSeen = ownerLastSeen
-        val key = g.toHex()
-        val shouldAuto = !ownerNow && lastSeen > 0L && now - lastSeen >= 8 * 86_400_000L &&
-            now - (ownerAutoAt[key] ?: 0L) >= 10 * 60_000L
-        if (shouldAuto) ownerAutoAt[key] = now
-        scope.launch {
-            val election = withContext(Dispatchers.IO) {
-                runCatching { core.ownerElection(g) }.getOrNull()
-            }
-            if (election != null) {
-                if (now >= election.endsAt.toLong() * 1000L) {
-                    val out = withContext(Dispatchers.IO) {
-                        runCatching { core.finalizeOwnerElection(g) }.getOrNull()
-                    }
-                    out?.let { transport.sendTargets(it.envelope, it.targets) }
-                    refresh()
-                }
-                return@launch
-            }
-            if (!shouldAuto) return@launch
-            val out = withContext(Dispatchers.IO) {
-                runCatching { core.createOwnerClaim(g, 2u) }.getOrNull()
-            }
-            out?.let { transport.sendTargets(it.envelope, it.targets) }
-            refresh()
-        }
-    }
+    fun keepOwner() = owners.keep()
 
     fun blockPeer(peerId: ByteArray) {
         scope.launch {
@@ -886,24 +780,24 @@ object ChatRuntime {
         val g = currentGroup ?: return
         val n = name.trim()
         if (n.isBlank()) return
-        runCoreOut { it.renameGroup(g, n) }
+        bridge.out { it.renameGroup(g, n) }
     }
 
     /** Удалить своё сообщение. */
     fun deleteMessage(id: ByteArray) {
         val g = currentGroup ?: return
-        runCoreOut { it.deleteMessage(g, id) }
+        bridge.out { it.deleteMessage(g, id) }
     }
 
     /** Сменить аватар группы (владелец). */
     fun setGroupAvatar(bytes: ByteArray) {
         val g = currentGroup ?: return
-        runCoreOut { it.setGroupAvatar(g, bytes) }
+        bridge.out { it.setGroupAvatar(g, bytes) }
     }
 
     /** Задать свой никнейм и разослать его. */
     fun setNickname(name: String) {
-        runCoreOut { it.setNickname(name.trim()) }
+        bridge.out { it.setNickname(name.trim()) }
     }
 
     private fun reloadLatest(g: ByteArray) {
