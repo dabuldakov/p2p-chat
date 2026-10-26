@@ -195,7 +195,13 @@ internal fun OwnerStatusCards(
 
         val election = state.ownerElection
         if (election != null) {
-            val canVote = nowSec >= election.voteStart && nowSec < election.endsAt
+            val canVote = electionVotingOpen(
+                trigger = election.trigger.toInt(),
+                memberCount = state.members.size,
+                nowSec = nowSec,
+                voteStart = election.voteStart,
+                endsAt = election.endsAt,
+            )
             val myVote = election.votes.any { it.voter.toHex() == state.myPeerId }
             val hoursLeft = ((election.endsAt.toLong() * 1000L - System.currentTimeMillis()) / 3_600_000L)
                 .coerceAtLeast(0L)
@@ -241,8 +247,10 @@ internal fun OwnerStatusCards(
                                 TextButton(onClick = { vm.voteOwner(claim.claimId, true, false) }) {
                                     Text(stringResource(R.string.owner_vote_for))
                                 }
-                                TextButton(onClick = { vm.voteOwner(claim.claimId, false, false) }) {
-                                    Text(stringResource(R.string.owner_vote_against))
+                                if (!state.isOwner) {
+                                    TextButton(onClick = { vm.voteOwner(claim.claimId, false, false) }) {
+                                        Text(stringResource(R.string.owner_vote_against))
+                                    }
                                 }
                             }
                         }

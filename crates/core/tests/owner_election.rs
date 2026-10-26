@@ -580,6 +580,77 @@ fn owner_change_replays_to_offline_member() {
 }
 
 #[test]
+fn two_person_challenge_owner_can_keep_immediately() {
+    let (mut engines, keys, g) = build_group(2);
+    let owner = engines[0].peer_id();
+    let last = engines[1].owner_last_seen(&g);
+    let t = last + 3600;
+    set_now(&mut engines, t);
+
+    let claim = engines[1]
+        .create_owner_claim(&g, OwnerTrigger::Challenge)
+        .unwrap()
+        .expect("вызов в группе из 2");
+    pump(&mut engines, &keys, vec![(1, claim)]);
+
+    // Владелец не ждёт 24 часа: в паре согласие требуется сразу.
+    let keep = engines[0]
+        .owner_vote(&g, &[], true, true)
+        .unwrap()
+        .expect("владелец голосует сразу");
+    pump(&mut engines, &keys, vec![(0, keep)]);
+    for e in engines.iter_mut() {
+        assert!(
+            e.finalize_owner_election(&g).unwrap().is_none(),
+            "ничья: смены нет"
+        );
+    }
+
+    for e in &engines {
+        assert!(
+            e.owner_election(&g).is_none(),
+            "выборы завершились досрочно"
+        );
+        assert!(is_owner(e, &g, &owner), "владелец остался");
+    }
+}
+
+#[test]
+fn two_person_challenge_owner_can_approve_immediately() {
+    let (mut engines, keys, g) = build_group(2);
+    let owner = engines[0].peer_id();
+    let challenger = engines[1].peer_id();
+    let last = engines[1].owner_last_seen(&g);
+    let t = last + 3600;
+    set_now(&mut engines, t);
+
+    let claim = engines[1]
+        .create_owner_claim(&g, OwnerTrigger::Challenge)
+        .unwrap()
+        .expect("вызов в группе из 2");
+    let cid = claim_id(&claim);
+    pump(&mut engines, &keys, vec![(1, claim)]);
+
+    let accept = engines[0]
+        .owner_vote(&g, &cid, true, false)
+        .unwrap()
+        .expect("владелец сразу соглашается");
+    pump(&mut engines, &keys, vec![(0, accept)]);
+
+    let change = engines[0]
+        .finalize_owner_election(&g)
+        .unwrap()
+        .expect("досрочная передача");
+    pump(&mut engines, &keys, vec![(0, change)]);
+
+    for e in &engines {
+        assert!(is_owner(e, &g, &challenger), "согласие владельца сработало");
+        assert!(e.owner_election(&g).is_none());
+    }
+    let _ = owner;
+}
+
+#[test]
 fn two_person_challenge_starts_and_owner_keeps() {
     let (mut engines, keys, g) = build_group(2);
     let owner = engines[0].peer_id();

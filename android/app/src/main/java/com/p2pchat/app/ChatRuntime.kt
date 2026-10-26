@@ -842,6 +842,7 @@ object ChatRuntime {
             }
             transport.sendTargets(out.envelope, out.targets)
             refresh()
+            maybeAdvanceOwnerElection()
         }
     }
 

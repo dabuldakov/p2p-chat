@@ -60,6 +60,26 @@ fn vote_end(e: &OwnerElection) -> u64 {
     }
 }
 
+/// В группе из двух человек вызов требует согласия владельца: голосовать можно
+/// сразу, не дожидаясь конца 24-часового окна заявок.
+fn vote_window_open(engine: &GossipEngine, group: &[u8], e: &OwnerElection, now: u64) -> bool {
+    if now >= vote_end(e) {
+        return false;
+    }
+    if now >= vote_start(e) {
+        return true;
+    }
+    is_challenge(e.trigger) && engine.members(group).len() <= 2
+}
+
+fn all_eligible_voted(engine: &GossipEngine, group: &[u8], e: &OwnerElection) -> bool {
+    let eligible = engine.election_eligible(group, e.trigger);
+    !eligible.is_empty()
+        && eligible.iter().all(|peer| {
+            e.claims.values().any(|c| &c.claimant == peer) || e.votes.contains_key(peer)
+        })
+}
+
 /// Снимок активных выборов для UI/FFI.
 #[derive(Clone, Debug)]
 pub struct OwnerElectionInfo {
@@ -365,7 +385,7 @@ impl GossipEngine {
         let Some(e) = self.owner_elections.get(group).cloned() else {
             return Ok(None);
         };
-        if now < vote_start(&e) || now >= vote_end(&e) {
+        if !vote_window_open(self, group, &e, now) {
             return Ok(None);
         }
         let me = self.peer_id();
@@ -429,7 +449,9 @@ impl GossipEngine {
         let Some(e) = self.owner_elections.get(group).cloned() else {
             return Ok(None);
         };
-        if now < vote_end(&e) {
+        let final_now = now >= vote_end(&e);
+        let all_voted = is_challenge(e.trigger) && all_eligible_voted(self, group, &e);
+        if !final_now && !all_voted {
             return Ok(None);
         }
         if !is_challenge(e.trigger) {
@@ -521,7 +543,7 @@ impl GossipEngine {
         let Some(e) = self.owner_elections.get(&v.group_id).cloned() else {
             return Ok(());
         };
-        if now < vote_start(&e) || now >= vote_end(&e) {
+        if !vote_window_open(self, &v.group_id, &e, now) {
             return Ok(());
         }
         if !self.vote_allowed(&v, &e, now, true) {
