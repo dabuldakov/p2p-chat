@@ -157,6 +157,13 @@ internal fun GroupScreen(vm: ChatViewModel) {
 
     val invite = vm.invite
     val inviteQr = remember(invite) { invite?.let { generateQrBitmap(it, 640) } }
+    val messageActions = MessageActions(
+        loadOlder = vm::loadOlder,
+        retryMedia = vm::retryMedia,
+        react = { id, emoji, add -> vm.react(id, emoji, add) },
+        joinGroup = vm::joinGroup,
+        gifProvider = vm,
+    )
     val dialogActions = GroupDialogActions(
         leaveGroup = vm::leaveGroup,
         removeMember = vm::removeMember,
@@ -190,7 +197,7 @@ internal fun GroupScreen(vm: ChatViewModel) {
         OwnerStatusCards(vm, state, ownerAbsentDays, nowSec)
 
 
-        MessageList(vm, state, dialogs, Modifier.weight(1f))
+        MessageList(state, dialogs, messageActions, Modifier.weight(1f))
 
         MessageComposer(
             gifEnabled = state.gifEnabled,

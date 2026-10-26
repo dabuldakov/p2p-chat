@@ -74,6 +74,8 @@ object ChatRuntime {
     private lateinit var media: MediaTransfer
     private lateinit var updates: UpdateController
     private lateinit var snapshots: SnapshotRepository
+    private lateinit var gifRuntime: GifRuntime
+    private lateinit var notifications: NotificationCoordinator
     private lateinit var connections: ConnectionCoordinator
     lateinit var gifs: GifRepository
         private set
@@ -187,9 +189,6 @@ object ChatRuntime {
     /** Когда последний раз пересылали OwnerChange (hex группы → ms). */
     private val mediaSkip = mutableSetOf<String>()
 
-    /** Подпись последнего показанного уведомления о выборах (hex группы → sig). */
-    private val ownerNotified = HashMap<String, String>()
-
     /** Заблокированные (hex peer_id) — их сообщения скрыты. */
     var blocked by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -269,6 +268,22 @@ object ChatRuntime {
             turnCredsUrl = BuildConfig.TURN_CREDS_URL,
             currentGroup = { currentGroup },
             peerKinds = { peerKinds },
+        )
+        gifRuntime = GifRuntime(
+            core = core,
+            gifs = gifs,
+            currentGroup = { currentGroup },
+            post = { block -> runCoreOut(block) },
+        )
+        notifications = NotificationCoordinator(
+            app = app,
+            core = core,
+            scope = scope,
+            groups = { groupInfos },
+            unread = { unread },
+            appVisible = { appVisible },
+            currentGroup = { currentGroup },
+            myPeerId = { peerId },
         )
         signaling.connect()
         scope.launch {
@@ -439,7 +454,7 @@ object ChatRuntime {
             inviteAt = System.currentTimeMillis()
             isOwner = data.third
             refresh()
-            updateBadge(silent = true)
+            notifications.updateBadge(silent = true)
         }
     }
 
@@ -458,7 +473,7 @@ object ChatRuntime {
             }
             out?.let { transport.sendTargets(it.envelope, it.targets) }
             refresh()
-            updateBadge(silent = true)
+            notifications.updateBadge(silent = true)
         }
     }
 
@@ -496,29 +511,12 @@ object ChatRuntime {
         refresh()
         connections.connectAll()
         connections.syncAll()
-        updateBadge(silent = true)
+        notifications.updateBadge(silent = true)
         // Проверяем обновления при входе; при сбое — повтор (не чаще раза в 5 минут).
         checkForUpdate()
     }
 
     /** Бейдж/уведомления: по одному на непрочитанную группу + сводное. */
-    private fun updateBadge(silent: Boolean) {
-        val groups = groupInfos
-        val unreadNow = unread
-        val fallback = app.getString(R.string.new_messages)
-        scope.launch {
-            val items = withContext(Dispatchers.IO) {
-                unreadGroups(groups, unreadNow).map { gi ->
-                    val last = runCatching {
-                        core.historyWindow(gi.id, null, 1u).messages.lastOrNull()?.text
-                    }.getOrNull()
-                    gi to notificationText(last, fallback)
-                }
-            }
-            if (items.isEmpty()) Notifier.clearAll(app) else Notifier.showGroups(app, items, silent)
-        }
-    }
-
     // --- Сообщения -------------------------------------------------------
 
     fun send(text: String) {
@@ -599,46 +597,15 @@ object ChatRuntime {
     }
 
     /** Отправить гифку: между клиентами едет только ссылка (kind+id). */
-    fun sendGif(gif: Gif) {
-        val g = currentGroup ?: return
-        runCoreOut {
-            it.postGif(
-                g,
-                FfiAttachment(
-                    kind = "klipy",
-                    id = gif.providerId,
-                    width = (gif.width ?: 0).toUInt(),
-                    height = (gif.height ?: 0).toUInt(),
-                    url = "",
-                    mime = "",
-                    size = 0uL,
-                    durationMs = 0uL,
-                    fileName = "",
-                    thumbnail = ByteArray(0),
-                ),
-            )
-        }
-    }
+    fun sendGif(gif: Gif) = gifRuntime.send(gif)
 
-    // --- Гифки: пикер ----------------------------------------------------
+    val gifEnabled: Boolean get() = gifRuntime.enabled
 
-    val gifEnabled: Boolean get() = gifs.enabled
-
-    suspend fun searchGifs(query: String, page: Int): List<Gif> = gifs.search(query, page)
-
-    suspend fun resolveGif(providerId: String): Gif? = gifs.resolve(providerId)
-
-    fun cachedGif(providerId: String): Gif? = gifs.cached(providerId)
-
-    /** Ссылки на отправленные мной гифки (вкладка «Мои»). */
-    fun myGifRefs(limit: Int = 60): List<GifRef> =
-        core.recentGifs(limit.toUInt()).map(::toGifRef)
-
-    /** Ссылки на гифки текущей группы (вкладка «Эта группа»). */
-    fun groupGifRefs(limit: Int = 60): List<GifRef> {
-        val g = currentGroup ?: return emptyList()
-        return core.groupGifs(g, limit.toUInt()).map(::toGifRef)
-    }
+    suspend fun searchGifs(query: String, page: Int): List<Gif> = gifRuntime.search(query, page)
+    suspend fun resolveGif(providerId: String): Gif? = gifRuntime.resolve(providerId)
+    fun cachedGif(providerId: String): Gif? = gifRuntime.cached(providerId)
+    fun myGifRefs(limit: Int = 60): List<GifRef> = gifRuntime.recentRefs(limit)
+    fun groupGifRefs(limit: Int = 60): List<GifRef> = gifRuntime.groupRefs(limit)
 
     private fun runCoreOut(block: (ChatCore) -> FfiOutgoing?) {
         scope.launch {
@@ -675,7 +642,7 @@ object ChatRuntime {
                 runCatching { transport.sendTargets(out.envelope, out.targets) }
             }
             refresh()
-            runCatching { updateBadge(silent = appVisible) }
+            runCatching { notifications.updateBadge(silent = appVisible) }
         }
     }
 
@@ -683,6 +650,9 @@ object ChatRuntime {
     private var refreshSeq = 0L
 
     private fun uiSnapshot() = ChatUiState(
+        version = version,
+        update = update,
+        updateCheckFailed = updateCheckFailed,
         groupInfos = groupInfos,
         unread = unread,
         memberCounts = memberCounts,
@@ -712,6 +682,12 @@ object ChatRuntime {
         inviteAt = inviteAt,
         gifEnabled = gifEnabled,
         sharedDraft = sharedDraft,
+        myNickname = myNickname,
+        backgroundEnabled = backgroundEnabled,
+        debugLogsEnabled = debugLogsEnabled,
+        directCount = directCount,
+        turnCount = turnCount,
+        lastSignalingTs = lastSignalingTs,
     )
 
     fun refresh() {
@@ -751,10 +727,10 @@ object ChatRuntime {
             ownerEpochSeen[g.toHex()] = s.ownerEpoch
         }
         s.groupInfos.forEach { gi ->
-            maybeNotifyOwnerElection(gi, s.elections[gi.id.toHex()], s.ownerFlags[gi.id.toHex()] == true)
+            notifications.maybeNotifyOwnerElection(gi, s.elections[gi.id.toHex()], s.ownerFlags[gi.id.toHex()] == true)
         }
         val knownGroups = s.groupInfos.map { it.id.toHex() }.toSet()
-        ownerNotified.keys.filter { it !in knownGroups }.forEach { clearOwnerNotice(it) }
+        notifications.clearMissing(knownGroups)
         if (!sameBytes(groupAvatarBytes, s.groupAvatarBytes)) groupAvatarBytes = s.groupAvatarBytes
         s.group?.let { ensureMedia(it) }
         maybeOwnerHeartbeat()
@@ -778,38 +754,6 @@ object ChatRuntime {
             }
             out?.let { transport.sendTargets(it.envelope, it.targets) }
         }
-    }
-
-    private fun maybeNotifyOwnerElection(group: GroupInfo, election: FfiOwnerElection?, iAmOwner: Boolean) {
-        val key = group.id.toHex()
-        if (election == null) {
-            clearOwnerNotice(key)
-            return
-        }
-        if (appVisible && currentGroup?.contentEquals(group.id) == true) {
-            clearOwnerNotice(key)
-            return
-        }
-        val iAmClaimant = election.claims.any { it.claimant.toHex() == peerId }
-        val iVoted = election.votes.any { it.voter.toHex() == peerId }
-        val ownerNeedsVote = iAmOwner && election.trigger.toInt() == 1
-        if (iAmClaimant || iVoted || (iAmOwner && !ownerNeedsVote)) {
-            clearOwnerNotice(key)
-            return
-        }
-        val now = System.currentTimeMillis()
-        val voteStarted = now >= election.voteStart.toLong() * 1000L
-        val textRes = if (voteStarted) R.string.owner_notification_vote else R.string.owner_notification_start
-        val sig = election.claims.joinToString(",") { it.claimId.toHex() } +
-            ":" + election.trigger + ":" + voteStarted
-        if (ownerNotified[key] == sig) return
-        ownerNotified[key] = sig
-        Notifier.showOwnerElection(app, key, group.name, app.getString(textRes))
-    }
-
-    private fun clearOwnerNotice(key: String) {
-        ownerNotified.remove(key)
-        Notifier.clearOwnerElection(app, key)
     }
 
     /** Подать заявку на владение: 0 — отсутствие, 1 — вызов, 2 — авто. */

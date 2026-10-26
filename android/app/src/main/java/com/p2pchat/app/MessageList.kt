@@ -149,11 +149,19 @@ import com.p2pchat.app.gif.GifAttachmentView
 import com.p2pchat.app.gif.GifPickerDialog
 import uniffi.p2pchat_ffi.FfiMessage
 
+internal class MessageActions(
+    val loadOlder: () -> Unit,
+    val retryMedia: (String, String) -> Unit,
+    val react: (ByteArray, String, Boolean) -> Unit,
+    val joinGroup: (String) -> Unit,
+    val gifProvider: GifProvider,
+)
+
 @Composable
 internal fun MessageList(
-    vm: ChatViewModel,
     state: ChatUiState,
     dialogs: GroupDialogsState,
+    actions: MessageActions,
     modifier: Modifier = Modifier,
 ) {
     var showTimes by remember { mutableStateOf(false) }
@@ -190,7 +198,7 @@ internal fun MessageList(
             val info = listState.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
             info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
-        }.collect { near -> if (near && state.hasMore) vm.loadOlder() }
+        }.collect { near -> if (near && state.hasMore) actions.loadOlder() }
     }
 
     Box(
@@ -222,7 +230,7 @@ internal fun MessageList(
                     val name = state.nicknames[m.author.toHex()]?.takeIf { it.isNotBlank() }
                         ?: m.author.toHexShort()
                     MessageRow(
-                        mine = mine, name = name, message = m, vm = vm,
+                        mine = mine, name = name, message = m, state = state, actions = actions,
                         onTap = { if (!m.deleted) dialogs.actionTarget = m },
                         onLongPress = { if (!m.deleted) dialogs.actionTarget = m },
                         onOpenProfile = { dialogs.profileTarget = it },
@@ -231,7 +239,7 @@ internal fun MessageList(
                 }
                 if (state.hasMore) {
                     item {
-                        TextButton(onClick = { vm.loadOlder() }, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { actions.loadOlder() }, modifier = Modifier.fillMaxWidth()) {
                             Text(stringResource(R.string.show_earlier))
                         }
                     }

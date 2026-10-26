@@ -28,12 +28,12 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.p2pchat.app.ChatViewModel
+import com.p2pchat.app.GifProvider
 
 /**
  * Показ вложения-гифки в переписке.
  *
- * Резолв `providerId -> Gif` идёт через [ChatViewModel] (кэш → провайдер). Если
+ * Резолв `providerId -> Gif` идёт через [GifProvider] (кэш → провайдер). Если
  * есть mp4 — играем через ExoPlayer (петля, без звука, автозапуск) с дисковым
  * кэшем; иначе — анимированный webp/gif через Coil. Плеер освобождается, когда
  * элемент уходит из композиции (например, при прокрутке LazyColumn).
@@ -43,12 +43,12 @@ fun GifAttachmentView(
     providerId: String,
     width: Int?,
     height: Int?,
-    vm: ChatViewModel,
+    provider: GifProvider,
     modifier: Modifier = Modifier,
 ) {
-    var gif by remember(providerId) { mutableStateOf(vm.cachedGif(providerId)) }
+    var gif by remember(providerId) { mutableStateOf(provider.cachedGif(providerId)) }
     LaunchedEffect(providerId) {
-        if (gif == null) gif = vm.resolveGif(providerId)
+        if (gif == null) gif = provider.resolveGif(providerId)
     }
 
     val aspect = remember(width, height) {

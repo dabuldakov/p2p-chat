@@ -179,7 +179,8 @@ internal fun MessageRow(
     mine: Boolean,
     name: String,
     message: FfiMessage,
-    vm: ChatViewModel,
+    state: ChatUiState,
+    actions: MessageActions,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     onOpenProfile: (String) -> Unit,
@@ -202,7 +203,7 @@ internal fun MessageRow(
                 Modifier.size(36.dp).clickable { onOpenProfile(ahex) },
                 contentAlignment = Alignment.Center,
             ) {
-                Avatar(vm.avatars[ahex], ahex, 28.dp)
+                Avatar(state.avatars[ahex], ahex, 28.dp)
             }
             Spacer(Modifier.width(4.dp))
         }
@@ -245,20 +246,20 @@ internal fun MessageRow(
                     )
                 } else if (att != null) {
                     if (att.kind in setOf("image", "video", "video_note", "audio", "voice")) {
-                        MediaAttachmentView(att, onLongPress) { vm.retryMedia(att.id, att.mime) }
+                        MediaAttachmentView(att, onLongPress) { actions.retryMedia(att.id, att.mime) }
                     } else {
                         GifAttachmentView(
                             providerId = att.id,
                             width = att.width.toInt(),
                             height = att.height.toInt(),
-                            vm = vm,
+                            provider = actions.gifProvider,
                         )
                     }
                 } else {
                     val inv = extractInvite(message.text)
                     val url = singleUrl(message.text)
                     when {
-                        inv != null -> InviteCard(inv.first, inv.second, vm, onLongPress)
+                        inv != null -> InviteCard(inv.first, inv.second, onJoin = actions.joinGroup, onLongPress = onLongPress)
                         url != null ->
                             LinkPreviewCard(url, onLongPress = onLongPress) {
                                 MessageText(message.text, onLongPress, onTap)
@@ -280,7 +281,7 @@ internal fun MessageRow(
                                 color = if (r.mine) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
-                                    vm.react(message.id, r.emoji, !r.mine)
+                                    actions.react(message.id, r.emoji, !r.mine)
                                 },
                             ) {
                                 Text(

@@ -6,6 +6,9 @@ import uniffi.p2pchat_ffi.FfiOwnerElection
 
 /** Минимальное неизменяемое состояние списка групп для Compose. */
 data class ChatUiState(
+    val version: String = "",
+    val update: AppUpdate? = null,
+    val updateCheckFailed: Boolean = false,
     val groupInfos: List<GroupInfo> = emptyList(),
     val unread: Map<String, ULong> = emptyMap(),
     val memberCounts: Map<String, Int> = emptyMap(),
@@ -35,4 +38,10 @@ data class ChatUiState(
     val inviteAt: Long? = null,
     val gifEnabled: Boolean = false,
     val sharedDraft: String? = null,
+    val myNickname: String? = null,
+    val backgroundEnabled: Boolean = false,
+    val debugLogsEnabled: Boolean = false,
+    val directCount: Int = 0,
+    val turnCount: Int = 0,
+    val lastSignalingTs: Long = 0L,
 )

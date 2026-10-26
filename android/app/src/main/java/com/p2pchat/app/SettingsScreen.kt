@@ -106,6 +106,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -152,11 +153,12 @@ import uniffi.p2pchat_ffi.FfiMessage
 
 @Composable
 internal fun SettingsScreen(vm: ChatViewModel) {
+    val state by vm.uiState.collectAsState()
     val dialogs = rememberSettingsDialogsState()
     val ctx = LocalContext.current
-    val update = vm.update
-    var nick by remember(vm.myNickname) { mutableStateOf(vm.myNickname ?: "") }
-    var editingNick by remember(vm.myNickname) { mutableStateOf(false) }
+    val update = state.update
+    var nick by remember(state.myNickname) { mutableStateOf(state.myNickname ?: "") }
+    var editingNick by remember(state.myNickname) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val pickAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { u ->
@@ -189,9 +191,9 @@ internal fun SettingsScreen(vm: ChatViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SettingsVersionCard(
-            version = vm.version,
+            version = state.version,
             update = update,
-            updateCheckFailed = vm.updateCheckFailed,
+            updateCheckFailed = state.updateCheckFailed,
             onClick = {
                 if (update != null) {
                     dialogs.showUpdate = true
@@ -210,12 +212,12 @@ internal fun SettingsScreen(vm: ChatViewModel) {
         )
 
         SettingsNicknameCard(
-            nickname = vm.myNickname ?: "",
+            nickname = state.myNickname ?: "",
             editing = editingNick,
             draft = nick,
             onDraftChange = { nick = it },
             onEdit = {
-                nick = vm.myNickname ?: ""
+                nick = state.myNickname ?: ""
                 editingNick = true
             },
             onSave = {
@@ -225,9 +227,9 @@ internal fun SettingsScreen(vm: ChatViewModel) {
         )
 
         SettingsAvatarCard(
-            avatar = vm.myAvatar,
-            label = vm.myNickname ?: vm.peerId.take(8),
-            peerId = vm.peerId,
+            avatar = state.avatars[state.myPeerId],
+            label = state.myNickname ?: state.myPeerId.take(8),
+            peerId = state.myPeerId,
             onChange = { pickAvatar.launch("image/*") },
         )
 
@@ -235,7 +237,7 @@ internal fun SettingsScreen(vm: ChatViewModel) {
             fingerprint = fingerprint,
             onShowSeed = { dialogs.showSeedConfirm = true },
             onRestore = {
-                if (vm.groupInfos.isNotEmpty()) {
+                if (state.groupInfos.isNotEmpty()) {
                     Toast.makeText(ctx, ctx.getString(R.string.restore_blocked), Toast.LENGTH_LONG).show()
                 } else {
                     dialogs.restoreText = ""
@@ -246,10 +248,10 @@ internal fun SettingsScreen(vm: ChatViewModel) {
 
         SettingsLinkCard(stringResource(R.string.terms)) { openDoc("terms.html") }
 
-        if (vm.blocked.isNotEmpty()) {
+        if (state.blocked.isNotEmpty()) {
             SettingsBlockedCard(
-                blocked = vm.blocked,
-                nicknames = vm.nicknames,
+                blocked = state.blocked,
+                nicknames = state.nicknames,
                 onUnblock = { hex -> hexToBytes(hex)?.let { vm.unblockPeer(it) } },
             )
         }
@@ -259,14 +261,14 @@ internal fun SettingsScreen(vm: ChatViewModel) {
         SettingsToggleCard(
             title = stringResource(R.string.keep_alive_title),
             description = stringResource(R.string.keep_alive_desc),
-            checked = vm.backgroundEnabled,
+            checked = state.backgroundEnabled,
             onChange = vm::setBackground,
         )
 
         SettingsToggleCard(
             title = stringResource(R.string.debug_title),
             description = stringResource(R.string.debug_desc),
-            checked = vm.debugLogsEnabled,
+            checked = state.debugLogsEnabled,
             onChange = vm::setDebugLogs,
         )
 
@@ -274,9 +276,9 @@ internal fun SettingsScreen(vm: ChatViewModel) {
         SettingsLanguageCard("${lang.second}  ${lang.third}") { dialogs.showLang = true }
 
         SettingsConnectionCard(
-            direct = vm.directCount,
-            turn = vm.turnCount,
-            lastSignaling = vm.lastSignalingTs,
+            direct = state.directCount,
+            turn = state.turnCount,
+            lastSignaling = state.lastSignalingTs,
             explainKind = explainKind,
             onExplain = { kind -> explainKind = if (explainKind == kind) null else kind },
         )

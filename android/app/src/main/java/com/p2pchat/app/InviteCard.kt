@@ -155,7 +155,7 @@ import uniffi.p2pchat_ffi.FfiMessage
 internal fun InviteCard(
     invite: String,
     groupName: String,
-    vm: ChatViewModel,
+    onJoin: (String) -> Unit,
     onLongPress: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
@@ -164,7 +164,7 @@ internal fun InviteCard(
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth().combinedClickable(
             onClick = {
-                vm.joinGroup(invite)
+                onJoin(invite)
                 Toast.makeText(ctx, ctx.getString(R.string.joining), Toast.LENGTH_SHORT).show()
             },
             onLongClick = onLongPress,
