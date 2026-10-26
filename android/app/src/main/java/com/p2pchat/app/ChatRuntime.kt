@@ -265,7 +265,7 @@ object ChatRuntime {
         )
         bridge = CoreBridge(
             core = core,
-            transport = transport,
+            sender = transport,
             scope = scope,
             onDone = { refresh() },
             onReceived = { runCatching { notifications.updateBadge(silent = appVisible) } },
@@ -296,14 +296,14 @@ object ChatRuntime {
             myPeerId = { peerId },
         )
         owners = OwnerRuntime(
-            core = core,
+            core = ChatCoreOwner(core),
+            sender = transport,
             scope = scope,
             currentGroup = { currentGroup },
             isOwner = { isOwner },
             ownerLastSeen = { ownerLastSeen },
             ownerElection = { ownerElection },
             memberCount = { members.size },
-            send = { out -> transport.sendTargets(out.envelope, out.targets) },
             refresh = { refresh() },
             toast = { res -> Toast.makeText(app, app.getString(res), Toast.LENGTH_SHORT).show() },
         )

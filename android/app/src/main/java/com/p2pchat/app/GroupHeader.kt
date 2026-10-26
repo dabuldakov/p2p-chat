@@ -150,8 +150,14 @@ import com.p2pchat.app.gif.GifAttachmentView
 import com.p2pchat.app.gif.GifPickerDialog
 import uniffi.p2pchat_ffi.FfiMessage
 
+internal class GroupHeaderActions(
+    val setGroupAvatar: (ByteArray) -> Unit,
+    val regenInvite: (Int, (String?) -> Unit) -> Unit,
+    val claimOwner: (Int) -> Unit,
+)
+
 @Composable
-internal fun GroupHeader(vm: ChatViewModel, state: ChatUiState, dialogs: GroupDialogsState) {
+internal fun GroupHeader(state: ChatUiState, dialogs: GroupDialogsState, actions: GroupHeaderActions) {
     var inviteExpanded by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
@@ -159,7 +165,7 @@ internal fun GroupHeader(vm: ChatViewModel, state: ChatUiState, dialogs: GroupDi
     val pickGroupAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { u ->
             scope.launch {
-                withContext(Dispatchers.IO) { downscaledJpeg(ctx, u) }?.let { vm.setGroupAvatar(it) }
+                withContext(Dispatchers.IO) { downscaledJpeg(ctx, u) }?.let { actions.setGroupAvatar(it) }
             }
         }
     }
@@ -241,7 +247,7 @@ internal fun GroupHeader(vm: ChatViewModel, state: ChatUiState, dialogs: GroupDi
                 if (state.isOwner) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = {
-                            vm.regenInvite(1) { link ->
+                            actions.regenInvite(1) { link ->
                                 link?.let {
                                     clipboard.setText(AnnotatedString(it))
                                     Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
@@ -249,7 +255,7 @@ internal fun GroupHeader(vm: ChatViewModel, state: ChatUiState, dialogs: GroupDi
                             }
                         }) { Text(stringResource(R.string.invite_single)) }
                         OutlinedButton(onClick = {
-                            vm.regenInvite(5) { link ->
+                            actions.regenInvite(5) { link ->
                                 link?.let {
                                     clipboard.setText(AnnotatedString(it))
                                     Toast.makeText(ctx, ctx.getString(R.string.invite_copied), Toast.LENGTH_SHORT).show()
@@ -329,7 +335,7 @@ internal fun GroupHeader(vm: ChatViewModel, state: ChatUiState, dialogs: GroupDi
                         IconButton(
                             onClick = {
                                 when {
-                                    requestEnabled -> vm.claimOwner(0)
+                                    requestEnabled -> actions.claimOwner(0)
                                     electionActive -> Toast.makeText(
                                         ctx,
                                         ctx.getString(R.string.owner_election_in_progress),
@@ -350,7 +356,7 @@ internal fun GroupHeader(vm: ChatViewModel, state: ChatUiState, dialogs: GroupDi
                         IconButton(
                             onClick = {
                                 when {
-                                    challengeEnabled -> vm.claimOwner(1)
+                                    challengeEnabled -> actions.claimOwner(1)
                                     electionActive -> Toast.makeText(
                                         ctx,
                                         ctx.getString(R.string.owner_election_in_progress),

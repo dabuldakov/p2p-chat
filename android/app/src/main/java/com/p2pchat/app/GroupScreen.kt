@@ -164,6 +164,11 @@ internal fun GroupScreen(vm: ChatViewModel) {
         joinGroup = vm::joinGroup,
         gifProvider = vm,
     )
+    val headerActions = GroupHeaderActions(
+        setGroupAvatar = vm::setGroupAvatar,
+        regenInvite = vm::regenInvite,
+        claimOwner = vm::claimOwner,
+    )
     val dialogActions = GroupDialogActions(
         leaveGroup = vm::leaveGroup,
         removeMember = vm::removeMember,
@@ -192,7 +197,7 @@ internal fun GroupScreen(vm: ChatViewModel) {
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        GroupHeader(vm, state, dialogs)
+        GroupHeader(state, dialogs, headerActions)
 
         OwnerStatusCards(vm, state, ownerAbsentDays, nowSec)
 

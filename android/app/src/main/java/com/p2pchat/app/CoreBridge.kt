@@ -10,7 +10,7 @@ import uniffi.p2pchat_ffi.FfiOutgoing
 /** Асинхронные вызовы Rust-ядра и приём входящих конвертов. */
 internal class CoreBridge(
     private val core: ChatCore,
-    private val transport: WebRtcTransport,
+    private val sender: EnvelopeSender,
     private val scope: CoroutineScope,
     private val onDone: () -> Unit,
     private val onReceived: () -> Unit,
@@ -20,7 +20,7 @@ internal class CoreBridge(
             val out = withContext(Dispatchers.IO) {
                 runCatching { block(core) }.onFailure { Logs.w("core action: $it") }.getOrNull()
             } ?: return@launch
-            transport.sendTargets(out.envelope, out.targets)
+            sender.sendTargets(out.envelope, out.targets)
             onDone()
         }
     }
@@ -30,7 +30,7 @@ internal class CoreBridge(
             val outs = withContext(Dispatchers.IO) {
                 runCatching { block(core) }.onFailure { Logs.w("core action: $it") }.getOrNull()
             } ?: return@launch
-            outs.forEach { transport.sendTargets(it.envelope, it.targets) }
+            outs.forEach { sender.sendTargets(it.envelope, it.targets) }
             onDone()
         }
     }
@@ -44,7 +44,7 @@ internal class CoreBridge(
                 }
             } ?: return@launch
             Logs.d("incoming env -> out=${outs.size}")
-            outs.forEach { out -> runCatching { transport.sendTargets(out.envelope, out.targets) } }
+            outs.forEach { out -> runCatching { sender.sendTargets(out.envelope, out.targets) } }
             onDone()
             runCatching { onReceived() }
         }

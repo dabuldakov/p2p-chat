@@ -36,7 +36,7 @@ class WebRtcTransport(
     private val onPeerConnected: (ByteArray) -> Unit = {},
     private val onConnectionKind: (ByteArray, String) -> Unit = { _, _ -> },
     private val onMediaFrame: (ByteArray, ByteArray) -> Unit = { _, _ -> },
-) : ChatTransport {
+) : ChatTransport, EnvelopeSender {
 
     companion object {
         private fun defaultIceServers(): List<PeerConnection.IceServer> =
@@ -152,7 +152,7 @@ class WebRtcTransport(
         conns.values.forEach { sendTo(it, envelope) }
     }
 
-    fun sendTargets(envelope: ByteArray, targets: List<ByteArray>) {
+    override fun sendTargets(envelope: ByteArray, targets: List<ByteArray>) {
         if (targets.isEmpty()) {
             broadcast(envelope)
             return
