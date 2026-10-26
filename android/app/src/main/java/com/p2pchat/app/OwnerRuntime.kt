@@ -94,13 +94,13 @@ internal class OwnerRuntime(
                 runCatching { core.ownerElection(group) }.getOrNull()
             }
             if (election != null) {
-                if (now >= election.endsAt.toLong() * 1000L) {
-                    val out = withContext(Dispatchers.IO) {
-                        runCatching { core.finalizeOwnerElection(group) }.getOrNull()
-                    }
-                    out?.let(send)
-                    refresh()
+                // Ядро само завершит выборы, когда все участники уже проголосовали
+                // (для пары — сразу после голоса владельца), иначе no-op.
+                val out = withContext(Dispatchers.IO) {
+                    runCatching { core.finalizeOwnerElection(group) }.getOrNull()
                 }
+                out?.let(send)
+                refresh()
                 return@launch
             }
             if (!shouldAuto) return@launch
