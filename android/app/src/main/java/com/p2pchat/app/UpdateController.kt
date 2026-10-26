@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.net.toUri
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
@@ -67,9 +68,9 @@ internal class UpdateController(
 
     private fun openPlay() {
         val id = app.packageName
-        val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$id"))
+        val market = Intent(Intent.ACTION_VIEW, "market://details?id=$id".toUri())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val web = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$id"))
+        val web = Intent(Intent.ACTION_VIEW, "https://play.google.com/store/apps/details?id=$id".toUri())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { app.startActivity(market) }.onFailure { runCatching { app.startActivity(web) } }
     }

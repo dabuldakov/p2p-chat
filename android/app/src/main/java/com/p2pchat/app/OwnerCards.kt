@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.compose.ui.res.pluralStringResource
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -165,7 +166,7 @@ internal fun OwnerStatusCards(
                     Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFFE08A1E))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        stringResource(R.string.owner_absent, ownerAbsentDays),
+                        pluralStringResource(R.plurals.owner_absent, ownerAbsentDays, ownerAbsentDays),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -238,7 +239,7 @@ internal fun OwnerStatusCards(
                                         0 -> stringResource(R.string.owner_claim_absence)
                                         1 -> stringResource(R.string.owner_claim_challenge)
                                         else -> stringResource(R.string.owner_claim_auto)
-                                    } + " · " + stringResource(R.string.owner_votes_count, votes),
+                                    } + " · " + pluralStringResource(R.plurals.owner_votes_count, votes, votes),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

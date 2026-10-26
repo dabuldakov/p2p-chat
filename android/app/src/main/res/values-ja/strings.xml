@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">戻る</string>
     <string name="settings">設定</string>
     <string name="add_group">グループを追加</string>
     <string name="groups_empty">グループがありません。「+」で作成または招待で参加。</string>
-    <string name="members_count">メンバー %1$d 人</string>
+    <plurals name="members_count">
+        <item quantity="other">メンバー %1$d 人</item>
+    </plurals>
     <string name="group_exists">グループ「%1$s」は既に存在します</string>
     <string name="new_group">新しいグループ</string>
     <string name="group_name_hint">グループ名</string>
@@ -20,12 +21,10 @@
     <string name="you"> (自分)</string>
     <string name="remove">削除</string>
     <string name="leave_group">グループを退出</string>
-    <string name="leave_group_title">グループを退出</string>
     <string name="leave_group_confirm">グループを退出しますか？</string>
     <string name="leave">退出</string>
     <string name="cancel">キャンセル</string>
     <string name="invite_qr">招待QR</string>
-    <string name="copy_invite">招待をコピー</string>
     <string name="invite_copied">招待をコピーしました</string>
     <string name="expand">展開</string>
     <string name="status_connected">%1$s · 接続: %2$d</string>
@@ -85,7 +84,6 @@
     <string name="delete_message">メッセージを削除</string>
     <string name="message_deleted">メッセージは削除されました</string>
     <string name="delete_message_confirm">このメッセージを全員から削除しますか？</string>
-    <string name="message_actions">メッセージ</string>
     <string name="backup_title">キーのバックアップ</string>
     <string name="backup_desc">24語のシードフレーズで新しい端末にアカウントを復元できます。絶対に共有しないでください。</string>
     <string name="fingerprint_label">キーの指紋</string>
@@ -101,13 +99,17 @@
     <string name="seed_copied">フレーズをコピーしました</string>
     <string name="update_check_failed">アップデートを確認できませんでした</string>
     <string name="privacy_policy">プライバシーポリシー</string>
-    <string name="owner_absent">オーナーが%1$d日間非アクティブです</string>
+    <plurals name="owner_absent">
+        <item quantity="other">オーナーが%1$d日間非アクティブです</item>
+    </plurals>
     <string name="owner_election_title">オーナー選挙</string>
     <string name="owner_election_ends">残り%1$d時間</string>
     <string name="owner_claim_absence">オーナー不在</string>
     <string name="owner_claim_challenge">異議</string>
     <string name="owner_claim_auto">自動後継者</string>
-    <string name="owner_votes_count">票数: %1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="other">票数: %1$d</item>
+    </plurals>
     <string name="owner_your_claim">あなたの申請</string>
     <string name="owner_vote_for">投票</string>
     <string name="owner_vote_against">反対</string>
@@ -122,9 +124,8 @@
     <string name="owner_notification_start">グループオーナーの変更投票が始まりました</string>
     <string name="owner_notification_vote">投票が必要です</string>
     <string name="owner_changed">グループオーナーが変更されました</string>
-    <string name="owner_request_hint">所有権の申請は、オーナーが7日間非アクティブになると利用できます。</string>
     <string name="owner_two_people_hint">2人のグループでオーナーを変更するには、現在のオーナーの同意が必要です。</string>
-    <string name="owner_request_info">オーナーが7日間非アクティブな場合に利用できます。その後24時間が申請、24時間が投票です。オーナーを除くメンバーの50%超の定足数が必要です。2人のグループではあなたの投票だけで足ります。選挙終了前にオーナーが戻ると選挙は中止されます。</string>
+    <string name="owner_request_info" formatted="false">オーナーが7日間非アクティブな場合に利用できます。その後24時間が申請、24時間が投票です。オーナーを除くメンバーの50%超の定足数が必要です。2人のグループではあなたの投票だけで足ります。選挙終了前にオーナーが戻ると選挙は中止されます。</string>
     <string name="owner_badge">オーナー</string>
     <string name="owner_challenge_cooldown">異議は7日に1回だけ開始できます。</string>
     <string name="reaction">リアクション</string>
@@ -145,4 +146,35 @@
     <string name="media_failed">メディアを準備できませんでした</string>
     <string name="voice_message">ボイスメッセージ</string>
     <string name="mic_permission">マイクの権限が必要です。</string>
+    <string name="block">ブロック</string>
+    <string name="blocked_users">ブロックされたユーザー</string>
+    <string name="gif_powered_by">Powered by KLIPY</string>
+    <string name="report">報告</string>
+    <string name="report_abuse">乱用</string>
+    <string name="report_attach">スクリーンショットを添付する</string>
+    <string name="report_failed">レポートを送信できませんでした</string>
+    <string name="report_hint">スクリーンショットはレポートの確認に役立ちます</string>
+    <string name="report_illegal">違法なコンテンツ</string>
+    <string name="report_note">コメント (オプション)</string>
+    <string name="report_other">他の</string>
+    <string name="report_remove">取り除く</string>
+    <string name="report_send">レポートの送信</string>
+    <string name="report_sent">レポートを送信しました</string>
+    <string name="report_spam">スパム</string>
+    <string name="storage_audio">オーディオと音声</string>
+    <string name="storage_clear">クリア</string>
+    <string name="storage_clear_all">すべてクリア</string>
+    <string name="storage_clear_confirm">キャッシュされたメディアとプレビューをすべてクリアしますか?メッセージとキーは残ります。</string>
+    <string name="storage_cleared">キャッシュがクリアされました</string>
+    <string name="storage_gifs">GIFキャッシュ</string>
+    <string name="storage_links">リンクプレビュー</string>
+    <string name="storage_media_note">メッセージのファイルはグループメンバーから再度ダウンロードできます。メッセージとキーは決して削除されません。</string>
+    <string name="storage_other">その他のメディア</string>
+    <string name="storage_photos">写真</string>
+    <string name="storage_temp">一時ファイル</string>
+    <string name="storage_title">ストレージとキャッシュ</string>
+    <string name="storage_total">合計</string>
+    <string name="storage_videos">ビデオ</string>
+    <string name="terms">利用規約</string>
+    <string name="unblock">ブロックを解除する</string>
 </resources>

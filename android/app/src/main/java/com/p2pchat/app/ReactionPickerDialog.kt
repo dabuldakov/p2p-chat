@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.content.edit
 import android.content.SharedPreferences
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,7 +78,7 @@ private fun recentFrom(prefs: SharedPreferences): List<String> =
 
 private fun pushRecent(prefs: SharedPreferences, emoji: String): List<String> {
     val next = (listOf(emoji) + recentFrom(prefs).filter { it != emoji }).take(RECENT_LIMIT)
-    prefs.edit().putString(RECENT_KEY, next.joinToString("|")).apply()
+    prefs.edit { putString(RECENT_KEY, next.joinToString("|")) }
     return next
 }
 

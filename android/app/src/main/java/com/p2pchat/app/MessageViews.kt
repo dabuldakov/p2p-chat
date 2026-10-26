@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.net.toUri
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -330,7 +331,7 @@ private fun MessageText(
                     val offset = l.getOffsetForPosition(pos)
                     val ann = annotated.getStringAnnotations(URL_TAG, offset, offset).firstOrNull()
                     if (ann != null) {
-                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ann.item))) }
+                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, ann.item.toUri())) }
                     } else {
                         onTap()
                     }

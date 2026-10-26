@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.graphics.scale
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -287,11 +288,9 @@ object MediaPrep {
         val max = maxOf(src.width, src.height)
         if (max <= maxEdge) return src
         val scale = maxEdge.toFloat() / max
-        return Bitmap.createScaledBitmap(
-            src,
+        return src.scale(
             (src.width * scale).toInt().coerceAtLeast(1),
             (src.height * scale).toInt().coerceAtLeast(1),
-            true,
         )
     }
 

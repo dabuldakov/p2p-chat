@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.net.toUri
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -197,7 +198,7 @@ internal fun UpdateDialog(info: AppUpdate, onDismiss: () -> Unit) {
         confirmButton = {
             TextButton(onClick = {
                 runCatching {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl)))
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, info.downloadUrl.toUri()))
                 }
                 onDismiss()
             }) { Text(stringResource(R.string.download)) }

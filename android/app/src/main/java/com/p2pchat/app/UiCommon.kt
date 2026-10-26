@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.graphics.scale
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -222,7 +223,7 @@ internal fun downscaledJpeg(ctx: Context, uri: Uri, max: Int = 128): ByteArray? 
     val scale = (max.toFloat() / maxOf(src.width, src.height)).coerceAtMost(1f)
     val w = (src.width * scale).toInt().coerceAtLeast(1)
     val h = (src.height * scale).toInt().coerceAtLeast(1)
-    val bmp = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(src, w, h, true) else src
+    val bmp = if (scale < 1f) src.scale(w, h) else src
     val bos = java.io.ByteArrayOutputStream()
     bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, bos)
     bos.toByteArray()

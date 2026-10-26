@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.net.toUri
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -312,7 +313,7 @@ fun LinkPreviewCard(url: String, onLongPress: () -> Unit = {}, onFallback: @Comp
     }
 
     val open = {
-        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
         Unit
     }
     Surface(

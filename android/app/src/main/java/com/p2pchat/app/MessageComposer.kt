@@ -109,6 +109,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -163,7 +164,7 @@ internal fun MessageComposer(
     var showAttachMenu by remember { mutableStateOf(false) }
     var mediaBusy by remember { mutableStateOf(false) }
     var recording by remember { mutableStateOf(false) }
-    var recordSeconds by remember { mutableStateOf(0) }
+    var recordSeconds by remember { mutableIntStateOf(0) }
     var sendMode by remember { mutableStateOf(SendMode.TEXT) }
     val ctx = LocalContext.current
     val recorder = remember { AudioRecorder(ctx) }

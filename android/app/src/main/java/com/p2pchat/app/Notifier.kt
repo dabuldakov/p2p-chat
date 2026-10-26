@@ -31,7 +31,6 @@ object Notifier {
     private val ownerPosted = mutableSetOf<Int>()
 
     fun ensureChannels(ctx: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val mgr = ctx.getSystemService(NotificationManager::class.java) ?: return
         if (mgr.getNotificationChannel(CH_MESSAGES) == null) {
             mgr.createNotificationChannel(

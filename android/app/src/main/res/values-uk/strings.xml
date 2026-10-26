@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">Назад</string>
     <string name="settings">Налаштування</string>
     <string name="add_group">Додати групу</string>
     <string name="groups_empty">Немає груп. Натисніть «+», щоб створити або приєднатися за запрошенням.</string>
-    <string name="members_count">%1$d учасн.</string>
+    <plurals name="members_count">
+        <item quantity="one">%1$d учасн.</item>
+        <item quantity="few">%1$d учасн.</item>
+        <item quantity="many">%1$d учасн.</item>
+        <item quantity="other">%1$d учасн.</item>
+    </plurals>
     <string name="group_exists">Група «%1$s» вже існує</string>
     <string name="new_group">Нова група</string>
     <string name="group_name_hint">назва групи</string>
@@ -20,12 +24,10 @@
     <string name="you"> (ви)</string>
     <string name="remove">Видалити</string>
     <string name="leave_group">Вийти з групи</string>
-    <string name="leave_group_title">Вийти з групи</string>
     <string name="leave_group_confirm">Ви впевнені, що хочете вийти з групи?</string>
     <string name="leave">Вийти</string>
     <string name="cancel">Скасувати</string>
     <string name="invite_qr">QR запрошення</string>
-    <string name="copy_invite">Копіювати запрошення</string>
     <string name="invite_copied">Запрошення скопійовано</string>
     <string name="expand">Розгорнути</string>
     <string name="status_connected">%1$s · з’єднано: %2$d</string>
@@ -85,7 +87,6 @@
     <string name="delete_message">Видалити повідомлення</string>
     <string name="message_deleted">Повідомлення видалено</string>
     <string name="delete_message_confirm">Видалити це повідомлення для всіх?</string>
-    <string name="message_actions">Повідомлення</string>
     <string name="backup_title">Резервна копія ключа</string>
     <string name="backup_desc">Seed-фраза з 24 слів відновлює акаунт на новому пристрої. Нікому її не показуйте.</string>
     <string name="fingerprint_label">Відбиток ключа</string>
@@ -101,13 +102,23 @@
     <string name="seed_copied">Фразу скопійовано</string>
     <string name="update_check_failed">Не вдалося перевірити оновлення</string>
     <string name="privacy_policy">Політика конфіденційності</string>
-    <string name="owner_absent">Власник неактивний %1$d дн.</string>
+    <plurals name="owner_absent">
+        <item quantity="one">Власник неактивний %1$d дн.</item>
+        <item quantity="few">Власник неактивний %1$d дн.</item>
+        <item quantity="many">Власник неактивний %1$d дн.</item>
+        <item quantity="other">Власник неактивний %1$d дн.</item>
+    </plurals>
     <string name="owner_election_title">Вибори власника</string>
     <string name="owner_election_ends">залишилось %1$d год</string>
     <string name="owner_claim_absence">власник відсутній</string>
     <string name="owner_claim_challenge">виклик</string>
     <string name="owner_claim_auto">авто-наступник</string>
-    <string name="owner_votes_count">голосів: %1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="one">голосів: %1$d</item>
+        <item quantity="few">голосів: %1$d</item>
+        <item quantity="many">голосів: %1$d</item>
+        <item quantity="other">голосів: %1$d</item>
+    </plurals>
     <string name="owner_your_claim">Ваша заявка</string>
     <string name="owner_vote_for">Голосувати</string>
     <string name="owner_vote_against">Проти</string>
@@ -122,9 +133,8 @@
     <string name="owner_notification_start">Почалося голосування за зміну власника групи</string>
     <string name="owner_notification_vote">Потрібен ваш голос</string>
     <string name="owner_changed">Власника групи змінено</string>
-    <string name="owner_request_hint">Запит володіння стане доступним після 7 днів неактивності власника.</string>
     <string name="owner_two_people_hint">У групі з 2 осіб для зміни власника потрібна згода поточного власника.</string>
-    <string name="owner_request_info">Доступно, якщо власник неактивний 7 днів. Далі 24 год на заявки й 24 год на голосування; потрібен кворум >50% учасників без власника. У групі з 2 осіб достатньо вашого голосу. Якщо власник повернеться до завершення виборів, вони скасовуються.</string>
+    <string name="owner_request_info" formatted="false">Доступно, якщо власник неактивний 7 днів. Далі 24 год на заявки й 24 год на голосування; потрібен кворум >50% учасників без власника. У групі з 2 осіб достатньо вашого голосу. Якщо власник повернеться до завершення виборів, вони скасовуються.</string>
     <string name="owner_badge">Власник</string>
     <string name="owner_challenge_cooldown">Оспорити власника можна раз на 7 днів.</string>
     <string name="reaction">Реакція</string>
@@ -145,4 +155,35 @@
     <string name="media_failed">Не вдалося підготувати медіа</string>
     <string name="voice_message">Голосове повідомлення</string>
     <string name="mic_permission">Потрібен дозвіл на мікрофон.</string>
+    <string name="block">Блокувати</string>
+    <string name="blocked_users">Заблоковані користувачі</string>
+    <string name="gif_powered_by">Працює на KLIPY</string>
+    <string name="report">звіт</string>
+    <string name="report_abuse">Зловживання</string>
+    <string name="report_attach">Прикріпити скріншот</string>
+    <string name="report_failed">Не вдалося надіслати звіт</string>
+    <string name="report_hint">Знімок екрана допомагає нам переглянути звіт</string>
+    <string name="report_illegal">Незаконний контент</string>
+    <string name="report_note">Коментар (необов\'язково)</string>
+    <string name="report_other">інше</string>
+    <string name="report_remove">видалити</string>
+    <string name="report_send">Відправити звіт</string>
+    <string name="report_sent">Звіт надіслано</string>
+    <string name="report_spam">Спам</string>
+    <string name="storage_audio">Аудіо та голос</string>
+    <string name="storage_clear">ясно</string>
+    <string name="storage_clear_all">Очистити все</string>
+    <string name="storage_clear_confirm">Очистити всі кешовані медіафайли та попередній перегляд? Повідомлення та ключі залишаться.</string>
+    <string name="storage_cleared">Кеш очищено</string>
+    <string name="storage_gifs">Кеш GIF</string>
+    <string name="storage_links">Попередній перегляд посилань</string>
+    <string name="storage_media_note">Файли з повідомлень можна знову завантажити від учасників групи. Повідомлення та ключі ніколи не видаляються.</string>
+    <string name="storage_other">Інші засоби масової інформації</string>
+    <string name="storage_photos">Фотографії</string>
+    <string name="storage_temp">Тимчасові файли</string>
+    <string name="storage_title">Пам\'ять і кеш</string>
+    <string name="storage_total">Всього</string>
+    <string name="storage_videos">відео</string>
+    <string name="terms">Умови використання</string>
+    <string name="unblock">Розблокувати</string>
 </resources>

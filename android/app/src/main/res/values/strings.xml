@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">p2pchat</string>
 
     <!-- Навигация -->
     <string name="back">Back</string>
@@ -8,7 +7,14 @@
 
     <!-- Список групп -->
     <string name="groups_empty">No groups yet. Tap “+” to create or join by an invite.</string>
-    <string name="members_count">%1$d members</string>
+    <plurals name="members_count">
+        <item quantity="zero">%1$d members</item>
+        <item quantity="one">%1$d members</item>
+        <item quantity="two">%1$d members</item>
+        <item quantity="few">%1$d members</item>
+        <item quantity="many">%1$d members</item>
+        <item quantity="other">%1$d members</item>
+    </plurals>
     <string name="group_exists">Group “%1$s” already exists</string>
 
     <!-- Создание / вход -->
@@ -27,12 +33,10 @@
     <string name="you"> (you)</string>
     <string name="remove">Remove</string>
     <string name="leave_group">Leave group</string>
-    <string name="leave_group_title">Leave group</string>
     <string name="leave_group_confirm">Are you sure you want to leave the group?</string>
     <string name="leave">Leave</string>
     <string name="cancel">Cancel</string>
     <string name="invite_qr">Invite QR</string>
-    <string name="copy_invite">Copy invite</string>
     <string name="invite_copied">Invite copied</string>
     <string name="expand">Expand</string>
     <string name="status_connected">%1$s · connected: %2$d</string>
@@ -102,7 +106,6 @@
     <string name="delete_message">Delete message</string>
     <string name="message_deleted">Message deleted</string>
     <string name="delete_message_confirm">Delete this message for everyone?</string>
-    <string name="message_actions">Message</string>
     <string name="backup_title">Key backup</string>
     <string name="backup_desc">The 24-word seed phrase restores your account on a new device. Never share it.</string>
     <string name="fingerprint_label">Key fingerprint</string>
@@ -135,13 +138,27 @@
     <string name="block">Block</string>
     <string name="unblock">Unblock</string>
     <string name="blocked_users">Blocked users</string>
-    <string name="owner_absent">Owner inactive for %1$d days</string>
+    <plurals name="owner_absent">
+        <item quantity="zero">Owner inactive for %1$d days</item>
+        <item quantity="one">Owner inactive for %1$d days</item>
+        <item quantity="two">Owner inactive for %1$d days</item>
+        <item quantity="few">Owner inactive for %1$d days</item>
+        <item quantity="many">Owner inactive for %1$d days</item>
+        <item quantity="other">Owner inactive for %1$d days</item>
+    </plurals>
     <string name="owner_election_title">Owner election</string>
     <string name="owner_election_ends">ends in %1$d h</string>
     <string name="owner_claim_absence">owner absent</string>
     <string name="owner_claim_challenge">challenge</string>
     <string name="owner_claim_auto">auto successor</string>
-    <string name="owner_votes_count">%1$d votes</string>
+    <plurals name="owner_votes_count">
+        <item quantity="zero">%1$d votes</item>
+        <item quantity="one">%1$d votes</item>
+        <item quantity="two">%1$d votes</item>
+        <item quantity="few">%1$d votes</item>
+        <item quantity="many">%1$d votes</item>
+        <item quantity="other">%1$d votes</item>
+    </plurals>
     <string name="owner_your_claim">Your request</string>
     <string name="owner_vote_for">Vote</string>
     <string name="owner_vote_against">Against</string>
@@ -156,9 +173,8 @@
     <string name="owner_notification_start">Voting to change the group owner has started</string>
     <string name="owner_notification_vote">Your vote is needed</string>
     <string name="owner_changed">Group owner changed</string>
-    <string name="owner_request_hint">Request ownership becomes available after 7 days of owner inactivity.</string>
     <string name="owner_two_people_hint">In a 2-person group, changing the owner requires the owner\'s consent.</string>
-    <string name="owner_request_info">Available if the owner has been inactive for 7 days. Then 24 h for claims and 24 h for voting; a majority of more than 50% of members without the owner is required. In a 2-person group your own vote is enough. If the owner returns before the election ends, it is cancelled.</string>
+    <string name="owner_request_info" formatted="false">Available if the owner has been inactive for 7 days. Then 24 h for claims and 24 h for voting; a majority of more than 50% of members without the owner is required. In a 2-person group your own vote is enough. If the owner returns before the election ends, it is cancelled.</string>
     <string name="owner_badge">Owner</string>
     <string name="owner_challenge_cooldown">Challenge can be started once every 7 days.</string>
     <string name="reaction">Reaction</string>

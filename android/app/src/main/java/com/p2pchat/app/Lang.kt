@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.content.edit
 import android.content.Context
 import android.content.res.Configuration
 import java.util.Locale
@@ -47,7 +48,7 @@ object Lang {
 
     /** Сохранить и применить выбор (в текущем процессе). */
     fun set(ctx: Context, code: String) {
-        ctx.getSharedPreferences(PREFS, 0).edit().putString(KEY, code).apply()
+        ctx.getSharedPreferences(PREFS, 0).edit { putString(KEY, code) }
         val loc = Locale.forLanguageTag(code)
         Locale.setDefault(loc)
         val res = ctx.resources

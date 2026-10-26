@@ -1,8 +1,12 @@
 package com.p2pchat.app
 
+import androidx.core.content.edit
+import android.annotation.SuppressLint
 import android.app.Application
 import android.widget.Toast
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -45,6 +49,7 @@ data class GroupInfo(val id: ByteArray, val name: String)
 
 data class StorageStat(val id: String, val size: Long, val count: Int = 0)
 
+@SuppressLint("StaticFieldLeak")
 object ChatRuntime {
 
     private const val PAGE_SIZE = 50
@@ -85,7 +90,7 @@ object ChatRuntime {
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    var connected by mutableStateOf(0)
+    var connected by mutableIntStateOf(0)
         private set
     var groupInfos by mutableStateOf<List<GroupInfo>>(emptyList())
         private set
@@ -152,7 +157,7 @@ object ChatRuntime {
         private set
 
     /** Последняя активность владельца текущей группы (ms, unix; 0 — нет данных). */
-    var ownerLastSeen by mutableStateOf(0L)
+    var ownerLastSeen by mutableLongStateOf(0L)
         private set
 
     /** Когда мы последний раз отправляли heartbeat владельца (hex группы → ms). */
@@ -198,7 +203,7 @@ object ChatRuntime {
     val turnCount: Int get() = peerKinds.values.count { it == "turn" }
 
     /** Соседи ТЕКУЩЕЙ группы (только её участники), из последнего снимка. */
-    private var currentGroupNeighbors by mutableStateOf(0)
+    private var currentGroupNeighbors by mutableIntStateOf(0)
     val groupNeighbors: Int get() = currentGroupNeighbors
 
     /** Сколько участников ТЕКУЩЕЙ группы реально подключено. */
@@ -209,7 +214,7 @@ object ChatRuntime {
         }
 
     /** Время последней активности сигналинга (ms, unix). */
-    var lastSignalingTs by mutableStateOf(0L)
+    var lastSignalingTs by mutableLongStateOf(0L)
         private set
 
     /** Инициализация (идемпотентна). Вызывается из Application и ViewModel. */
@@ -302,7 +307,7 @@ object ChatRuntime {
 
     fun setBackground(enabled: Boolean) {
         backgroundEnabled = enabled
-        app.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY_BG, enabled).apply()
+        app.getSharedPreferences(PREFS, 0).edit { putBoolean(KEY_BG, enabled) }
         if (enabled) ChatService.start(app) else ChatService.stop(app)
     }
 

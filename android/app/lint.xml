@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- UniFFI generated cleaner has a runtime ClassNotFoundException fallback for API < 33. -->
+    <issue id="NewApi">
+        <ignore path="src/main/java/uniffi/p2pchat_ffi/p2pchat_ffi.kt" />
+    </issue>
+</lint>

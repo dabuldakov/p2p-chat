@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.net.toUri
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -176,7 +177,7 @@ internal fun SettingsScreen(vm: ChatViewModel) {
             ctx.startActivity(
                 Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse("https://dabuldakov.github.io/p2p-chat/" + path),
+                    ("https://dabuldakov.github.io/p2p-chat/" + path).toUri(),
                 ),
             )
         }

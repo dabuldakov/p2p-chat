@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">Atrás</string>
     <string name="settings">Ajustes</string>
     <string name="add_group">Añadir grupo</string>
     <string name="groups_empty">Aún no hay grupos. Pulsa «+» para crear o unirte con una invitación.</string>
-    <string name="members_count">%1$d miembros</string>
+    <plurals name="members_count">
+        <item quantity="one">%1$d miembros</item>
+        <item quantity="many">%1$d miembros</item>
+        <item quantity="other">%1$d miembros</item>
+    </plurals>
     <string name="group_exists">El grupo «%1$s» ya existe</string>
     <string name="new_group">Nuevo grupo</string>
     <string name="group_name_hint">nombre del grupo</string>
@@ -20,12 +23,10 @@
     <string name="you"> (tú)</string>
     <string name="remove">Eliminar</string>
     <string name="leave_group">Salir del grupo</string>
-    <string name="leave_group_title">Salir del grupo</string>
     <string name="leave_group_confirm">¿Seguro que quieres salir del grupo?</string>
     <string name="leave">Salir</string>
     <string name="cancel">Cancelar</string>
     <string name="invite_qr">QR de invitación</string>
-    <string name="copy_invite">Copiar invitación</string>
     <string name="invite_copied">Invitación copiada</string>
     <string name="expand">Expandir</string>
     <string name="status_connected">%1$s · conectados: %2$d</string>
@@ -85,7 +86,6 @@
     <string name="delete_message">Eliminar mensaje</string>
     <string name="message_deleted">Mensaje eliminado</string>
     <string name="delete_message_confirm">¿Eliminar este mensaje para todos?</string>
-    <string name="message_actions">Mensaje</string>
     <string name="backup_title">Copia de seguridad de la clave</string>
     <string name="backup_desc">La frase semilla de 24 palabras restaura tu cuenta en un dispositivo nuevo. Nunca la compartas.</string>
     <string name="fingerprint_label">Huella de la clave</string>
@@ -101,13 +101,21 @@
     <string name="seed_copied">Frase copiada</string>
     <string name="update_check_failed">No se pudieron comprobar las actualizaciones</string>
     <string name="privacy_policy">Política de privacidad</string>
-    <string name="owner_absent">Propietario inactivo desde hace %1$d días</string>
+    <plurals name="owner_absent">
+        <item quantity="one">Propietario inactivo desde hace %1$d días</item>
+        <item quantity="many">Propietario inactivo desde hace %1$d días</item>
+        <item quantity="other">Propietario inactivo desde hace %1$d días</item>
+    </plurals>
     <string name="owner_election_title">Elección de propietario</string>
     <string name="owner_election_ends">quedan %1$d h</string>
     <string name="owner_claim_absence">propietario ausente</string>
     <string name="owner_claim_challenge">desafío</string>
     <string name="owner_claim_auto">sucesor automático</string>
-    <string name="owner_votes_count">votos: %1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="one">votos: %1$d</item>
+        <item quantity="many">votos: %1$d</item>
+        <item quantity="other">votos: %1$d</item>
+    </plurals>
     <string name="owner_your_claim">Tu solicitud</string>
     <string name="owner_vote_for">Votar</string>
     <string name="owner_vote_against">En contra</string>
@@ -122,9 +130,8 @@
     <string name="owner_notification_start">Comenzó la votación para cambiar al propietario del grupo</string>
     <string name="owner_notification_vote">Se necesita tu voto</string>
     <string name="owner_changed">Propietario del grupo cambiado</string>
-    <string name="owner_request_hint">La solicitud de propiedad estará disponible tras 7 días de inactividad del propietario.</string>
     <string name="owner_two_people_hint">En un grupo de 2 personas, cambiar el propietario requiere el consentimiento del propietario actual.</string>
-    <string name="owner_request_info">Disponible si el propietario ha estado inactivo durante 7 días. Después hay 24 h para solicitudes y 24 h para votar; se requiere una mayoría superior al 50 % de los miembros sin el propietario. En un grupo de 2 personas basta con tu voto. Si el propietario vuelve antes de que termine la elección, se cancela.</string>
+    <string name="owner_request_info" formatted="false">Disponible si el propietario ha estado inactivo durante 7 días. Después hay 24 h para solicitudes y 24 h para votar; se requiere una mayoría superior al 50 % de los miembros sin el propietario. En un grupo de 2 personas basta con tu voto. Si el propietario vuelve antes de que termine la elección, se cancela.</string>
     <string name="owner_badge">Propietario</string>
     <string name="owner_challenge_cooldown">El desafío se puede iniciar una vez cada 7 días.</string>
     <string name="reaction">Reacción</string>
@@ -145,4 +152,35 @@
     <string name="media_failed">No se pudo preparar el medio</string>
     <string name="voice_message">Mensaje de voz</string>
     <string name="mic_permission">Se requiere permiso de micrófono.</string>
+    <string name="block">Bloquear</string>
+    <string name="blocked_users">Usuarios bloqueados</string>
+    <string name="gif_powered_by">Desarrollado por KLIPY</string>
+    <string name="report">Informe</string>
+    <string name="report_abuse">Abuso</string>
+    <string name="report_attach">Adjuntar captura de pantalla</string>
+    <string name="report_failed">No se pudo enviar el informe</string>
+    <string name="report_hint">Una captura de pantalla nos ayuda a revisar el informe.</string>
+    <string name="report_illegal">Contenido ilegal</string>
+    <string name="report_note">Comentario (opcional)</string>
+    <string name="report_other">Otro</string>
+    <string name="report_remove">Eliminar</string>
+    <string name="report_send">Enviar informe</string>
+    <string name="report_sent">Informe enviado</string>
+    <string name="report_spam">Correo basura</string>
+    <string name="storage_audio">Audio y voz</string>
+    <string name="storage_clear">Claro</string>
+    <string name="storage_clear_all">Borrar todo</string>
+    <string name="storage_clear_confirm">¿Borrar todos los medios almacenados en caché y las vistas previas? Los mensajes y las claves permanecerán.</string>
+    <string name="storage_cleared">Caché borrado</string>
+    <string name="storage_gifs">Caché de GIF</string>
+    <string name="storage_links">Vistas previas de enlaces</string>
+    <string name="storage_media_note">Los archivos de los mensajes se pueden descargar nuevamente desde los miembros del grupo. Los mensajes y las claves nunca se eliminan.</string>
+    <string name="storage_other">Otros medios</string>
+    <string name="storage_photos">Fotos</string>
+    <string name="storage_temp">Archivos temporales</string>
+    <string name="storage_title">Almacenamiento y caché</string>
+    <string name="storage_total">Total</string>
+    <string name="storage_videos">Video</string>
+    <string name="terms">Condiciones de uso</string>
+    <string name="unblock">Desatascar</string>
 </resources>

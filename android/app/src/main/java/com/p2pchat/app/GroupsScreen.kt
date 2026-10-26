@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.compose.ui.res.pluralStringResource
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -183,7 +184,7 @@ internal fun GroupsScreen(vm: ChatViewModel, onSettings: () -> Unit) {
                             Column {
                                 Text(gi.name, style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    stringResource(R.string.members_count, state.memberCounts[key] ?: 1),
+                                    pluralStringResource(R.plurals.members_count, state.memberCounts[key] ?: 1, state.memberCounts[key] ?: 1),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">返回</string>
     <string name="settings">设置</string>
     <string name="add_group">添加群组</string>
     <string name="groups_empty">还没有群组。点“+”创建或通过邀请加入。</string>
-    <string name="members_count">%1$d 位成员</string>
+    <plurals name="members_count">
+        <item quantity="other">%1$d 位成员</item>
+    </plurals>
     <string name="group_exists">群组“%1$s”已存在</string>
     <string name="new_group">新建群组</string>
     <string name="group_name_hint">群组名称</string>
@@ -20,12 +21,10 @@
     <string name="you"> (你)</string>
     <string name="remove">移除</string>
     <string name="leave_group">退出群组</string>
-    <string name="leave_group_title">退出群组</string>
     <string name="leave_group_confirm">确定要退出群组吗？</string>
     <string name="leave">退出</string>
     <string name="cancel">取消</string>
     <string name="invite_qr">邀请二维码</string>
-    <string name="copy_invite">复制邀请</string>
     <string name="invite_copied">已复制邀请</string>
     <string name="expand">展开</string>
     <string name="status_connected">%1$s · 已连接：%2$d</string>
@@ -85,7 +84,6 @@
     <string name="delete_message">删除消息</string>
     <string name="message_deleted">消息已删除</string>
     <string name="delete_message_confirm">为所有人删除此消息？</string>
-    <string name="message_actions">消息</string>
     <string name="backup_title">密钥备份</string>
     <string name="backup_desc">24 个单词的助记词可在新设备上恢复账户。切勿分享。</string>
     <string name="fingerprint_label">密钥指纹</string>
@@ -101,13 +99,17 @@
     <string name="seed_copied">助记词已复制</string>
     <string name="update_check_failed">无法检查更新</string>
     <string name="privacy_policy">隐私政策</string>
-    <string name="owner_absent">所有者已%1$d天未活跃</string>
+    <plurals name="owner_absent">
+        <item quantity="other">所有者已%1$d天未活跃</item>
+    </plurals>
     <string name="owner_election_title">所有者选举</string>
     <string name="owner_election_ends">剩余%1$d小时</string>
     <string name="owner_claim_absence">所有者缺席</string>
     <string name="owner_claim_challenge">挑战</string>
     <string name="owner_claim_auto">自动继任者</string>
-    <string name="owner_votes_count">票数：%1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="other">票数：%1$d</item>
+    </plurals>
     <string name="owner_your_claim">你的申请</string>
     <string name="owner_vote_for">投票</string>
     <string name="owner_vote_against">反对</string>
@@ -122,9 +124,8 @@
     <string name="owner_notification_start">更改群组所有者的投票已开始</string>
     <string name="owner_notification_vote">需要你的投票</string>
     <string name="owner_changed">群组所有者已更改</string>
-    <string name="owner_request_hint">所有者7天未活跃后即可申请所有权。</string>
     <string name="owner_two_people_hint">在只有2人的群组中，更换所有者需要当前所有者同意。</string>
-    <string name="owner_request_info">当所有者连续7天未活跃时可用。随后24小时接受申请，24小时投票；需要除所有者外超过50%成员的法定人数。在只有2人的群组中，你的一票就足够。若所有者在选举结束前返回，选举将取消。</string>
+    <string name="owner_request_info" formatted="false">当所有者连续7天未活跃时可用。随后24小时接受申请，24小时投票；需要除所有者外超过50%成员的法定人数。在只有2人的群组中，你的一票就足够。若所有者在选举结束前返回，选举将取消。</string>
     <string name="owner_badge">所有者</string>
     <string name="owner_challenge_cooldown">每7天只能发起一次挑战。</string>
     <string name="reaction">回应</string>
@@ -145,4 +146,35 @@
     <string name="media_failed">无法准备媒体</string>
     <string name="voice_message">语音消息</string>
     <string name="mic_permission">需要麦克风权限。</string>
+    <string name="block">堵塞</string>
+    <string name="blocked_users">被阻止的用户</string>
+    <string name="gif_powered_by">由 KLIPY 提供支持</string>
+    <string name="report">报告</string>
+    <string name="report_abuse">虐待</string>
+    <string name="report_attach">附上截图</string>
+    <string name="report_failed">无法发送报告</string>
+    <string name="report_hint">屏幕截图可帮助我们查看报告</string>
+    <string name="report_illegal">非法内容</string>
+    <string name="report_note">评论（可选）</string>
+    <string name="report_other">其他</string>
+    <string name="report_remove">消除</string>
+    <string name="report_send">发送报告</string>
+    <string name="report_sent">报告已发送</string>
+    <string name="report_spam">垃圾邮件</string>
+    <string name="storage_audio">音频和语音</string>
+    <string name="storage_clear">清除</string>
+    <string name="storage_clear_all">全部清除</string>
+    <string name="storage_clear_confirm">清除所有缓存的媒体和预览吗？消息和密钥将保留。</string>
+    <string name="storage_cleared">缓存已清除</string>
+    <string name="storage_gifs">GIF 缓存</string>
+    <string name="storage_links">链接预览</string>
+    <string name="storage_media_note">可以从群组成员处再次下载消息中的文件。消息和密钥永远不会被删除。</string>
+    <string name="storage_other">其他媒体</string>
+    <string name="storage_photos">照片</string>
+    <string name="storage_temp">临时文件</string>
+    <string name="storage_title">存储和缓存</string>
+    <string name="storage_total">全部的</string>
+    <string name="storage_videos">视频</string>
+    <string name="terms">使用条款</string>
+    <string name="unblock">解锁</string>
 </resources>

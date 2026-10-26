@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">Назад</string>
     <string name="settings">Настройки</string>
     <string name="add_group">Добавить группу</string>
     <string name="groups_empty">Пока нет групп. Нажмите «+», чтобы создать или войти по инвайту.</string>
-    <string name="members_count">%1$d участн.</string>
+    <plurals name="members_count">
+        <item quantity="one">%1$d участн.</item>
+        <item quantity="few">%1$d участн.</item>
+        <item quantity="many">%1$d участн.</item>
+        <item quantity="other">%1$d участн.</item>
+    </plurals>
     <string name="group_exists">Группа «%1$s» уже существует</string>
     <string name="new_group">Новая группа</string>
     <string name="group_name_hint">название группы</string>
@@ -20,12 +24,10 @@
     <string name="you"> (вы)</string>
     <string name="remove">Удалить</string>
     <string name="leave_group">Выйти из группы</string>
-    <string name="leave_group_title">Выйти из группы</string>
     <string name="leave_group_confirm">Вы уверены, что хотите выйти из группы?</string>
     <string name="leave">Выйти</string>
     <string name="cancel">Отмена</string>
     <string name="invite_qr">QR инвайта</string>
-    <string name="copy_invite">Скопировать инвайт</string>
     <string name="invite_copied">Инвайт скопирован</string>
     <string name="expand">Развернуть</string>
     <string name="status_connected">%1$s · соединено: %2$d</string>
@@ -85,7 +87,6 @@
     <string name="delete_message">Удалить сообщение</string>
     <string name="message_deleted">Сообщение удалено</string>
     <string name="delete_message_confirm">Удалить это сообщение у всех?</string>
-    <string name="message_actions">Сообщение</string>
     <string name="backup_title">Резервная копия ключа</string>
     <string name="backup_desc">Seed-фраза из 24 слов восстанавливает аккаунт на новом устройстве. Никому её не показывайте.</string>
     <string name="fingerprint_label">Отпечаток ключа</string>
@@ -118,13 +119,23 @@
     <string name="block">Заблокировать</string>
     <string name="unblock">Разблокировать</string>
     <string name="blocked_users">Заблокированные</string>
-    <string name="owner_absent">Владелец неактивен %1$d дн.</string>
+    <plurals name="owner_absent">
+        <item quantity="one">Владелец неактивен %1$d дн.</item>
+        <item quantity="few">Владелец неактивен %1$d дн.</item>
+        <item quantity="many">Владелец неактивен %1$d дн.</item>
+        <item quantity="other">Владелец неактивен %1$d дн.</item>
+    </plurals>
     <string name="owner_election_title">Выборы владельца</string>
     <string name="owner_election_ends">осталось %1$d ч</string>
     <string name="owner_claim_absence">владелец отсутствует</string>
     <string name="owner_claim_challenge">вызов</string>
     <string name="owner_claim_auto">авто-преемник</string>
-    <string name="owner_votes_count">голосов: %1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="one">голосов: %1$d</item>
+        <item quantity="few">голосов: %1$d</item>
+        <item quantity="many">голосов: %1$d</item>
+        <item quantity="other">голосов: %1$d</item>
+    </plurals>
     <string name="owner_your_claim">Ваша заявка</string>
     <string name="owner_vote_for">Голосовать</string>
     <string name="owner_vote_against">Против</string>
@@ -139,9 +150,8 @@
     <string name="owner_notification_start">Началось голосование за смену владельца группы</string>
     <string name="owner_notification_vote">Нужен ваш голос</string>
     <string name="owner_changed">Владелец группы изменён</string>
-    <string name="owner_request_hint">Запрос владения станет доступен после 7 дней неактивности владельца.</string>
     <string name="owner_two_people_hint">В группе из 2 человек для смены владельца нужно согласие текущего владельца.</string>
-    <string name="owner_request_info">Доступно, если владелец неактивен 7 дней. Затем 24 ч на заявки и 24 ч на голосование; нужен кворум >50% участников без владельца. В группе из 2 человек достаточно вашего голоса. Если владелец вернётся до завершения выборов, они отменяются.</string>
+    <string name="owner_request_info" formatted="false">Доступно, если владелец неактивен 7 дней. Затем 24 ч на заявки и 24 ч на голосование; нужен кворум >50% участников без владельца. В группе из 2 человек достаточно вашего голоса. Если владелец вернётся до завершения выборов, они отменяются.</string>
     <string name="owner_badge">Владелец</string>
     <string name="owner_challenge_cooldown">Оспорить владельца можно раз в 7 дней.</string>
     <string name="reaction">Реакция</string>

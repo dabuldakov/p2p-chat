@@ -40,6 +40,7 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "SIGNAL_URL", "\"${secret("SIGNAL_URL", "wss://90.188.89.63.sslip.io:9443")}\"")
         // Эндпоинт временных TURN-кред (TURN REST API).
@@ -114,8 +115,15 @@ android {
     }
 
     lint {
-        baseline = file("lint-baseline.xml")
+        lintConfig = file("lint.xml")
         abortOnError = true
+    }
+
+    bundle {
+        language {
+            // Язык переключается внутри приложения (Lang), нужны все ресурсы в базовом APK.
+            enableSplit = false
+        }
     }
 
     // Нативные библиотеки Rust (.so) кладём в jniLibs/ по ABI:
@@ -171,6 +179,12 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.08.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

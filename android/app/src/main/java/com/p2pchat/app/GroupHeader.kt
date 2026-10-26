@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.compose.ui.res.pluralStringResource
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -199,7 +200,7 @@ internal fun GroupHeader(vm: ChatViewModel, state: ChatUiState, dialogs: GroupDi
                 style = MaterialTheme.typography.titleSmall,
             )
             Spacer(Modifier.weight(1f))
-            Text(stringResource(R.string.members_count, state.members.size), style = MaterialTheme.typography.labelSmall,
+            Text(pluralStringResource(R.plurals.members_count, state.members.size, state.members.size), style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (showOwnerHint) {
                 IconButton(onClick = { inviteExpanded = true }) {

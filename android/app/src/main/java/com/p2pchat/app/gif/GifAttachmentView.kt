@@ -78,6 +78,7 @@ fun GifAttachmentView(
     }
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 private fun GifVideoPlayer(url: String, modifier: Modifier) {
     val context = LocalContext.current

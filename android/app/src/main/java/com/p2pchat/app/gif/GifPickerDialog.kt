@@ -26,6 +26,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -64,7 +65,7 @@ fun GifPickerDialog(provider: GifProvider, onDismiss: () -> Unit) {
     var gifs by remember { mutableStateOf<List<Gif>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var endReached by remember { mutableStateOf(false) }
-    var page by remember { mutableStateOf(0) }
+    var page by remember { mutableIntStateOf(0) }
     val gridState = rememberLazyGridState()
 
     // Перезагрузка при смене вкладки/запроса.

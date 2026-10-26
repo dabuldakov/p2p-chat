@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">Буцах</string>
     <string name="settings">Тохиргоо</string>
     <string name="add_group">Бүлэг нэмэх</string>
     <string name="groups_empty">Бүлэг алга. «+» дарж үүсгэх эсвэл урилгаар нэгдэнэ үү.</string>
-    <string name="members_count">%1$d гишүүн</string>
+    <plurals name="members_count">
+        <item quantity="one">%1$d гишүүн</item>
+        <item quantity="other">%1$d гишүүн</item>
+    </plurals>
     <string name="group_exists">«%1$s» бүлэг аль хэдийн байна</string>
     <string name="new_group">Шинэ бүлэг</string>
     <string name="group_name_hint">бүлгийн нэр</string>
@@ -20,12 +22,10 @@
     <string name="you"> (та)</string>
     <string name="remove">Хасах</string>
     <string name="leave_group">Бүлгээс гарах</string>
-    <string name="leave_group_title">Бүлгээс гарах</string>
     <string name="leave_group_confirm">Бүлгээс гарахдаа итгэлтэй байна уу?</string>
     <string name="leave">Гарах</string>
     <string name="cancel">Цуцлах</string>
     <string name="invite_qr">Урилгын QR</string>
-    <string name="copy_invite">Урилга хуулах</string>
     <string name="invite_copied">Урилга хуулагдлаа</string>
     <string name="expand">Дэлгэх</string>
     <string name="status_connected">%1$s · холбогдсон: %2$d</string>
@@ -85,7 +85,6 @@
     <string name="delete_message">Мессеж устгах</string>
     <string name="message_deleted">Мессеж устгагдсан</string>
     <string name="delete_message_confirm">Энэ мессежийг бүгдээс устгах уу?</string>
-    <string name="message_actions">Мессеж</string>
     <string name="backup_title">Түлхүүрийн нөөц</string>
     <string name="backup_desc">24 үгтэй seed фраз нь шинэ төхөөрөмж дээр бүртгэлийг сэргээнэ. Хэзээ ч бүү хуваалц.</string>
     <string name="fingerprint_label">Түлхүүрийн хээ</string>
@@ -101,13 +100,19 @@
     <string name="seed_copied">Фраз хуулагдлаа</string>
     <string name="update_check_failed">Шинэчлэлтийг шалгаж чадсангүй</string>
     <string name="privacy_policy">Нууцлалын бодлого</string>
-    <string name="owner_absent">Эзэмшигч %1$d хоног идэвхгүй байна</string>
+    <plurals name="owner_absent">
+        <item quantity="one">Эзэмшигч %1$d хоног идэвхгүй байна</item>
+        <item quantity="other">Эзэмшигч %1$d хоног идэвхгүй байна</item>
+    </plurals>
     <string name="owner_election_title">Эзэмшигчийн сонгууль</string>
     <string name="owner_election_ends">%1$d цаг үлдлээ</string>
     <string name="owner_claim_absence">эзэмшигч байхгүй</string>
     <string name="owner_claim_challenge">сорилт</string>
     <string name="owner_claim_auto">авто залгамжлагч</string>
-    <string name="owner_votes_count">санал: %1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="one">санал: %1$d</item>
+        <item quantity="other">санал: %1$d</item>
+    </plurals>
     <string name="owner_your_claim">Таны хүсэлт</string>
     <string name="owner_vote_for">Санал өгөх</string>
     <string name="owner_vote_against">Эсрэг</string>
@@ -122,9 +127,8 @@
     <string name="owner_notification_start">Бүлгийн эзэмшигчийг солих санал хураалт эхэллээ</string>
     <string name="owner_notification_vote">Таны санал шаардлагатай</string>
     <string name="owner_changed">Бүлгийн эзэмшигч өөрчлөгдлөө</string>
-    <string name="owner_request_hint">Эзэмших хүсэлт нь эзэмшигч 7 хоног идэвхгүй болсны дараа боломжтой.</string>
     <string name="owner_two_people_hint">2 хүнтэй бүлэгт эзэмшигчийг солихын тулд одоогийн эзэмшигчийн зөвшөөрөл шаардлагатай.</string>
-    <string name="owner_request_info">Эзэмшигч 7 хоног идэвхгүй бол боломжтой. Дараа нь өргөдөлд 24 цаг, санал хураалтад 24 цаг; эзэмшигчгүй гишүүдийн 50%-иас дээш кворум шаардлагатай. 2 хүнтэй бүлэгт таны санал хангалттай. Сонгууль дуусахаас өмнө эзэмшигч буцаж ирвэл цуцлагдана.</string>
+    <string name="owner_request_info" formatted="false">Эзэмшигч 7 хоног идэвхгүй бол боломжтой. Дараа нь өргөдөлд 24 цаг, санал хураалтад 24 цаг; эзэмшигчгүй гишүүдийн 50%-иас дээш кворум шаардлагатай. 2 хүнтэй бүлэгт таны санал хангалттай. Сонгууль дуусахаас өмнө эзэмшигч буцаж ирвэл цуцлагдана.</string>
     <string name="owner_badge">Эзэмшигч</string>
     <string name="owner_challenge_cooldown">Сорилтыг 7 хоногт нэг удаа эхлүүлэх боломжтой.</string>
     <string name="reaction">Урвал</string>
@@ -145,4 +149,35 @@
     <string name="media_failed">Медиа бэлтгэж чадсангүй</string>
     <string name="voice_message">Дуут мессеж</string>
     <string name="mic_permission">Микрофоны зөвшөөрөл шаардлагатай.</string>
+    <string name="block">Блоклох</string>
+    <string name="blocked_users">Хориглосон хэрэглэгчид</string>
+    <string name="gif_powered_by">KLIPY-ээр дэмжигдсэн</string>
+    <string name="report">Тайлан</string>
+    <string name="report_abuse">Хүчирхийлэл</string>
+    <string name="report_attach">Дэлгэцийн агшинг хавсаргана уу</string>
+    <string name="report_failed">Тайланг илгээж чадсангүй</string>
+    <string name="report_hint">Дэлгэцийн агшин нь бидэнд тайланг хянахад тусална</string>
+    <string name="report_illegal">Хууль бус контент</string>
+    <string name="report_note">Сэтгэгдэл (заавал биш)</string>
+    <string name="report_other">Бусад</string>
+    <string name="report_remove">Устгах</string>
+    <string name="report_send">Тайлан илгээх</string>
+    <string name="report_sent">Тайлан илгээсэн</string>
+    <string name="report_spam">Спам</string>
+    <string name="storage_audio">Аудио ба дуу хоолой</string>
+    <string name="storage_clear">Тодорхой</string>
+    <string name="storage_clear_all">Бүгдийг арилгах</string>
+    <string name="storage_clear_confirm">Бүх кэш медиа болон урьдчилан үзэхийг арилгах уу? Мессеж болон түлхүүрүүд үлдэх болно.</string>
+    <string name="storage_cleared">Кэшийг цэвэрлэв</string>
+    <string name="storage_gifs">GIF кэш</string>
+    <string name="storage_links">Холбоосыг урьдчилан үзэх</string>
+    <string name="storage_media_note">Мессежийн файлуудыг бүлгийн гишүүдээс дахин татаж авах боломжтой. Мессеж болон түлхүүрүүдийг хэзээ ч устгадаггүй.</string>
+    <string name="storage_other">Бусад хэвлэл мэдээллийн хэрэгсэл</string>
+    <string name="storage_photos">Зураг</string>
+    <string name="storage_temp">Түр зуурын файлууд</string>
+    <string name="storage_title">Хадгалах ба кэш</string>
+    <string name="storage_total">Нийт</string>
+    <string name="storage_videos">Видео</string>
+    <string name="terms">Хэрэглэх нөхцөл</string>
+    <string name="unblock">Блокыг тайлах</string>
 </resources>

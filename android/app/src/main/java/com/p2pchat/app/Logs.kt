@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.content.edit
 import android.app.Application
 
 /**
@@ -26,7 +27,7 @@ object Logs {
 
     fun setEnabled(app: Application, value: Boolean) {
         enabled = value
-        app.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY_DEBUG, value).apply()
+        app.getSharedPreferences(PREFS, 0).edit { putBoolean(KEY_DEBUG, value) }
     }
 
     /** Подробная диагностика (только в режиме отладки). */

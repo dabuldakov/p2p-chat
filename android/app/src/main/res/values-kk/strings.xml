@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">Артқа</string>
     <string name="settings">Параметрлер</string>
     <string name="add_group">Топ қосу</string>
     <string name="groups_empty">Топтар жоқ. «+» арқылы құрыңыз немесе шақырумен кіріңіз.</string>
-    <string name="members_count">%1$d қатысушы</string>
+    <plurals name="members_count">
+        <item quantity="one">%1$d қатысушы</item>
+        <item quantity="other">%1$d қатысушы</item>
+    </plurals>
     <string name="group_exists">«%1$s» тобы бұрыннан бар</string>
     <string name="new_group">Жаңа топ</string>
     <string name="group_name_hint">топ атауы</string>
@@ -20,12 +22,10 @@
     <string name="you"> (сіз)</string>
     <string name="remove">Өшіру</string>
     <string name="leave_group">Топтан шығу</string>
-    <string name="leave_group_title">Топтан шығу</string>
     <string name="leave_group_confirm">Топтан шығуға сенімдісіз бе?</string>
     <string name="leave">Шығу</string>
     <string name="cancel">Болдырмау</string>
     <string name="invite_qr">Шақыру QR</string>
-    <string name="copy_invite">Шақыруды көшіру</string>
     <string name="invite_copied">Шақыру көшірілді</string>
     <string name="expand">Ашу</string>
     <string name="status_connected">%1$s · қосылған: %2$d</string>
@@ -85,7 +85,6 @@
     <string name="delete_message">Хабарламаны жою</string>
     <string name="message_deleted">Хабарлама жойылды</string>
     <string name="delete_message_confirm">Бұл хабарламаны барлығынан жою керек пе?</string>
-    <string name="message_actions">Хабарлама</string>
     <string name="backup_title">Кілттің резервтік көшірмесі</string>
     <string name="backup_desc">24 сөзден тұратын seed-фраза аккаунтты жаңа құрылғыда қалпына келтіреді. Оны ешкімге көрсетпеңіз.</string>
     <string name="fingerprint_label">Кілт ізі</string>
@@ -101,13 +100,19 @@
     <string name="seed_copied">Фраза көшірілді</string>
     <string name="update_check_failed">Жаңартуларды тексеру мүмкін болмады</string>
     <string name="privacy_policy">Құпиялылық саясаты</string>
-    <string name="owner_absent">Иесі %1$d күннен бері белсенді емес</string>
+    <plurals name="owner_absent">
+        <item quantity="one">Иесі %1$d күннен бері белсенді емес</item>
+        <item quantity="other">Иесі %1$d күннен бері белсенді емес</item>
+    </plurals>
     <string name="owner_election_title">Иесін сайлау</string>
     <string name="owner_election_ends">%1$d сағат қалды</string>
     <string name="owner_claim_absence">иесі жоқ</string>
     <string name="owner_claim_challenge">шақыру</string>
     <string name="owner_claim_auto">авто-мұрагер</string>
-    <string name="owner_votes_count">дауыс: %1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="one">дауыс: %1$d</item>
+        <item quantity="other">дауыс: %1$d</item>
+    </plurals>
     <string name="owner_your_claim">Сіздің өтініміңіз</string>
     <string name="owner_vote_for">Дауыс беру</string>
     <string name="owner_vote_against">Қарсы</string>
@@ -122,9 +127,8 @@
     <string name="owner_notification_start">Топ иесін ауыстыруға дауыс беру басталды</string>
     <string name="owner_notification_vote">Сіздің дауысыңыз қажет</string>
     <string name="owner_changed">Топ иесі өзгертілді</string>
-    <string name="owner_request_hint">Иелікті сұрау иесі 7 күн белсенді болмағаннан кейін қолжетімді болады.</string>
     <string name="owner_two_people_hint">2 адамнан тұратын топта иесін ауыстыру үшін қазіргі иесінің келісімі қажет.</string>
-    <string name="owner_request_info">Иесі 7 күн белсенді болмаса қолжетімді. Содан кейін өтінімдерге 24 сағат және дауыс беруге 24 сағат; иесінсіз қатысушылардың 50%-нан көбінің кворумы қажет. 2 адамдық топта сіздің дауысыңыз жеткілікті. Сайлау аяқталғанға дейін иесі қайтса, ол тоқтатылады.</string>
+    <string name="owner_request_info" formatted="false">Иесі 7 күн белсенді болмаса қолжетімді. Содан кейін өтінімдерге 24 сағат және дауыс беруге 24 сағат; иесінсіз қатысушылардың 50%-нан көбінің кворумы қажет. 2 адамдық топта сіздің дауысыңыз жеткілікті. Сайлау аяқталғанға дейін иесі қайтса, ол тоқтатылады.</string>
     <string name="owner_badge">Иесі</string>
     <string name="owner_challenge_cooldown">Қарсы шығуды 7 күнде бір рет бастауға болады.</string>
     <string name="reaction">Реакция</string>
@@ -145,4 +149,35 @@
     <string name="media_failed">Медианы дайындау мүмкін болмады</string>
     <string name="voice_message">Дауыстық хабарлама</string>
     <string name="mic_permission">Микрофонға рұқсат қажет.</string>
+    <string name="block">Блоктау</string>
+    <string name="blocked_users">Блокталған пайдаланушылар</string>
+    <string name="gif_powered_by">KLIPY арқылы қуатталған</string>
+    <string name="report">Есеп беру</string>
+    <string name="report_abuse">Қиянат</string>
+    <string name="report_attach">Скриншотты тіркеңіз</string>
+    <string name="report_failed">Есепті жіберу мүмкін болмады</string>
+    <string name="report_hint">Скриншот есепті қарауға көмектеседі</string>
+    <string name="report_illegal">Заңсыз мазмұн</string>
+    <string name="report_note">Түсініктеме (міндетті емес)</string>
+    <string name="report_other">Басқа</string>
+    <string name="report_remove">Жою</string>
+    <string name="report_send">Есеп жіберу</string>
+    <string name="report_sent">Есеп жіберілді</string>
+    <string name="report_spam">Спам</string>
+    <string name="storage_audio">Аудио және дауыс</string>
+    <string name="storage_clear">Таза</string>
+    <string name="storage_clear_all">Барлығын өшіру</string>
+    <string name="storage_clear_confirm">Барлық кэштелген медиа және алдын ала қарауды өшіру керек пе? Хабарламалар мен кілттер қалады.</string>
+    <string name="storage_cleared">Кэш тазартылды</string>
+    <string name="storage_gifs">GIF кэш</string>
+    <string name="storage_links">Сілтемелерді алдын ала қарау</string>
+    <string name="storage_media_note">Хабарлардағы файлдарды топ мүшелерінен қайтадан жүктеп алуға болады. Хабарламалар мен кілттер ешқашан жойылмайды.</string>
+    <string name="storage_other">Басқа ақпарат құралдары</string>
+    <string name="storage_photos">Фотосуреттер</string>
+    <string name="storage_temp">Уақытша файлдар</string>
+    <string name="storage_title">Сақтау және кэш</string>
+    <string name="storage_total">Барлығы</string>
+    <string name="storage_videos">Бейне</string>
+    <string name="terms">Пайдалану шарттары</string>
+    <string name="unblock">Блоктан шығару</string>
 </resources>

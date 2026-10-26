@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">رجوع</string>
     <string name="settings">الإعدادات</string>
     <string name="add_group">إضافة مجموعة</string>
     <string name="groups_empty">لا توجد مجموعات. اضغط «+» للإنشاء أو الانضمام بدعوة.</string>
-    <string name="members_count">%1$d أعضاء</string>
+    <plurals name="members_count">
+        <item quantity="zero">%1$d أعضاء</item>
+        <item quantity="one">%1$d أعضاء</item>
+        <item quantity="two">%1$d أعضاء</item>
+        <item quantity="few">%1$d أعضاء</item>
+        <item quantity="many">%1$d أعضاء</item>
+        <item quantity="other">%1$d أعضاء</item>
+    </plurals>
     <string name="group_exists">المجموعة «%1$s» موجودة بالفعل</string>
     <string name="new_group">مجموعة جديدة</string>
     <string name="group_name_hint">اسم المجموعة</string>
@@ -20,12 +26,10 @@
     <string name="you"> (أنت)</string>
     <string name="remove">إزالة</string>
     <string name="leave_group">مغادرة المجموعة</string>
-    <string name="leave_group_title">مغادرة المجموعة</string>
     <string name="leave_group_confirm">هل أنت متأكد من مغادرة المجموعة؟</string>
     <string name="leave">مغادرة</string>
     <string name="cancel">إلغاء</string>
     <string name="invite_qr">رمز QR للدعوة</string>
-    <string name="copy_invite">نسخ الدعوة</string>
     <string name="invite_copied">تم نسخ الدعوة</string>
     <string name="expand">توسيع</string>
     <string name="status_connected">%1$s · متصل: %2$d</string>
@@ -85,7 +89,6 @@
     <string name="delete_message">حذف الرسالة</string>
     <string name="message_deleted">تم حذف الرسالة</string>
     <string name="delete_message_confirm">حذف هذه الرسالة للجميع؟</string>
-    <string name="message_actions">الرسالة</string>
     <string name="backup_title">نسخ احتياطي للمفتاح</string>
     <string name="backup_desc">عبارة الاسترداد المكونة من 24 كلمة تستعيد حسابك على جهاز جديد. لا تشاركها أبدًا.</string>
     <string name="fingerprint_label">بصمة المفتاح</string>
@@ -101,13 +104,27 @@
     <string name="seed_copied">تم نسخ العبارة</string>
     <string name="update_check_failed">تعذر التحقق من التحديثات</string>
     <string name="privacy_policy">سياسة الخصوصية</string>
-    <string name="owner_absent">المالك غير نشط منذ %1$d يوم</string>
+    <plurals name="owner_absent">
+        <item quantity="zero">المالك غير نشط منذ %1$d يوم</item>
+        <item quantity="one">المالك غير نشط منذ %1$d يوم</item>
+        <item quantity="two">المالك غير نشط منذ %1$d يوم</item>
+        <item quantity="few">المالك غير نشط منذ %1$d يوم</item>
+        <item quantity="many">المالك غير نشط منذ %1$d يوم</item>
+        <item quantity="other">المالك غير نشط منذ %1$d يوم</item>
+    </plurals>
     <string name="owner_election_title">انتخابات المالك</string>
     <string name="owner_election_ends">متبقي %1$d ساعة</string>
     <string name="owner_claim_absence">المالك غائب</string>
     <string name="owner_claim_challenge">تحدي</string>
     <string name="owner_claim_auto">الخليفة التلقائي</string>
-    <string name="owner_votes_count">الأصوات: %1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="zero">الأصوات: %1$d</item>
+        <item quantity="one">الأصوات: %1$d</item>
+        <item quantity="two">الأصوات: %1$d</item>
+        <item quantity="few">الأصوات: %1$d</item>
+        <item quantity="many">الأصوات: %1$d</item>
+        <item quantity="other">الأصوات: %1$d</item>
+    </plurals>
     <string name="owner_your_claim">طلبك</string>
     <string name="owner_vote_for">تصويت</string>
     <string name="owner_vote_against">ضد</string>
@@ -122,9 +139,8 @@
     <string name="owner_notification_start">بدأ التصويت على تغيير مالك المجموعة</string>
     <string name="owner_notification_vote">مطلوب تصويتك</string>
     <string name="owner_changed">تم تغيير مالك المجموعة</string>
-    <string name="owner_request_hint">يصبح طلب الملكية متاحًا بعد 7 أيام من عدم نشاط المالك.</string>
     <string name="owner_two_people_hint">في مجموعة من شخصين، يتطلب تغيير المالك موافقة المالك الحالي.</string>
-    <string name="owner_request_info">متاح إذا كان المالك غير نشط لمدة 7 أيام. ثم تفتح 24 ساعة لتقديم الطلبات و24 ساعة للتصويت؛ يلزم نصاب أكثر من 50% من الأعضاء بدون المالك. في مجموعة من شخصين يكفي تصويتك. إذا عاد المالك قبل انتهاء الانتخابات، تُلغى.</string>
+    <string name="owner_request_info" formatted="false">متاح إذا كان المالك غير نشط لمدة 7 أيام. ثم تفتح 24 ساعة لتقديم الطلبات و24 ساعة للتصويت؛ يلزم نصاب أكثر من 50% من الأعضاء بدون المالك. في مجموعة من شخصين يكفي تصويتك. إذا عاد المالك قبل انتهاء الانتخابات، تُلغى.</string>
     <string name="owner_badge">المالك</string>
     <string name="owner_challenge_cooldown">يمكن بدء التحدي مرة كل 7 أيام.</string>
     <string name="reaction">تفاعل</string>
@@ -145,4 +161,35 @@
     <string name="media_failed">تعذر تجهيز الوسائط</string>
     <string name="voice_message">رسالة صوتية</string>
     <string name="mic_permission">مطلوب إذن الميكروفون.</string>
+    <string name="block">حاجز</string>
+    <string name="blocked_users">المستخدمين المحظورين</string>
+    <string name="gif_powered_by">مدعوم من كليبي</string>
+    <string name="report">تقرير</string>
+    <string name="report_abuse">إساءة</string>
+    <string name="report_attach">إرفاق لقطة الشاشة</string>
+    <string name="report_failed">لا يمكن إرسال التقرير</string>
+    <string name="report_hint">تساعدنا لقطة الشاشة في مراجعة التقرير</string>
+    <string name="report_illegal">محتوى غير قانوني</string>
+    <string name="report_note">تعليق (اختياري)</string>
+    <string name="report_other">آخر</string>
+    <string name="report_remove">يزيل</string>
+    <string name="report_send">إرسال التقرير</string>
+    <string name="report_sent">تم إرسال التقرير</string>
+    <string name="report_spam">رسائل إلكترونية مزعجة</string>
+    <string name="storage_audio">الصوت والصوت</string>
+    <string name="storage_clear">واضح</string>
+    <string name="storage_clear_all">مسح الكل</string>
+    <string name="storage_clear_confirm">هل تريد مسح جميع الوسائط والمعاينات المخزنة مؤقتًا؟ ستبقى الرسائل والمفاتيح.</string>
+    <string name="storage_cleared">تم مسح ذاكرة التخزين المؤقت</string>
+    <string name="storage_gifs">ذاكرة التخزين المؤقت GIF</string>
+    <string name="storage_links">معاينات الارتباط</string>
+    <string name="storage_media_note">يمكن تنزيل الملفات من الرسائل مرة أخرى من أعضاء المجموعة. لا يتم حذف الرسائل والمفاتيح أبدًا.</string>
+    <string name="storage_other">وسائل الإعلام الأخرى</string>
+    <string name="storage_photos">صور</string>
+    <string name="storage_temp">الملفات المؤقتة</string>
+    <string name="storage_title">التخزين وذاكرة التخزين المؤقت</string>
+    <string name="storage_total">المجموع</string>
+    <string name="storage_videos">فيديو</string>
+    <string name="terms">شروط الاستخدام</string>
+    <string name="unblock">إلغاء الحظر</string>
 </resources>

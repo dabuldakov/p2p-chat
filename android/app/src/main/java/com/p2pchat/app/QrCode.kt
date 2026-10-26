@@ -1,5 +1,6 @@
 package com.p2pchat.app
 
+import androidx.core.graphics.createBitmap
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -28,7 +29,7 @@ fun generateQrBitmap(text: String, size: Int = 640): ImageBitmap {
             pixels[i++] = if (matrix[x, y]) Color.BLACK else Color.WHITE
         }
     }
-    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val bmp = createBitmap(size, size)
     bmp.setPixels(pixels, 0, size, 0, 0, size, size)
     return bmp.asImageBitmap()
 }

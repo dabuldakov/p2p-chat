@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">p2pchat</string>
     <string name="back">뒤로</string>
     <string name="settings">설정</string>
     <string name="add_group">그룹 추가</string>
     <string name="groups_empty">그룹이 없습니다. “+”를 눌러 만들거나 초대받아 참여하세요.</string>
-    <string name="members_count">멤버 %1$d</string>
+    <plurals name="members_count">
+        <item quantity="other">멤버 %1$d</item>
+    </plurals>
     <string name="group_exists">“%1$s” 그룹이 이미 있습니다</string>
     <string name="new_group">새 그룹</string>
     <string name="group_name_hint">그룹 이름</string>
@@ -20,12 +21,10 @@
     <string name="you"> (나)</string>
     <string name="remove">제거</string>
     <string name="leave_group">그룹 나가기</string>
-    <string name="leave_group_title">그룹 나가기</string>
     <string name="leave_group_confirm">그룹을 나가시겠어요?</string>
     <string name="leave">나가기</string>
     <string name="cancel">취소</string>
     <string name="invite_qr">초대 QR</string>
-    <string name="copy_invite">초대 복사</string>
     <string name="invite_copied">초대를 복사했습니다</string>
     <string name="expand">펼치기</string>
     <string name="status_connected">%1$s · 연결: %2$d</string>
@@ -85,7 +84,6 @@
     <string name="delete_message">메시지 삭제</string>
     <string name="message_deleted">삭제된 메시지</string>
     <string name="delete_message_confirm">이 메시지를 모든 사람에게서 삭제할까요?</string>
-    <string name="message_actions">메시지</string>
     <string name="backup_title">키 백업</string>
     <string name="backup_desc">24단어 시드 문구로 새 기기에서 계정을 복원할 수 있습니다. 절대 공유하지 마세요.</string>
     <string name="fingerprint_label">키 지문</string>
@@ -101,13 +99,17 @@
     <string name="seed_copied">문구가 복사되었습니다</string>
     <string name="update_check_failed">업데이트를 확인하지 못했습니다</string>
     <string name="privacy_policy">개인정보 처리방침</string>
-    <string name="owner_absent">소유자가 %1$d일째 비활성 상태입니다</string>
+    <plurals name="owner_absent">
+        <item quantity="other">소유자가 %1$d일째 비활성 상태입니다</item>
+    </plurals>
     <string name="owner_election_title">소유자 선거</string>
     <string name="owner_election_ends">%1$d시간 남음</string>
     <string name="owner_claim_absence">소유자 부재</string>
     <string name="owner_claim_challenge">이의 제기</string>
     <string name="owner_claim_auto">자동 후계자</string>
-    <string name="owner_votes_count">투표 수: %1$d</string>
+    <plurals name="owner_votes_count">
+        <item quantity="other">투표 수: %1$d</item>
+    </plurals>
     <string name="owner_your_claim">내 요청</string>
     <string name="owner_vote_for">투표</string>
     <string name="owner_vote_against">반대</string>
@@ -122,9 +124,8 @@
     <string name="owner_notification_start">그룹 소유자 변경 투표가 시작되었습니다</string>
     <string name="owner_notification_vote">투표가 필요합니다</string>
     <string name="owner_changed">그룹 소유자가 변경되었습니다</string>
-    <string name="owner_request_hint">소유권 요청은 소유자가 7일 동안 비활성 상태일 때 사용할 수 있습니다.</string>
     <string name="owner_two_people_hint">2인 그룹에서 소유자를 변경하려면 현재 소유자의 동의가 필요합니다.</string>
-    <string name="owner_request_info">소유자가 7일 동안 비활성 상태이면 사용할 수 있습니다. 이후 24시간은 신청, 24시간은 투표입니다. 소유자를 제외한 구성원의 50% 초과 정족수가 필요합니다. 2인 그룹에서는 내 투표만으로 충분합니다. 선거가 끝나기 전에 소유자가 돌아오면 취소됩니다.</string>
+    <string name="owner_request_info" formatted="false">소유자가 7일 동안 비활성 상태이면 사용할 수 있습니다. 이후 24시간은 신청, 24시간은 투표입니다. 소유자를 제외한 구성원의 50% 초과 정족수가 필요합니다. 2인 그룹에서는 내 투표만으로 충분합니다. 선거가 끝나기 전에 소유자가 돌아오면 취소됩니다.</string>
     <string name="owner_badge">소유자</string>
     <string name="owner_challenge_cooldown">이의 제기는 7일마다 한 번만 시작할 수 있습니다.</string>
     <string name="reaction">반응</string>
@@ -145,4 +146,35 @@
     <string name="media_failed">미디어를 준비할 수 없습니다</string>
     <string name="voice_message">음성 메시지</string>
     <string name="mic_permission">마이크 권한이 필요합니다.</string>
+    <string name="block">차단하다</string>
+    <string name="blocked_users">차단된 사용자</string>
+    <string name="gif_powered_by">제공: KLIPY</string>
+    <string name="report">보고서</string>
+    <string name="report_abuse">남용</string>
+    <string name="report_attach">스크린샷 첨부</string>
+    <string name="report_failed">보고서를 보낼 수 없습니다.</string>
+    <string name="report_hint">스크린샷은 보고서를 검토하는 데 도움이 됩니다.</string>
+    <string name="report_illegal">불법 콘텐츠</string>
+    <string name="report_note">댓글(선택사항)</string>
+    <string name="report_other">다른</string>
+    <string name="report_remove">제거하다</string>
+    <string name="report_send">보고서 보내기</string>
+    <string name="report_sent">보고서가 전송되었습니다.</string>
+    <string name="report_spam">스팸</string>
+    <string name="storage_audio">오디오 및 음성</string>
+    <string name="storage_clear">분명한</string>
+    <string name="storage_clear_all">모두 지우기</string>
+    <string name="storage_clear_confirm">캐시된 미디어와 미리보기를 모두 삭제하시겠습니까? 메시지와 열쇠는 그대로 유지됩니다.</string>
+    <string name="storage_cleared">캐시가 삭제되었습니다.</string>
+    <string name="storage_gifs">GIF 캐시</string>
+    <string name="storage_links">링크 미리보기</string>
+    <string name="storage_media_note">메시지의 파일은 그룹 구성원으로부터 다시 다운로드할 수 있습니다. 메시지와 키는 삭제되지 않습니다.</string>
+    <string name="storage_other">기타 미디어</string>
+    <string name="storage_photos">사진</string>
+    <string name="storage_temp">임시 파일</string>
+    <string name="storage_title">저장소 및 캐시</string>
+    <string name="storage_total">총</string>
+    <string name="storage_videos">동영상</string>
+    <string name="terms">이용약관</string>
+    <string name="unblock">차단 해제</string>
 </resources>
