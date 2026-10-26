@@ -76,6 +76,7 @@ object ChatRuntime {
     private lateinit var snapshots: SnapshotRepository
     private lateinit var gifRuntime: GifRuntime
     private lateinit var bridge: CoreBridge
+    private lateinit var mediaRuntime: MediaRuntime
     private lateinit var notifications: NotificationCoordinator
     private lateinit var owners: OwnerRuntime
     private lateinit var connections: ConnectionCoordinator
@@ -182,9 +183,6 @@ object ChatRuntime {
     var ownerChallengeAt by mutableStateOf(0uL)
         private set
 
-    /** Когда последний раз пересылали OwnerChange (hex группы → ms). */
-    private val mediaSkip = mutableSetOf<String>()
-
     /** Заблокированные (hex peer_id) — их сообщения скрыты. */
     var blocked by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -271,6 +269,15 @@ object ChatRuntime {
             scope = scope,
             onDone = { refresh() },
             onReceived = { runCatching { notifications.updateBadge(silent = appVisible) } },
+        )
+        mediaRuntime = MediaRuntime(
+            app = app,
+            core = core,
+            media = media,
+            gifs = gifs,
+            currentGroup = { currentGroup },
+            messages = { messages },
+            post = { block -> bridge.out(block) },
         )
         gifRuntime = GifRuntime(
             core = core,
@@ -564,52 +571,15 @@ object ChatRuntime {
         bridge.out { it.editMessage(g, id, text) }
     }
 
-    private fun ensureMedia(group: ByteArray) {
-        for (m in messages) {
-            val a = m.attachment ?: continue
-            if (a.kind in setOf("image", "video", "audio", "voice", "video_note") &&
-                !MediaFiles.exists(app, a.id, a.mime) &&
-                a.id !in mediaSkip
-            ) {
-                media.ensure(group, a.id, a.mime)
-            }
-        }
-    }
+    private fun ensureMedia(group: ByteArray) = mediaRuntime.ensure(group)
 
-    fun retryMedia(id: String, mime: String) {
-        val g = currentGroup ?: return
-        mediaSkip.remove(id)
-        media.retry(g, id, mime)
-    }
+    fun retryMedia(id: String, mime: String) = mediaRuntime.retry(id, mime)
 
-    /** Отправить подготовленное вложение. */
-    fun sendPrepared(group: ByteArray, kind: String, p: PreparedMedia) {
-        bridge.out {
-            it.postAttachment(
-                group,
-                FfiAttachment(
-                    kind = kind,
-                    id = p.id,
-                    width = p.width.toUInt(),
-                    height = p.height.toUInt(),
-                    url = "",
-                    mime = p.mime,
-                    size = p.size.toULong(),
-                    durationMs = p.durationMs.toULong(),
-                    fileName = p.fileName,
-                    thumbnail = p.thumbnail ?: ByteArray(0),
-                ),
-            )
-        }
-    }
+    fun sendPrepared(group: ByteArray, kind: String, p: PreparedMedia) = mediaRuntime.send(group, kind, p)
 
-    fun storageStats(): List<StorageStat> = MediaStorage.stats(app, gifs)
+    fun storageStats(): List<StorageStat> = mediaRuntime.stats()
 
-    fun clearStorage(id: String) {
-        MediaStorage.attachmentsToSkip(id, messages.mapNotNull { it.attachment })
-            .forEach { mediaSkip.add(it) }
-        MediaStorage.clear(id, app, gifs)
-    }
+    fun clearStorage(id: String) = mediaRuntime.clear(id)
 
     /** Отправить гифку: между клиентами едет только ссылка (kind+id). */
     fun sendGif(gif: Gif) = gifRuntime.send(gif)
