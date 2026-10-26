@@ -21,7 +21,8 @@ android/app/src/main/jniLibs/
 .idea/
 **/.idea/
 
-# Signing (никогда не коммитим)
+# Signing / secrets (никогда не коммитим)
+.turn_secret
 android/keystore/
 android/app/release.keystore
 *.jks
