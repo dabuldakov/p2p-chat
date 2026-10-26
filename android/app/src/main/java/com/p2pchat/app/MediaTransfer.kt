@@ -11,6 +11,9 @@ import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
+internal fun groupListContains(groups: List<ByteArray>, group: ByteArray): Boolean =
+    groups.any { it.contentEquals(group) }
+
 /**
  * Догрузка медиа по hash с любого участника группы.
  *
@@ -51,14 +54,17 @@ class MediaTransfer(
     private val main = Handler(Looper.getMainLooper())
 
     fun ensure(group: ByteArray, hash: String, mime: String) {
-        if (hash.isBlank() || MediaFiles.exists(ctx, hash, mime)) return
+        if (hash.isBlank()) return
+        if (MediaFiles.exists(ctx, hash, mime)) return
         mimeByHash[hash] = mime
         val key = group.toHex() + ":" + hash
         synchronized(lock) {
             val now = System.currentTimeMillis()
-            if (now - (requestedAt[key] ?: 0L) < RETRY_MS) return
+            val wait = now - (requestedAt[key] ?: 0L)
+            if (wait < RETRY_MS) return
             requestedAt[key] = now
         }
+        Logs.d("media ensure: request ${hash.take(8)} mime=$mime group=${group.toHex().take(8)}")
         request(group, hash)
     }
 
@@ -76,7 +82,9 @@ class MediaTransfer(
         bb.putShort(group.size.toShort())
         bb.put(group)
         bb.put(hexBytes(hash))
-        send(memberKeys(group), frame)
+        val targets = memberKeys(group)
+        Logs.d("media request: ${hash.take(8)} targets=${targets.size}")
+        send(targets, frame)
     }
 
     fun onFrame(from: ByteArray, frame: ByteArray) {
@@ -84,10 +92,18 @@ class MediaTransfer(
         val bb = ByteBuffer.wrap(frame).order(ByteOrder.BIG_ENDIAN)
         val type = bb.get().toInt()
         val glen = bb.getShort().toInt() and 0xffff
-        if (glen <= 0 || bb.remaining() < glen + HASH_LEN) return
+        if (glen <= 0 || bb.remaining() < glen + HASH_LEN) {
+            Logs.w("media onFrame: bad frame glen=$glen remain=${bb.remaining()}")
+            return
+        }
         val group = ByteArray(glen).also { bb.get(it) }
-        if (!core.groupsWith(from).contains(group)) return
+        val groups = runCatching { core.groupsWith(from) }.getOrDefault(emptyList())
+        if (!groupListContains(groups, group)) {
+            Logs.w("media: group ${group.toHex().take(8)} not shared with ${from.toHex().take(8)}")
+            return
+        }
         val hash = ByteArray(HASH_LEN).also { bb.get(it) }.toHex()
+        Logs.d("media frame: type=$type group=${group.toHex().take(8)} hash=${hash.take(8)} bytes=${bb.remaining()}")
         when (type) {
             TYPE_REQUEST -> io.execute { serve(from, group, hash) }
             TYPE_CHUNK -> {
@@ -103,8 +119,12 @@ class MediaTransfer(
 
     private fun serve(to: ByteArray, group: ByteArray, hash: String) {
         val file = MediaFiles.dir(ctx).listFiles { f -> f.name.startsWith("$hash.") && !f.name.endsWith(".part") }
-            ?.firstOrNull() ?: return
-        if (!file.isFile || file.length() <= 0) return
+            ?.firstOrNull()
+        if (file == null || !file.isFile || file.length() <= 0) {
+            Logs.w("media serve: missing ${hash.take(8)}")
+            return
+        }
+        Logs.d("media serve: ${hash.take(8)} size=${file.length()} to=${to.toHex().take(8)}")
         RandomAccessFile(file, "r").use { raf ->
             val total = raf.length()
             var offset = 0L
@@ -136,11 +156,18 @@ class MediaTransfer(
             if (offset + data.size >= total) {
                 raf.close()
                 p.raf = null
-                if (MediaFiles.sha256(p.file) == hash) {
+                val actual = MediaFiles.sha256(p.file)
+                if (actual == hash) {
                     val dest = MediaFiles.file(ctx, hash, p.mime)
                     if (dest.exists()) dest.delete()
-                    if (p.file.renameTo(dest)) main.post(onReady)
+                    if (p.file.renameTo(dest)) {
+                        Logs.i("media ready: ${hash.take(8)} size=$total mime=${p.mime}")
+                        main.post(onReady)
+                    } else {
+                        Logs.w("media store failed: ${hash.take(8)}")
+                    }
                 } else {
+                    Logs.w("media hash mismatch: ${hash.take(8)} actual=${actual.take(8)}")
                     p.file.delete()
                 }
                 pending.remove(hash)
