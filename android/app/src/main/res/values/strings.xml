@@ -176,7 +176,6 @@
     <string name="owner_two_people_hint">In a 2-person group, changing the owner requires the owner\'s consent.</string>
     <string name="owner_request_info" formatted="false">Available if the owner has been inactive for 7 days. Then 24 h for claims and 24 h for voting; a majority of more than 50% of members without the owner is required. In a 2-person group your own vote is enough. If the owner returns before the election ends, it is cancelled.</string>
     <string name="owner_badge">Owner</string>
-    <string name="owner_challenge_cooldown">Challenge can be started once every 7 days.</string>
     <string name="reaction">Reaction</string>
     <string name="reaction_recent">Recent</string>
     <string name="reaction_cat_smileys">Smileys</string>

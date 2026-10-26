@@ -130,7 +130,6 @@
     <string name="owner_two_people_hint">2 хүнтэй бүлэгт эзэмшигчийг солихын тулд одоогийн эзэмшигчийн зөвшөөрөл шаардлагатай.</string>
     <string name="owner_request_info" formatted="false">Эзэмшигч 7 хоног идэвхгүй бол боломжтой. Дараа нь өргөдөлд 24 цаг, санал хураалтад 24 цаг; эзэмшигчгүй гишүүдийн 50%-иас дээш кворум шаардлагатай. 2 хүнтэй бүлэгт таны санал хангалттай. Сонгууль дуусахаас өмнө эзэмшигч буцаж ирвэл цуцлагдана.</string>
     <string name="owner_badge">Эзэмшигч</string>
-    <string name="owner_challenge_cooldown">Сорилтыг 7 хоногт нэг удаа эхлүүлэх боломжтой.</string>
     <string name="reaction">Урвал</string>
     <string name="reaction_recent">Сүүлийн</string>
     <string name="reaction_cat_smileys">Смайл</string>

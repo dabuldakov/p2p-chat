@@ -142,7 +142,6 @@
     <string name="owner_two_people_hint">في مجموعة من شخصين، يتطلب تغيير المالك موافقة المالك الحالي.</string>
     <string name="owner_request_info" formatted="false">متاح إذا كان المالك غير نشط لمدة 7 أيام. ثم تفتح 24 ساعة لتقديم الطلبات و24 ساعة للتصويت؛ يلزم نصاب أكثر من 50% من الأعضاء بدون المالك. في مجموعة من شخصين يكفي تصويتك. إذا عاد المالك قبل انتهاء الانتخابات، تُلغى.</string>
     <string name="owner_badge">المالك</string>
-    <string name="owner_challenge_cooldown">يمكن بدء التحدي مرة كل 7 أيام.</string>
     <string name="reaction">تفاعل</string>
     <string name="reaction_recent">الأخيرة</string>
     <string name="reaction_cat_smileys">الوجوه</string>

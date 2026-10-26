@@ -130,7 +130,6 @@
     <string name="owner_two_people_hint">2 адамнан тұратын топта иесін ауыстыру үшін қазіргі иесінің келісімі қажет.</string>
     <string name="owner_request_info" formatted="false">Иесі 7 күн белсенді болмаса қолжетімді. Содан кейін өтінімдерге 24 сағат және дауыс беруге 24 сағат; иесінсіз қатысушылардың 50%-нан көбінің кворумы қажет. 2 адамдық топта сіздің дауысыңыз жеткілікті. Сайлау аяқталғанға дейін иесі қайтса, ол тоқтатылады.</string>
     <string name="owner_badge">Иесі</string>
-    <string name="owner_challenge_cooldown">Қарсы шығуды 7 күнде бір рет бастауға болады.</string>
     <string name="reaction">Реакция</string>
     <string name="reaction_recent">Соңғы</string>
     <string name="reaction_cat_smileys">Смайликтер</string>

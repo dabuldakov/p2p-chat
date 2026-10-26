@@ -133,7 +133,6 @@
     <string name="owner_two_people_hint">Dans un groupe de 2 personnes, le changement de propriétaire nécessite l’accord du propriétaire actuel.</string>
     <string name="owner_request_info" formatted="false">Disponible si le propriétaire est inactif depuis 7 jours. Ensuite, 24 h pour les candidatures et 24 h pour le vote ; une majorité de plus de 50 % des membres sans le propriétaire est requise. Dans un groupe de 2 personnes, votre vote suffit. Si le propriétaire revient avant la fin de l’élection, elle est annulée.</string>
     <string name="owner_badge">Propriétaire</string>
-    <string name="owner_challenge_cooldown">Un défi peut être lancé une fois tous les 7 jours.</string>
     <string name="reaction">Réaction</string>
     <string name="reaction_recent">Récentes</string>
     <string name="reaction_cat_smileys">Émoticônes</string>

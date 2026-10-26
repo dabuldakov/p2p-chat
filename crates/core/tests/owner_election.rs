@@ -651,6 +651,30 @@ fn two_person_challenge_owner_can_approve_immediately() {
 }
 
 #[test]
+fn challenge_can_repeat_immediately_after_finish_in_larger_group() {
+    let (mut engines, keys, g) = build_group(3);
+    let last = engines[1].owner_last_seen(&g);
+    let t = last + 3600;
+    set_now(&mut engines, t);
+
+    let claim = engines[1]
+        .create_owner_claim(&g, OwnerTrigger::Challenge)
+        .unwrap()
+        .expect("первый вызов");
+    pump(&mut engines, &keys, vec![(1, claim)]);
+
+    set_now(&mut engines, t + 2 * DAY + 60);
+    assert!(engines[1].finalize_owner_election(&g).unwrap().is_none());
+
+    // Cooldown 7 дней больше не применяется и для групп 3+.
+    let again = engines[1]
+        .create_owner_claim(&g, OwnerTrigger::Challenge)
+        .unwrap()
+        .expect("повторный вызов сразу после завершения");
+    assert!(!claim_id(&again).is_empty());
+}
+
+#[test]
 fn two_person_challenge_can_repeat_immediately_after_finish() {
     let (mut engines, keys, g) = build_group(2);
     let last = engines[1].owner_last_seen(&g);

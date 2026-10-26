@@ -72,7 +72,6 @@ pub struct GossipEngine {
 const OWNER_ABSENT_SECS: u64 = 7 * 24 * 3600;
 const OWNER_APPLY_SECS: u64 = 24 * 3600;
 const OWNER_VOTE_SECS: u64 = 24 * 3600;
-const OWNER_CHALLENGE_COOLDOWN: u64 = 7 * 24 * 3600;
 
 /// Активные выборы владельца группы.
 #[derive(Clone)]

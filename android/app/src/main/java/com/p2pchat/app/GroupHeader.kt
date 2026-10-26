@@ -169,18 +169,13 @@ internal fun GroupHeader(state: ChatUiState, dialogs: GroupDialogsState, actions
             }
         }
     }
-    val nowSec = (System.currentTimeMillis() / 1000L).toULong()
     val ownerAbsentDays = if (!state.isOwner && state.ownerLastSeen > 0L) {
         ((System.currentTimeMillis() - state.ownerLastSeen) / 86_400_000L).toInt()
     } else {
         0
     }
     val canRequest = !state.isOwner && ownerAbsentDays >= 7
-    val canChallenge = !state.isOwner && (
-        state.members.size <= 2 ||
-            state.ownerChallengeAt == 0uL ||
-            nowSec >= state.ownerChallengeAt + 7uL * 86_400uL
-        )
+    val canChallenge = !state.isOwner
     val electionActive = state.ownerElection != null
     val showOwnerActions = ownerActionsVisible(state.isOwner)
     val requestEnabled = ownerActionEnabled(canRequest, electionActive)
@@ -366,7 +361,7 @@ internal fun GroupHeader(state: ChatUiState, dialogs: GroupDialogsState, actions
                                     ).show()
                                     else -> Toast.makeText(
                                         ctx,
-                                        ctx.getString(R.string.owner_challenge_cooldown),
+                                        ctx.getString(R.string.owner_claim_unavailable),
                                         Toast.LENGTH_LONG,
                                     ).show()
                                 }

@@ -3,7 +3,7 @@
 use super::super::*;
 use super::{
     claim_sign_bytes, is_auto, is_challenge, vote_sign_bytes, OWNER_ABSENT_SECS, OWNER_ACTIVE_SECS,
-    OWNER_APPLY_SECS, OWNER_CHALLENGE_COOLDOWN, OWNER_CLOCK_SKEW, OWNER_FAIL_COOLDOWN,
+    OWNER_APPLY_SECS, OWNER_CLOCK_SKEW, OWNER_FAIL_COOLDOWN,
 };
 use std::collections::HashMap;
 
@@ -110,14 +110,7 @@ impl GossipEngine {
                 // Локальный выбор наследника (с фильтром 14 дней) — на стороне клиента.
                 return false;
             }
-        } else if c.trigger == OwnerTrigger::Challenge as i32 {
-            if fresh && self.members(&c.group_id).len() > 2 {
-                let last = self.owner_challenge_at(&c.group_id);
-                if last != 0 && c.created_at < last + OWNER_CHALLENGE_COOLDOWN {
-                    return false;
-                }
-            }
-        } else {
+        } else if !is_challenge(c.trigger) {
             return false;
         }
         true

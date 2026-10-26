@@ -136,7 +136,6 @@
     <string name="owner_two_people_hint">У групі з 2 осіб для зміни власника потрібна згода поточного власника.</string>
     <string name="owner_request_info" formatted="false">Доступно, якщо власник неактивний 7 днів. Далі 24 год на заявки й 24 год на голосування; потрібен кворум >50% учасників без власника. У групі з 2 осіб достатньо вашого голосу. Якщо власник повернеться до завершення виборів, вони скасовуються.</string>
     <string name="owner_badge">Власник</string>
-    <string name="owner_challenge_cooldown">Оспорити власника можна раз на 7 днів.</string>
     <string name="reaction">Реакція</string>
     <string name="reaction_recent">Нещодавні</string>
     <string name="reaction_cat_smileys">Смайлики</string>

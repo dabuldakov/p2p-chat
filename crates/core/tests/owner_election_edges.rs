@@ -293,7 +293,7 @@ fn create_claim_rejections() {
         .is_some());
     let _ = keys;
 
-    // AUTO слишком рано, не наследник, cooldown вызова.
+    // AUTO слишком рано, не наследник; challenge без cooldown.
     let (mut engines, keys, g) = build_group(3);
     let last = engines[1].owner_last_seen(&g);
     let early_t = last + 7 * DAY + 3600;
@@ -320,7 +320,7 @@ fn create_claim_rejections() {
     assert!(engines[nonowners[0]]
         .create_owner_claim(&g, OwnerTrigger::Challenge)
         .unwrap()
-        .is_none());
+        .is_some());
 
     // Активная заявка: повторная заявка того же участника.
     let (mut engines, _keys, g) = build_group(3);
