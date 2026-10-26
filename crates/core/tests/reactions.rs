@@ -4,7 +4,12 @@ mod common;
 
 use common::*;
 
-fn rid(e: &p2pchat_core::GossipEngine, _g: &[u8], id: &[u8], me: &[u8]) -> Vec<(String, u32, bool)> {
+fn rid(
+    e: &p2pchat_core::GossipEngine,
+    _g: &[u8],
+    id: &[u8],
+    me: &[u8],
+) -> Vec<(String, u32, bool)> {
     e.reactions_for(id, me)
         .into_iter()
         .map(|r| (r.emoji, r.count, r.mine))
@@ -69,9 +74,18 @@ fn multiple_reactors_count_together() {
     let b = engines[2].react(&g, &id, "❤️", true).unwrap().unwrap();
     pump(&mut engines, &keys, vec![(1, a), (2, b)]);
     for e in &engines {
-        assert_eq!(rid(e, &g, &id, &engines[1].peer_id()), vec![("❤️".into(), 2, true)]);
-        assert_eq!(rid(e, &g, &id, &engines[2].peer_id()), vec![("❤️".into(), 2, true)]);
-        assert_eq!(rid(e, &g, &id, &engines[0].peer_id()), vec![("❤️".into(), 2, false)]);
+        assert_eq!(
+            rid(e, &g, &id, &engines[1].peer_id()),
+            vec![("❤️".into(), 2, true)]
+        );
+        assert_eq!(
+            rid(e, &g, &id, &engines[2].peer_id()),
+            vec![("❤️".into(), 2, true)]
+        );
+        assert_eq!(
+            rid(e, &g, &id, &engines[0].peer_id()),
+            vec![("❤️".into(), 2, false)]
+        );
     }
 }
 
@@ -82,7 +96,10 @@ fn reject_unknown_or_invalid() {
     assert!(id.is_none());
     assert!(engines[1].react(&g, b"nope", "👍", true).unwrap().is_none());
     assert!(engines[1].react(&g, b"nope", "", true).unwrap().is_none());
-    assert!(engines[1].react(b"other", b"nope", "👍", true).unwrap().is_none());
+    assert!(engines[1]
+        .react(b"other", b"nope", "👍", true)
+        .unwrap()
+        .is_none());
 }
 
 #[test]
@@ -101,7 +118,13 @@ fn limit_100_reactions_per_user() {
             "reaction {i}"
         );
     }
-    assert!(engines[1].react(&g, &id, "overflow", true).unwrap().is_none());
+    assert!(engines[1]
+        .react(&g, &id, "overflow", true)
+        .unwrap()
+        .is_none());
     assert!(engines[1].react(&g, &id, "e0", false).unwrap().is_some());
-    assert!(engines[1].react(&g, &id, "overflow", true).unwrap().is_some());
+    assert!(engines[1]
+        .react(&g, &id, "overflow", true)
+        .unwrap()
+        .is_some());
 }

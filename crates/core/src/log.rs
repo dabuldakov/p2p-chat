@@ -12,7 +12,7 @@ use p2pchat_storage::{ReactionRow, Store, StoredMessage};
 
 use crate::clock::Lamport;
 use crate::proto::ChatMessage;
-use crate::{message_id, unix_now, GroupId, MessageId, CoreError};
+use crate::{message_id, unix_now, CoreError, GroupId, MessageId};
 
 pub struct Log {
     clock: Lamport,
@@ -156,17 +156,19 @@ impl Log {
                     wall_time: msg.wall_time,
                     text: msg.text.clone(),
                     parents: msg.parents.clone(),
-                    attachment: msg.attachment.as_ref().map(|a| p2pchat_storage::StoredAttachment {
-                        kind: a.kind.clone(),
-                        id: a.id.clone(),
-                        width: a.width,
-                        height: a.height,
-                        url: a.url.clone(),
-                        mime: a.mime.clone(),
-                        size: a.size,
-                        duration_ms: a.duration_ms,
-                        file_name: a.file_name.clone(),
-                        thumbnail: a.thumbnail.clone(),
+                    attachment: msg.attachment.as_ref().map(|a| {
+                        p2pchat_storage::StoredAttachment {
+                            kind: a.kind.clone(),
+                            id: a.id.clone(),
+                            width: a.width,
+                            height: a.height,
+                            url: a.url.clone(),
+                            mime: a.mime.clone(),
+                            size: a.size,
+                            duration_ms: a.duration_ms,
+                            file_name: a.file_name.clone(),
+                            thumbnail: a.thumbnail.clone(),
+                        }
                     }),
                 },
                 self.clock.value(),
@@ -204,7 +206,10 @@ impl Log {
         if let Some(s) = &self.store {
             s.set_meta(key, value)?;
         } else {
-            self.mem_meta.lock().unwrap().insert(key.to_string(), value.to_vec());
+            self.mem_meta
+                .lock()
+                .unwrap()
+                .insert(key.to_string(), value.to_vec());
         }
         Ok(())
     }
@@ -325,7 +330,14 @@ impl Log {
     /// Сохранить (разрешённое) событие членства.
     pub fn store_membership(&self, ev: &crate::proto::MembershipEvent) -> Result<(), CoreError> {
         if let Some(s) = &self.store {
-            s.upsert_membership(&ev.group_id, &ev.peer_id, &ev.public_key, ev.join, ev.lamport, &ev.id)?;
+            s.upsert_membership(
+                &ev.group_id,
+                &ev.peer_id,
+                &ev.public_key,
+                ev.join,
+                ev.lamport,
+                &ev.id,
+            )?;
         }
         Ok(())
     }
@@ -337,14 +349,16 @@ impl Log {
         };
         Ok(rows
             .into_iter()
-            .map(|(group_id, peer_id, public_key, join, lamport, id)| crate::proto::MembershipEvent {
-                group_id,
-                peer_id,
-                public_key,
-                join,
-                lamport,
-                author: Vec::new(),
-                id,
+            .map(|(group_id, peer_id, public_key, join, lamport, id)| {
+                crate::proto::MembershipEvent {
+                    group_id,
+                    peer_id,
+                    public_key,
+                    join,
+                    lamport,
+                    author: Vec::new(),
+                    id,
+                }
             })
             .collect())
     }
@@ -407,11 +421,7 @@ impl Log {
             .collect();
 
         // порядок: сначала меньший lamport, при равенстве — меньший id
-        group.sort_by(|a, b| {
-            a.lamport
-                .cmp(&b.lamport)
-                .then_with(|| a.id.cmp(&b.id))
-        });
+        group.sort_by(|a, b| a.lamport.cmp(&b.lamport).then_with(|| a.id.cmp(&b.id)));
 
         // Кан-топосорт: узел готов, когда все его родители из группы уже вышли.
         let in_group: HashSet<&MessageId> = group.iter().map(|m| &m.id).collect();
@@ -444,6 +454,31 @@ impl Log {
         out
     }
 
+    /// Страница истории: последние `limit` сообщений до `before_id`.
+    /// В SQLite читается только нужное окно, а не вся история.
+    pub fn page(
+        &self,
+        group_id: &[u8],
+        before_id: Option<&[u8]>,
+        limit: usize,
+    ) -> Result<(Vec<ChatMessage>, bool), CoreError> {
+        if let Some(store) = &self.store {
+            let mut rows = store.messages_page(group_id, before_id, (limit + 1) as i64)?;
+            let has_more = rows.len() > limit;
+            if has_more {
+                rows.remove(0);
+            }
+            return Ok((rows.into_iter().map(stored_to_chat).collect(), has_more));
+        }
+        let all = self.ordered(group_id);
+        let end = match before_id {
+            Some(id) => all.iter().position(|m| m.id == id).unwrap_or(all.len()),
+            None => all.len(),
+        };
+        let start = end.saturating_sub(limit);
+        Ok((all[start..end].to_vec(), start > 0))
+    }
+
     /// Родители, которых у нас нет (нужны для синка).
     pub fn missing_parents(&self, group_id: &[u8]) -> Vec<MessageId> {
         let mut missing = HashSet::new();
@@ -458,6 +493,19 @@ impl Log {
             }
         }
         missing.into_iter().collect()
+    }
+}
+
+fn stored_to_chat(m: StoredMessage) -> ChatMessage {
+    ChatMessage {
+        id: m.id,
+        group_id: m.group_id,
+        author: m.author,
+        lamport: m.lamport,
+        wall_time: m.wall_time,
+        text: m.text,
+        parents: m.parents,
+        attachment: m.attachment.map(to_attachment),
     }
 }
 
@@ -503,9 +551,13 @@ mod tests {
         let alice = b"alice".to_vec();
         let bob = b"bob".to_vec();
 
-        let m1 = a.append_local(g.clone(), alice.clone(), "hi".into(), None).unwrap();
+        let m1 = a
+            .append_local(g.clone(), alice.clone(), "hi".into(), None)
+            .unwrap();
         b.merge(m1.clone()).unwrap();
-        let m2 = b.append_local(g.clone(), bob.clone(), "hello".into(), None).unwrap();
+        let m2 = b
+            .append_local(g.clone(), bob.clone(), "hello".into(), None)
+            .unwrap();
         a.merge(m2.clone()).unwrap();
 
         assert_eq!(a.len(), 2);
@@ -528,8 +580,12 @@ mod tests {
         assert!(l.is_empty());
         assert_eq!(l.len(), 0);
         let g = b"g".to_vec();
-        let m1 = l.append_local(g.clone(), b"a".to_vec(), "1".into(), None).unwrap();
-        let m2 = l.append_local(g.clone(), b"a".to_vec(), "2".into(), None).unwrap();
+        let m1 = l
+            .append_local(g.clone(), b"a".to_vec(), "1".into(), None)
+            .unwrap();
+        let m2 = l
+            .append_local(g.clone(), b"a".to_vec(), "2".into(), None)
+            .unwrap();
         assert_eq!(l.len(), 2);
         assert!(l.get(&m1.id).is_some());
         assert!(l.get(b"nope").is_none());
@@ -626,10 +682,10 @@ mod tests {
             file_name: String::new(),
             thumbnail: Vec::new(),
         };
-        l.append_local(g.clone(), author.clone(), "".into(), Some(att)).unwrap();
+        l.append_local(g.clone(), author.clone(), "".into(), Some(att))
+            .unwrap();
         assert_eq!(l.gifs_for_group(&g, 10).unwrap().len(), 1);
         assert_eq!(l.gifs_by_author(&author, 10).unwrap().len(), 1);
         assert_eq!(l.gifs_for_group(b"other", 10).unwrap().len(), 0);
     }
-
 }

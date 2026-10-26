@@ -41,13 +41,19 @@ fn group_survives_restart() {
     // «Перезапуск»: поднимаем личности и группы из БД.
     let alice2 = load_identity(b"alice-account", &alice_db).expect("load alice");
     let bob2 = load_identity(b"bob-account", &bob_db).expect("load bob");
-    let mut alice_group2 = load_group(&alice2, b"team").expect("lg a").expect("alice group");
-    let mut bob_group2 = load_group(&bob2, b"team").expect("lg b").expect("bob group");
+    let mut alice_group2 = load_group(&alice2, b"team")
+        .expect("lg a")
+        .expect("alice group");
+    let mut bob_group2 = load_group(&bob2, b"team")
+        .expect("lg b")
+        .expect("bob group");
 
     // Продолжаем переписку после перезапуска.
     let ct2 = encrypt(&mut alice_group2, &alice2, b"after restart").expect("e2");
     assert_eq!(
-        decrypt(&mut bob_group2, &bob2, &ct2).expect("d2").as_deref(),
+        decrypt(&mut bob_group2, &bob2, &ct2)
+            .expect("d2")
+            .as_deref(),
         Some(&b"after restart"[..])
     );
 

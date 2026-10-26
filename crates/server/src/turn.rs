@@ -71,7 +71,8 @@ pub async fn serve_creds(
                     body
                 )
             } else {
-                "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string()
+                "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    .to_string()
             };
             if sock.write_all(response.as_bytes()).await.is_err() {
                 warn!("could not write turn-credentials response");
@@ -112,10 +113,17 @@ mod tests {
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-        tokio::spawn(serve_creds(listener, Arc::new(b"secret".to_vec()), "turn.example".into(), 60));
+        tokio::spawn(serve_creds(
+            listener,
+            Arc::new(b"secret".to_vec()),
+            "turn.example".into(),
+            60,
+        ));
 
         let mut s = TcpStream::connect(addr).await.unwrap();
-        s.write_all(b"GET /turn-credentials HTTP/1.1\r\nHost: x\r\n\r\n").await.unwrap();
+        s.write_all(b"GET /turn-credentials HTTP/1.1\r\nHost: x\r\n\r\n")
+            .await
+            .unwrap();
         let mut buf = vec![0u8; 4096];
         let n = s.read(&mut buf).await.unwrap();
         let resp = String::from_utf8_lossy(&buf[..n]);
@@ -129,5 +137,4 @@ mod tests {
         let n2 = s2.read(&mut buf2).await.unwrap();
         assert!(String::from_utf8_lossy(&buf2[..n2]).contains("404 Not Found"));
     }
-
 }

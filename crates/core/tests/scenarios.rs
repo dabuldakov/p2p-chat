@@ -33,8 +33,10 @@ fn groups_are_isolated() {
         }
     }
 
-    b.handle(&enc(&a.post(g1.clone(), "в первой".into()).unwrap())).unwrap();
-    b.handle(&enc(&a.post(g2.clone(), "во второй".into()).unwrap())).unwrap();
+    b.handle(&enc(&a.post(g1.clone(), "в первой".into()).unwrap()))
+        .unwrap();
+    b.handle(&enc(&a.post(g2.clone(), "во второй".into()).unwrap()))
+        .unwrap();
     assert_eq!(b.log().ordered(&g1).len(), 1);
     assert_eq!(b.log().ordered(&g2).len(), 1);
 }
@@ -46,9 +48,17 @@ fn member_removed_updates_membership() {
 
     let victim = engines[1].peer_id();
     let outs = engines[0].remove_member(&g, &victim).unwrap();
-    pump(&mut engines, &keys, outs.into_iter().map(|o| (0usize, o)).collect());
+    pump(
+        &mut engines,
+        &keys,
+        outs.into_iter().map(|o| (0usize, o)).collect(),
+    );
 
-    assert_eq!(engines[0].members(&g).len(), 1, "удалённый исчез из состава");
+    assert_eq!(
+        engines[0].members(&g).len(),
+        1,
+        "удалённый исчез из состава"
+    );
     assert!(engines[0].neighbors(&g).is_empty());
 }
 
@@ -60,7 +70,9 @@ fn membership_persists_across_restart() {
     {
         let store = Store::open(&path).unwrap();
         let identity = Identity::generate();
-        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        store
+            .set_meta("identity", &identity.secret_bytes())
+            .unwrap();
         let mut a = GossipEngine::new(identity, Log::with_store(store).unwrap());
         a.load_state().unwrap();
         a.load_mls(&path).unwrap();
@@ -78,7 +90,8 @@ fn membership_persists_across_restart() {
 
     // перезапуск
     let store = Store::open(&path).unwrap();
-    let identity = Identity::from_secret_bytes(&store.get_meta("identity").unwrap().unwrap()).unwrap();
+    let identity =
+        Identity::from_secret_bytes(&store.get_meta("identity").unwrap().unwrap()).unwrap();
     let mut a = GossipEngine::new(identity, Log::with_store(store).unwrap());
     a.load_state().unwrap();
     a.load_mls(&path).unwrap();
@@ -116,6 +129,9 @@ fn leave_removes_group_from_list() {
     let (mut engines, _keys, g) = build_group(2);
     assert!(engines[0].groups().contains(&g));
     engines[1].leave_group(&g).unwrap();
-    assert!(!engines[1].groups().contains(&g), "вышедший больше не видит группу");
+    assert!(
+        !engines[1].groups().contains(&g),
+        "вышедший больше не видит группу"
+    );
     assert!(!engines[1].has_group(&g));
 }

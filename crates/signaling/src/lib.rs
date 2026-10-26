@@ -76,7 +76,9 @@ impl SignalingHub {
                 let tx = clients
                     .get(&msg.to)
                     .ok_or_else(|| SignalingError::UnknownPeer(msg.to.clone()))?;
-                tx.send(msg.clone()).await.map_err(|_| SignalingError::Closed)?;
+                tx.send(msg.clone())
+                    .await
+                    .map_err(|_| SignalingError::Closed)?;
             }
             None => return Err(SignalingError::Protocol("empty body".into())),
         }
@@ -117,7 +119,11 @@ impl Signaling for MemorySignaling {
 }
 
 /// Хелперы для сборки сигнальных сообщений.
-pub fn register(from: Vec<u8>, peer_id: Vec<u8>, endpoints: Vec<p2pchat_proto::Endpoint>) -> SignalEnvelope {
+pub fn register(
+    from: Vec<u8>,
+    peer_id: Vec<u8>,
+    endpoints: Vec<p2pchat_proto::Endpoint>,
+) -> SignalEnvelope {
     SignalEnvelope {
         from,
         to: Vec::new(),
@@ -177,9 +183,14 @@ mod tests {
         let mut b_rx = b.incoming().await;
         let mut c_rx = c.incoming().await;
 
-        a.send(offer(b"a".to_vec(), b"b".to_vec(), b"sdp".to_vec(), "s1".into()))
-            .await
-            .unwrap();
+        a.send(offer(
+            b"a".to_vec(),
+            b"b".to_vec(),
+            b"sdp".to_vec(),
+            "s1".into(),
+        ))
+        .await
+        .unwrap();
 
         let got = b_rx.try_recv().expect("b must receive");
         assert_eq!(got.to, b"b".to_vec());
@@ -193,7 +204,9 @@ mod tests {
         let b = hub.connect(b"b".to_vec()).await;
         let mut b_rx = b.incoming().await;
 
-        a.send(register(b"a".to_vec(), b"a".to_vec(), vec![])).await.unwrap();
+        a.send(register(b"a".to_vec(), b"a".to_vec(), vec![]))
+            .await
+            .unwrap();
         let got = b_rx.try_recv().expect("broadcast");
         assert_eq!(got.from, b"a".to_vec());
     }

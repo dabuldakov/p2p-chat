@@ -84,14 +84,22 @@ fn finish_identity(
         .get(SIGNER_PUB_KEY)
         .cloned()
         .ok_or_else(|| MlsError::Mls("signer pubkey не найден в хранилище".into()))?;
-    let signer = SignatureKeyPair::read(provider.storage(), &public, CIPHERSUITE.signature_algorithm())
-        .ok_or_else(|| MlsError::Mls("SignatureKeyPair не восстановлен".into()))?;
+    let signer = SignatureKeyPair::read(
+        provider.storage(),
+        &public,
+        CIPHERSUITE.signature_algorithm(),
+    )
+    .ok_or_else(|| MlsError::Mls("SignatureKeyPair не восстановлен".into()))?;
     let credential = BasicCredential::new(identity.to_vec());
     let credential_with_key = CredentialWithKey {
         credential: credential.into(),
         signature_key: signer.public().into(),
     };
-    Ok(MlsIdentity { provider, signer, credential_with_key })
+    Ok(MlsIdentity {
+        provider,
+        signer,
+        credential_with_key,
+    })
 }
 
 /// Записать публичный ключ подписи в KV (вызывается при создании личности).

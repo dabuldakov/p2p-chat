@@ -96,9 +96,11 @@ fun ReactionPickerDialog(
 
     fun choose(emoji: String) {
         val add = emoji !in selected
-        if (vm.react(message.id, emoji, add)) {
-            selected = if (add) selected + emoji else selected - emoji
-            if (add) recent = pushRecent(prefs, emoji)
+        vm.react(message.id, emoji, add) { ok ->
+            if (ok) {
+                selected = if (add) selected + emoji else selected - emoji
+                if (add) recent = pushRecent(prefs, emoji)
+            }
         }
     }
 

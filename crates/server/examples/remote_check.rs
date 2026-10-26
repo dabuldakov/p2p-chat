@@ -41,16 +41,26 @@ async fn main() {
     let mut b_rx = b.incoming().await;
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    a.send(offer(a_pk.clone(), b_pk.clone(), b"SDP-OFFER".to_vec(), "s1".into()))
-        .await
-        .expect("send offer");
+    a.send(offer(
+        a_pk.clone(),
+        b_pk.clone(),
+        b"SDP-OFFER".to_vec(),
+        "s1".into(),
+    ))
+    .await
+    .expect("send offer");
     let got = recv_signal(&mut b_rx).await;
     assert_eq!(got.to, b_pk, "offer должен прийти B");
     println!("B <- offer от {}", hex4(&got.from));
 
-    b.send(answer(b_pk.clone(), a_pk.clone(), b"SDP-ANSWER".to_vec(), "s1".into()))
-        .await
-        .expect("send answer");
+    b.send(answer(
+        b_pk.clone(),
+        a_pk.clone(),
+        b"SDP-ANSWER".to_vec(),
+        "s1".into(),
+    ))
+    .await
+    .expect("send answer");
     let got = recv_signal(&mut a_rx).await;
     assert_eq!(got.to, a_pk, "answer должен прийти A");
     println!("A <- answer от {}", hex4(&got.from));

@@ -51,7 +51,7 @@ fn expired_invite_rejected() {
     host.create_group(g.clone()).unwrap();
     // срок в прошлом
     let invite = host.create_invite(&g, 0, 1).unwrap(); // 0 = без срока
-    // делаем просроченный вручную через билет с tiny ttl
+                                                        // делаем просроченный вручную через билет с tiny ttl
     let invite2 = host.create_invite(&g, 1, 1).unwrap();
     std::thread::sleep(std::time::Duration::from_secs(2));
     let _ = invite; // без срока — не проверяем
@@ -73,5 +73,9 @@ fn named_group_id_is_random_and_name_comes_from_invite() {
     let joiner = engine();
     let (jgid, _) = joiner.join_request(&invite).unwrap();
     assert_eq!(jgid, gid);
-    assert_eq!(joiner.group_name(&jgid), "Team Alpha", "имя берётся из подписанного билета");
+    assert_eq!(
+        joiner.group_name(&jgid),
+        "Team Alpha",
+        "имя берётся из подписанного билета"
+    );
 }

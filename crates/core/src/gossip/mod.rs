@@ -12,10 +12,17 @@ mod owner;
 use crate::mls::{MlsGroups, Received};
 use crate::peers::PeerTable;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, DeleteEvent, Direct, EditEvent, Envelope, Gossip, GroupProfile, LeaveEvent, Link, Links, Mls, OwnerAlive, OwnerChange, OwnerClaim, OwnerTrigger, OwnerVote, PeerInfo, Presence, ProfileEvent, ReactionEvent};
+use crate::proto::{
+    ChatMessage, Direct, Envelope, Gossip, LeaveEvent, Mls, OwnerAlive, OwnerChange, OwnerClaim,
+    OwnerTrigger, OwnerVote, PeerInfo, Presence, ReactionEvent,
+};
 use crate::{CoreError, GroupId, MessageId, PeerId};
 
+mod content;
+mod profile;
+mod reactions;
 mod sync;
+pub use reactions::ReactionSummary;
 
 /// Количество соседей для пересылки (используется транспортом при выборе цели).
 pub const FANOUT: usize = 5;
@@ -66,15 +73,6 @@ const OWNER_ABSENT_SECS: u64 = 7 * 24 * 3600;
 const OWNER_APPLY_SECS: u64 = 24 * 3600;
 const OWNER_VOTE_SECS: u64 = 24 * 3600;
 const OWNER_CHALLENGE_COOLDOWN: u64 = 7 * 24 * 3600;
-const MAX_REACTIONS_PER_USER: usize = 100;
-
-/// Агрегированная реакция для UI.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ReactionSummary {
-    pub emoji: String,
-    pub count: u32,
-    pub mine: bool,
-}
 
 /// Активные выборы владельца группы.
 #[derive(Clone)]
@@ -152,7 +150,10 @@ impl GossipEngine {
 
     /// Заменить идентичность (после восстановления из seed-фразы).
     /// Допустимо только на пустом профиле — иначе ссылки/MLS станут невалидны.
-    pub fn replace_identity(&mut self, identity: p2pchat_crypto::Identity) -> Result<(), CoreError> {
+    pub fn replace_identity(
+        &mut self,
+        identity: p2pchat_crypto::Identity,
+    ) -> Result<(), CoreError> {
         self.identity = identity;
         self.mls = match &self.mls_db {
             Some(db) => MlsGroups::load(&self.identity, db)?,
@@ -219,7 +220,9 @@ impl GossipEngine {
     /// Создать новую группу (MLS). Ключ раздаётся попарно при впуске.
     pub fn create_group(&mut self, group: GroupId) -> Result<(), CoreError> {
         self.mls.create(&group)?;
-        let _ = self.log.set_meta(&format!("owner:{}", hex(&group)), &self.peer_id());
+        let _ = self
+            .log
+            .set_meta(&format!("owner:{}", hex(&group)), &self.peer_id());
         let _ = self.log.set_meta(
             &format!("owner_alive:{}", hex(&group)),
             &self.now().to_le_bytes(),
@@ -238,7 +241,9 @@ impl GossipEngine {
         self.create_group(gid.clone())?;
         let name = name.trim();
         if !name.is_empty() {
-            let _ = self.log.set_meta(&format!("name:{}", hex(&gid)), name.as_bytes());
+            let _ = self
+                .log
+                .set_meta(&format!("name:{}", hex(&gid)), name.as_bytes());
         }
         Ok(gid)
     }
@@ -266,10 +271,7 @@ impl GossipEngine {
             }
         }
         // Старые группы без owner-меты: детерминированный fallback по peer_id.
-        self.members(group)
-            .into_iter()
-            .map(|m| m.peer_id)
-            .min()
+        self.members(group).into_iter().map(|m| m.peer_id).min()
     }
 
     /// Мы владелец группы (её создатель)?
@@ -307,10 +309,16 @@ impl GossipEngine {
         };
         let commit = self.mls.remove_member(group, &pk)?;
         let env = self.seal(Gossip {
-            body: Some(Body::Mls(Mls { group_id: group.to_vec(), message: commit })),
+            body: Some(Body::Mls(Mls {
+                group_id: group.to_vec(),
+                message: commit,
+            })),
         })?;
         self.persist_mls();
-        Ok(vec![Outgoing { envelope: env, targets: self.member_keys(group) }])
+        Ok(vec![Outgoing {
+            envelope: env,
+            targets: self.member_keys(group),
+        }])
     }
 
     pub fn has_group(&self, group: &[u8]) -> bool {
@@ -361,7 +369,10 @@ impl GossipEngine {
                 .insert(emoji, lamport);
         }
         if let Ok(Some(b)) = self.log.get_meta("blocked") {
-            for line in String::from_utf8_lossy(&b).split('\n').filter(|s| !s.is_empty()) {
+            for line in String::from_utf8_lossy(&b)
+                .split('\n')
+                .filter(|s| !s.is_empty())
+            {
                 if let Ok(p) = unhex(line) {
                     self.blocked.insert(p);
                 }
@@ -418,7 +429,9 @@ impl GossipEngine {
             return Err(CoreError::BadEnvelope("invite: только владелец".into()));
         }
         if self.owner_election_active(group) {
-            return Err(CoreError::BadEnvelope("invite: идут выборы владельца".into()));
+            return Err(CoreError::BadEnvelope(
+                "invite: идут выборы владельца".into(),
+            ));
         }
         let now = crate::unix_now();
         let expiry = if ttl_secs == 0 { 0 } else { now + ttl_secs };
@@ -432,7 +445,9 @@ impl GossipEngine {
             &name,
             &self.identity,
         );
-        let _ = self.log.set_meta(&format!("invite:{}", inv.use_token()), b"1");
+        let _ = self
+            .log
+            .set_meta(&format!("invite:{}", inv.use_token()), b"1");
         Ok(inv.encode())
     }
 
@@ -444,17 +459,18 @@ impl GossipEngine {
         }
         // Запоминаем владельца (хозяин билета) — нужно для выхода/передачи владения.
         let owner_pid = p2pchat_crypto::content_id(&inv.host).to_vec();
-        let _ = self.log.set_meta(&format!("owner:{}", hex(&inv.group_id)), &owner_pid);
+        let _ = self
+            .log
+            .set_meta(&format!("owner:{}", hex(&inv.group_id)), &owner_pid);
         let _ = self.log.set_meta(
             &format!("owner_alive:{}", hex(&inv.group_id)),
             &self.now().to_le_bytes(),
         );
         // Запоминаем имя группы из билета (чтобы оно было видно до/после входа).
         if !inv.name.is_empty() {
-            let _ = self.log.set_meta(
-                &format!("name:{}", hex(&inv.group_id)),
-                inv.name.as_bytes(),
-            );
+            let _ = self
+                .log
+                .set_meta(&format!("name:{}", hex(&inv.group_id)), inv.name.as_bytes());
         }
         let req = crate::proto::JoinRequest {
             group_id: inv.group_id.clone(),
@@ -465,7 +481,13 @@ impl GossipEngine {
             body: Some(crate::proto::pairwise::Body::JoinRequest(req)),
         };
         let env = self.seal_pairwise(&inv.host, &pairwise.encode_to_vec())?;
-        Ok((inv.group_id, Outgoing { envelope: env, targets: vec![inv.host.clone()] }))
+        Ok((
+            inv.group_id,
+            Outgoing {
+                envelope: env,
+                targets: vec![inv.host.clone()],
+            },
+        ))
     }
 
     /// Выйти из группы: убираем её из локального состояния (список групп).
@@ -494,12 +516,17 @@ impl GossipEngine {
             wall_time: crate::unix_now(),
             author: me,
         };
-        let env = self.seal(Gossip { body: Some(Body::Leave(ev)) })?;
+        let env = self.seal(Gossip {
+            body: Some(Body::Leave(ev)),
+        })?;
         let targets = self.neighbor_keys(group);
         self.mls.remove(group);
         self.forget_group(group);
         self.persist_mls();
-        Ok(Some(Outgoing { envelope: env, targets }))
+        Ok(Some(Outgoing {
+            envelope: env,
+            targets,
+        }))
     }
 
     /// Убрать id группы из списка для загрузки при старте.
@@ -602,14 +629,20 @@ impl GossipEngine {
     /// Сообщение чата + адресаты (участники его группы).
     fn out_msg(&mut self, msg: ChatMessage) -> Result<Outgoing, CoreError> {
         let envelope = self.encrypt_env(&msg)?;
-        Ok(Outgoing { envelope, targets: self.neighbor_keys(&msg.group_id) })
+        Ok(Outgoing {
+            envelope,
+            targets: self.neighbor_keys(&msg.group_id),
+        })
     }
 
     /// Зашифровать `ChatMessage` через MLS и упаковать в конверт.
     fn encrypt_env(&mut self, msg: &ChatMessage) -> Result<Envelope, CoreError> {
         let message = self.mls.encrypt(&msg.group_id, &msg.encode_to_vec())?;
         self.seal(Gossip {
-            body: Some(Body::Mls(Mls { group_id: msg.group_id.clone(), message })),
+            body: Some(Body::Mls(Mls {
+                group_id: msg.group_id.clone(),
+                message,
+            })),
         })
     }
 
@@ -632,12 +665,18 @@ impl GossipEngine {
 
     /// Адресовать конкретному пиру (напр. ответ на синк).
     fn out_to(&self, envelope: Envelope, target: Vec<u8>) -> Outgoing {
-        Outgoing { envelope, targets: vec![target] }
+        Outgoing {
+            envelope,
+            targets: vec![target],
+        }
     }
 
     /// Рассылка всем подключённым.
     fn out_all(&self, envelope: Envelope) -> Outgoing {
-        Outgoing { envelope, targets: Vec::new() }
+        Outgoing {
+            envelope,
+            targets: Vec::new(),
+        }
     }
 
     /// Отправить набор сообщений конкретному пиру (ответ на синк).
@@ -751,10 +790,16 @@ impl GossipEngine {
         if let Some(g) = forward_group {
             let targets = self.neighbor_keys(&g);
             if !targets.is_empty() {
-                out.outgoing.push(Outgoing { envelope: env.clone(), targets });
+                out.outgoing.push(Outgoing {
+                    envelope: env.clone(),
+                    targets,
+                });
             }
         } else if forward_broadcast {
-            out.outgoing.push(Outgoing { envelope: env.clone(), targets: Vec::new() });
+            out.outgoing.push(Outgoing {
+                envelope: env.clone(),
+                targets: Vec::new(),
+            });
         }
 
         // если не хватает родителей — инициируем Merkle-синк по группе
@@ -832,10 +877,12 @@ impl GossipEngine {
     /// Разослать свою таблицу пиров.
     pub fn announce_peers(&mut self) -> Result<Envelope, CoreError> {
         let list = self.peers.snapshot();
-        self.seal(Gossip { body: Some(Body::PeerList(list)) })
+        self.seal(Gossip {
+            body: Some(Body::PeerList(list)),
+        })
     }
 
-fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), CoreError> {
+    fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), CoreError> {
         // отмечаем автора как живым
         self.touch_peer(&msg.author);
         if self.log.merge(msg.clone())? {
@@ -900,7 +947,8 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         if d.to != self.public_key() {
             return Ok(());
         }
-        let Ok(sender_vk) = VerifyingKey::from_bytes(origin.try_into().unwrap_or(&[0u8; 32])) else {
+        let Ok(sender_vk) = VerifyingKey::from_bytes(origin.try_into().unwrap_or(&[0u8; 32]))
+        else {
             return Ok(());
         };
         let Ok(nonce) = <[u8; 12]>::try_from(d.nonce.as_slice()) else {
@@ -966,9 +1014,14 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             return Ok(());
         }
         let (commit, welcome) = self.mls.add_member(&req.group_id, &req.key_package)?;
-        let _ = self.log.set_meta(&format!("used:{token}"), &(used + 1).to_le_bytes());
+        let _ = self
+            .log
+            .set_meta(&format!("used:{token}"), &(used + 1).to_le_bytes());
         let commit_env = self.seal(Gossip {
-            body: Some(Body::Mls(Mls { group_id: req.group_id.clone(), message: commit })),
+            body: Some(Body::Mls(Mls {
+                group_id: req.group_id.clone(),
+                message: commit,
+            })),
         })?;
         // Commit — только уже состоящим участникам; новому уходит Welcome.
         let targets: Vec<Vec<u8>> = self
@@ -976,213 +1029,23 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             .into_iter()
             .filter(|k| k != origin)
             .collect();
-        out.outgoing.push(Outgoing { envelope: commit_env, targets });
+        out.outgoing.push(Outgoing {
+            envelope: commit_env,
+            targets,
+        });
         let pw = crate::proto::Pairwise {
-            body: Some(crate::proto::pairwise::Body::JoinWelcome(crate::proto::JoinWelcome {
-                group_id: req.group_id.clone(),
-                welcome,
-            })),
+            body: Some(crate::proto::pairwise::Body::JoinWelcome(
+                crate::proto::JoinWelcome {
+                    group_id: req.group_id.clone(),
+                    welcome,
+                },
+            )),
         };
         let wel_env = self.seal_pairwise(origin, &pw.encode_to_vec())?;
-        out.outgoing.push(Outgoing { envelope: wel_env, targets: vec![origin.to_vec()] });
-        Ok(())
-    }
-
-    /// Принять публикацию связей (эфемерно, LWW по времени автора).
-    fn on_links(&mut self, l: Links, origin: &[u8]) -> Result<(), CoreError> {
-        // принимаем только от участника группы и с корректным peer_id
-        let is_member = self.members(&l.group_id).iter().any(|m| m.public_key == origin);
-        if !is_member || p2pchat_crypto::content_id(origin).to_vec() != l.peer_id {
-            return Ok(());
-        }
-        let snap: Vec<(Vec<u8>, String)> =
-            l.links.iter().map(|k| (k.peer_id.clone(), k.kind.clone())).collect();
-        let e = self.links.entry(l.group_id).or_default();
-        let cur = e.get(&l.peer_id).map(|(t, _)| *t).unwrap_or(0);
-        if l.time >= cur {
-            e.insert(l.peer_id, (l.time, snap));
-        }
-        Ok(())
-    }
-
-    /// Опубликовать свои активные связи в группе (рассылается соседям).
-    pub fn post_links(
-        &mut self,
-        group: &[u8],
-        links: Vec<(Vec<u8>, String)>,
-    ) -> Result<Option<Outgoing>, CoreError> {
-        if !self.mls.has(group) {
-            return Ok(None);
-        }
-        let me = self.peer_id();
-        let msg = Links {
-            group_id: group.to_vec(),
-            peer_id: me.clone(),
-            time: crate::unix_now(),
-            links: links
-                .into_iter()
-                .map(|(p, k)| Link { peer_id: p, kind: k })
-                .collect(),
-        };
-        let snap: Vec<(Vec<u8>, String)> =
-            msg.links.iter().map(|k| (k.peer_id.clone(), k.kind.clone())).collect();
-        self.links
-            .entry(group.to_vec())
-            .or_default()
-            .insert(me, (msg.time, snap));
-        let env = self.seal(Gossip { body: Some(Body::Links(msg)) })?;
-        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
-    }
-
-    /// Снимок связей группы: список (author, peer, kind).
-    pub fn links(&self, group: &[u8]) -> Vec<(Vec<u8>, Vec<u8>, String)> {
-        let mut out = Vec::new();
-        if let Some(authors) = self.links.get(group) {
-            for (author, (_t, ls)) in authors {
-                for (peer, kind) in ls {
-                    out.push((author.clone(), peer.clone(), kind.clone()));
-                }
-            }
-        }
-        out
-    }
-
-    /// Отредактировать своё сообщение (только автор). Возвращает конверт.
-    pub fn post_edit(
-        &mut self,
-        group: &[u8],
-        target_id: &[u8],
-        text: String,
-    ) -> Result<Option<Outgoing>, CoreError> {
-        if !self.mls.has(group) {
-            return Ok(None);
-        }
-        let me = self.peer_id();
-        let Some(m) = self.log.get(target_id) else {
-            return Ok(None);
-        };
-        if m.author != me {
-            return Ok(None); // править можно только свои
-        }
-        let lamport = self.log.tick();
-        let wt = crate::unix_now();
-        self.edits.insert(target_id.to_vec(), (text.clone(), lamport));
-        let _ = self.log.store_edit(target_id, &text, lamport, wt);
-        let ev = EditEvent {
-            group_id: group.to_vec(),
-            target_id: target_id.to_vec(),
-            text,
-            lamport,
-            wall_time: wt,
-            author: me,
-        };
-        let env = self.seal(Gossip { body: Some(Body::Edit(ev)) })?;
-        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
-    }
-
-    /// Принять правку: только от автора исходного сообщения, LWW.
-    fn on_edit(&mut self, ev: EditEvent, origin: &[u8]) -> Result<(), CoreError> {
-        if p2pchat_crypto::content_id(origin).to_vec() != ev.author {
-            return Ok(());
-        }
-        let Some(m) = self.log.get(&ev.target_id) else {
-            return Ok(());
-        };
-        if m.author != ev.author {
-            return Ok(());
-        }
-        let cur = self.edits.get(&ev.target_id).map(|(_, l)| *l).unwrap_or(0);
-        if ev.lamport >= cur {
-            self.edits
-                .insert(ev.target_id.clone(), (ev.text.clone(), ev.lamport));
-            let _ = self.log.store_edit(&ev.target_id, &ev.text, ev.lamport, ev.wall_time);
-        }
-        Ok(())
-    }
-
-    /// Удалить своё сообщение (только автор). Возвращает конверт.
-    pub fn post_delete(
-        &mut self,
-        group: &[u8],
-        target_id: &[u8],
-    ) -> Result<Option<Outgoing>, CoreError> {
-        if !self.mls.has(group) {
-            return Ok(None);
-        }
-        let me = self.peer_id();
-        let Some(m) = self.log.get(target_id) else {
-            return Ok(None);
-        };
-        if m.author != me {
-            return Ok(None); // удалять можно только свои
-        }
-        let lamport = self.log.tick();
-        let wt = crate::unix_now();
-        self.deletes.insert(target_id.to_vec());
-        let _ = self.log.store_delete(target_id);
-        let ev = DeleteEvent {
-            group_id: group.to_vec(),
-            target_id: target_id.to_vec(),
-            lamport,
-            wall_time: wt,
-            author: me,
-        };
-        let env = self.seal(Gossip { body: Some(Body::Delete(ev)) })?;
-        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
-    }
-
-    /// Принять удаление: только от автора исходного сообщения.
-    fn on_delete(&mut self, ev: DeleteEvent, origin: &[u8]) -> Result<(), CoreError> {
-        if p2pchat_crypto::content_id(origin).to_vec() != ev.author {
-            return Ok(());
-        }
-        let Some(m) = self.log.get(&ev.target_id) else {
-            return Ok(());
-        };
-        if m.author != ev.author {
-            return Ok(());
-        }
-        if self.deletes.insert(ev.target_id.clone()) {
-            let _ = self.log.store_delete(&ev.target_id);
-        }
-        Ok(())
-    }
-
-    /// Принять выход: уходящий должен быть участником; владелец делает Remove.
-    fn on_leave(
-        &mut self,
-        ev: LeaveEvent,
-        origin: &[u8],
-        out: &mut Outcome,
-    ) -> Result<(), CoreError> {
-        if p2pchat_crypto::content_id(origin).to_vec() != ev.author || ev.peer_id != ev.author {
-            return Ok(());
-        }
-        if !self.members(&ev.group_id).iter().any(|m| m.peer_id == ev.peer_id) {
-            return Ok(()); // не участник (или уже удалён)
-        }
-
-        // Если уходит владелец — принимаем назначенного нового владельца.
-        let leaver_is_owner = self.owner_of(&ev.group_id).as_deref() == Some(ev.peer_id.as_slice());
-        if leaver_is_owner && !ev.new_owner.is_empty() {
-            let valid = self
-                .members(&ev.group_id)
-                .iter()
-                .any(|m| m.peer_id == ev.new_owner && m.peer_id != ev.peer_id);
-            if valid {
-                self.owners.insert(ev.group_id.clone(), ev.new_owner.clone());
-                let _ = self.log.set_meta(&format!("owner:{}", hex(&ev.group_id)), &ev.new_owner);
-                let _ = self.log.set_meta(
-                    &format!("owner_alive:{}", hex(&ev.group_id)),
-                    &self.now().to_le_bytes(),
-                );
-            }
-        }
-
-        if self.is_owner(&ev.group_id)? {
-            let commits = self.remove_member_now(&ev.group_id, &ev.peer_id)?;
-            out.outgoing.extend(commits);
-        }
+        out.outgoing.push(Outgoing {
+            envelope: wel_env,
+            targets: vec![origin.to_vec()],
+        });
         Ok(())
     }
 
@@ -1192,13 +1055,21 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             return Ok(None);
         }
         let at = self.now();
-        let ev = OwnerAlive { group_id: group.to_vec(), owner: self.peer_id(), at };
-        let _ = self.log.set_meta(
-            &format!("owner_alive:{}", hex(group)),
-            &at.to_le_bytes(),
-        );
-        let env = self.seal(Gossip { body: Some(Body::OwnerAlive(ev)) })?;
-        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
+        let ev = OwnerAlive {
+            group_id: group.to_vec(),
+            owner: self.peer_id(),
+            at,
+        };
+        let _ = self
+            .log
+            .set_meta(&format!("owner_alive:{}", hex(group)), &at.to_le_bytes());
+        let env = self.seal(Gossip {
+            body: Some(Body::OwnerAlive(ev)),
+        })?;
+        Ok(Some(Outgoing {
+            envelope: env,
+            targets: self.neighbor_keys(group),
+        }))
     }
 
     /// Принять heartbeat владельца (только от владельца и участника группы).
@@ -1209,7 +1080,11 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
         if self.owner_of(&ev.group_id).as_deref() != Some(ev.owner.as_slice()) {
             return Ok(());
         }
-        if !self.members(&ev.group_id).iter().any(|m| m.peer_id == ev.owner) {
+        if !self
+            .members(&ev.group_id)
+            .iter()
+            .any(|m| m.peer_id == ev.owner)
+        {
             return Ok(());
         }
         let now = self.now();
@@ -1234,382 +1109,9 @@ fn on_message(&mut self, msg: ChatMessage, out: &mut Outcome) -> Result<(), Core
             .unwrap_or(0)
     }
 
-    /// Поставить/снять свою реакцию (одна активная на сообщение).
-    pub fn react(
-        &mut self,
-        group: &[u8],
-        target_id: &[u8],
-        emoji: &str,
-        add: bool,
-    ) -> Result<Option<Outgoing>, CoreError> {
-        if !self.mls.has(group) {
-            return Ok(None);
-        }
-        let Some(msg) = self.log.get(target_id) else {
-            return Ok(None);
-        };
-        if msg.group_id != group {
-            return Ok(None);
-        }
-        let emoji = emoji.trim();
-        if emoji.is_empty() || emoji.len() > 64 {
-            return Ok(None);
-        }
-        let me = self.peer_id();
-        let mine = self
-            .reactions
-            .get(target_id)
-            .and_then(|m| m.get(&me));
-        let cur = mine.and_then(|e| e.get(emoji)).copied();
-        if add {
-            if cur.is_some() {
-                return Ok(None);
-            }
-            if mine.map(|e| e.len()).unwrap_or(0) >= MAX_REACTIONS_PER_USER {
-                return Ok(None);
-            }
-        } else if cur.is_none() {
-            return Ok(None);
-        }
-        let lamport = self.log.tick();
-        let wt = crate::unix_now();
-        if add {
-            self.reactions
-                .entry(target_id.to_vec())
-                .or_default()
-                .entry(me.clone())
-                .or_default()
-                .insert(emoji.to_string(), lamport);
-            let _ = self.log.store_reaction(target_id, &me, emoji, lamport);
-        } else {
-            if let Some(m) = self.reactions.get_mut(target_id) {
-                if let Some(by_peer) = m.get_mut(&me) {
-                    by_peer.remove(emoji);
-                    if by_peer.is_empty() {
-                        m.remove(&me);
-                    }
-                }
-                if m.is_empty() {
-                    self.reactions.remove(target_id);
-                }
-            }
-            let _ = self.log.remove_reaction(target_id, &me, emoji);
-        }
-        let ev = ReactionEvent {
-            group_id: group.to_vec(),
-            target_id: target_id.to_vec(),
-            emoji: emoji.to_string(),
-            add,
-            author: me,
-            lamport,
-            wall_time: wt,
-        };
-        let env = self.seal(Gossip {
-            body: Some(Body::Reaction(ev)),
-        })?;
-        Ok(Some(Outgoing {
-            envelope: env,
-            targets: self.neighbor_keys(group),
-        }))
-    }
-
-    /// Принять реакцию участника (LWW для пары сообщение+участник).
-    fn on_reaction(&mut self, ev: ReactionEvent, origin: &[u8]) -> Result<(), CoreError> {
-        if p2pchat_crypto::content_id(origin).to_vec() != ev.author {
-            return Ok(());
-        }
-        if !self.mls.has(&ev.group_id) {
-            return Ok(());
-        }
-        if !self
-            .members(&ev.group_id)
-            .iter()
-            .any(|m| m.peer_id == ev.author)
-        {
-            return Ok(());
-        }
-        if let Some(m) = self.log.get(&ev.target_id) {
-            if m.group_id != ev.group_id {
-                return Ok(());
-            }
-        }
-        let emoji = ev.emoji.trim();
-        if emoji.is_empty() || emoji.len() > 64 {
-            return Ok(());
-        }
-        let cur = self
-            .reactions
-            .get(&ev.target_id)
-            .and_then(|m| m.get(&ev.author))
-            .and_then(|e| e.get(emoji))
-            .copied();
-        if cur.is_some_and(|lamport| lamport > ev.lamport) {
-            return Ok(());
-        }
-        if ev.add {
-            self.reactions
-                .entry(ev.target_id.clone())
-                .or_default()
-                .entry(ev.author.clone())
-                .or_default()
-                .insert(emoji.to_string(), ev.lamport);
-            let _ = self
-                .log
-                .store_reaction(&ev.target_id, &ev.author, emoji, ev.lamport);
-        } else {
-            if cur.is_none() {
-                return Ok(());
-            }
-            if let Some(m) = self.reactions.get_mut(&ev.target_id) {
-                if let Some(by_peer) = m.get_mut(&ev.author) {
-                    by_peer.remove(emoji);
-                    if by_peer.is_empty() {
-                        m.remove(&ev.author);
-                    }
-                }
-                if m.is_empty() {
-                    self.reactions.remove(&ev.target_id);
-                }
-            }
-            let _ = self.log.remove_reaction(&ev.target_id, &ev.author, emoji);
-        }
-        Ok(())
-    }
-
-    /// Сводка реакций сообщения: количество по emoji и признак «моя».
-    pub fn reactions_for(&self, target_id: &[u8], me: &[u8]) -> Vec<ReactionSummary> {
-        let Some(map) = self.reactions.get(target_id) else {
-            return Vec::new();
-        };
-        let mut counts: std::collections::HashMap<String, (u32, bool)> =
-            std::collections::HashMap::new();
-        for (peer, by_peer) in map {
-            for emoji in by_peer.keys() {
-                let e = counts.entry(emoji.clone()).or_default();
-                e.0 += 1;
-                if peer == me {
-                    e.1 = true;
-                }
-            }
-        }
-        let mut out: Vec<ReactionSummary> = counts
-            .into_iter()
-            .map(|(emoji, (count, mine))| ReactionSummary { emoji, count, mine })
-            .collect();
-        out.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.emoji.cmp(&b.emoji)));
-        out
-    }
-
-    pub fn is_deleted(&self, id: &[u8]) -> bool {
-        self.deletes.contains(id)
-    }
-
-    /// Эффективный текст сообщения и признак правки.
-    pub fn effective_text(&self, id: &[u8], base: &str) -> (String, bool) {
-        match self.edits.get(id) {
-            Some((t, _)) => (t.clone(), true),
-            None => (base.to_string(), false),
-        }
-    }
-
     // --- Профиль (никнейм) ----------------------------------------------
 
     /// Задать свой никнейм и вернуть конверт для рассылки.
-    pub fn set_nickname(&mut self, name: &str) -> Result<Option<Outgoing>, CoreError> {
-        let pid = self.peer_id();
-        let lamport = self.log.tick();
-        self.nicknames.insert(pid.clone(), (name.to_string(), lamport));
-        let avatar = self.avatars.get(&pid).cloned().unwrap_or_default();
-        let av = if avatar.is_empty() { None } else { Some(avatar.as_slice()) };
-        let _ = self.log.store_profile(&pid, name, lamport, av);
-        Ok(Some(self.profile_outgoing()?))
-    }
-
-    /// Задать свой аватар (маленькое изображение) и разослать профиль.
-    pub fn set_avatar(&mut self, avatar: Vec<u8>) -> Result<Option<Outgoing>, CoreError> {
-        let pid = self.peer_id();
-        let lamport = self.log.tick();
-        if avatar.is_empty() {
-            self.avatars.remove(&pid);
-        } else {
-            self.avatars.insert(pid.clone(), avatar.clone());
-        }
-        let name = self.nicknames.get(&pid).map(|(n, _)| n.clone()).unwrap_or_default();
-        self.nicknames.insert(pid.clone(), (name.clone(), lamport));
-        let av = if avatar.is_empty() { None } else { Some(avatar.as_slice()) };
-        let _ = self.log.store_profile(&pid, &name, lamport, av);
-        Ok(Some(self.profile_outgoing()?))
-    }
-
-    /// Аватар участника.
-    pub fn avatar_of(&self, peer_id: &[u8]) -> Option<Vec<u8>> {
-        self.avatars.get(peer_id).cloned().filter(|a| !a.is_empty())
-    }
-
-    /// Все аватары участников.
-    pub fn avatars(&self) -> Vec<(PeerId, Vec<u8>)> {
-        self.avatars.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
-    }
-
-    /// Аватар группы (из памяти или меты).
-    pub fn group_avatar(&self, group: &[u8]) -> Option<Vec<u8>> {
-        if let Some(a) = self.group_avatars.get(group) {
-            if !a.is_empty() {
-                return Some(a.clone());
-            }
-        }
-        self.log
-            .get_meta(&format!("gavatar:{}", hex(group)))
-            .ok()
-            .flatten()
-            .filter(|a| !a.is_empty())
-    }
-
-    /// Сменить аватар группы (только владелец). Возвращает конверт для рассылки.
-    pub fn set_group_avatar(
-        &mut self,
-        group: &[u8],
-        avatar: Vec<u8>,
-    ) -> Result<Option<Outgoing>, CoreError> {
-        if !self.is_owner(group)? {
-            return Ok(None);
-        }
-        if avatar.is_empty() {
-            self.group_avatars.remove(group);
-        } else {
-            self.group_avatars.insert(group.to_vec(), avatar.clone());
-        }
-        self.send_group_profile(group, avatar)
-    }
-
-    /// Переименовать группу (только владелец). Рассылает профиль группы.
-    pub fn set_group_name(
-        &mut self,
-        group: &[u8],
-        name: String,
-    ) -> Result<Option<Outgoing>, CoreError> {
-        if !self.is_owner(group)? {
-            return Ok(None);
-        }
-        let name = name.trim();
-        if name.is_empty() {
-            return Ok(None);
-        }
-        let _ = self.log.set_meta(&format!("name:{}", hex(group)), name.as_bytes());
-        let avatar = self.group_avatar(group).unwrap_or_default();
-        self.send_group_profile(group, avatar)
-    }
-
-    /// Разослать профиль группы (аватар + имя) соседям, LWW по lamport.
-    fn send_group_profile(
-        &mut self,
-        group: &[u8],
-        avatar: Vec<u8>,
-    ) -> Result<Option<Outgoing>, CoreError> {
-        let lamport = self.log.tick();
-        let me = self.peer_id();
-        let name = self.group_name(group);
-        let _ = self.log.set_meta(&format!("gavatar:{}", hex(group)), &avatar);
-        let _ = self.log.set_meta(&format!("gavatar_l:{}", hex(group)), &lamport.to_le_bytes());
-        let mut id_h = Vec::new();
-        id_h.extend_from_slice(group);
-        id_h.extend_from_slice(&lamport.to_be_bytes());
-        id_h.extend_from_slice(&avatar);
-        id_h.extend_from_slice(name.as_bytes());
-        let ev = GroupProfile {
-            group_id: group.to_vec(),
-            avatar,
-            lamport,
-            author: me,
-            id: p2pchat_crypto::content_id(&id_h).to_vec(),
-            name,
-        };
-        let env = self.seal(Gossip { body: Some(Body::GroupProfile(ev)) })?;
-        Ok(Some(Outgoing { envelope: env, targets: self.neighbor_keys(group) }))
-    }
-
-    /// Принять аватар группы (только от владельца, LWW).
-    fn on_group_profile(&mut self, ev: GroupProfile, origin: &[u8]) -> Result<(), CoreError> {
-        // принимаем только от участника группы (ограничение «только владелец» —
-        // на стороне отправителя в set_group_avatar)
-        let is_member = self.members(&ev.group_id).iter().any(|m| m.public_key == origin);
-        if !is_member {
-            return Ok(());
-        }
-        let cur: u64 = self
-            .log
-            .get_meta(&format!("gavatar_l:{}", hex(&ev.group_id)))?
-            .and_then(|b| b.try_into().ok())
-            .map(u64::from_le_bytes)
-            .unwrap_or(0);
-        if ev.lamport < cur {
-            return Ok(());
-        }
-        self.group_avatars.insert(ev.group_id.clone(), ev.avatar.clone());
-        let _ = self.log.set_meta(&format!("gavatar:{}", hex(&ev.group_id)), &ev.avatar);
-        let _ = self
-            .log
-            .set_meta(&format!("gavatar_l:{}", hex(&ev.group_id)), &ev.lamport.to_le_bytes());
-        if !ev.name.is_empty() {
-            let _ = self.log.set_meta(&format!("name:{}", hex(&ev.group_id)), ev.name.as_bytes());
-        }
-        Ok(())
-    }
-
-    pub fn my_nickname(&self) -> Option<String> {
-        self.nicknames.get(&self.peer_id()).map(|(n, _)| n.clone())
-    }
-
-    pub fn nickname_of(&self, peer_id: &[u8]) -> Option<String> {
-        self.nicknames.get(peer_id).map(|(n, _)| n.clone())
-    }
-
-    pub fn all_nicknames(&self) -> Vec<(PeerId, String)> {
-        self.nicknames.iter().map(|(k, (n, _))| (k.clone(), n.clone())).collect()
-    }
-
-    /// Конверт с нашим профилем (для повторной рассылки), если ник задан.
-    pub fn profile_envelope(&self) -> Result<Option<Outgoing>, CoreError> {
-        if self.nicknames.contains_key(&self.peer_id()) {
-            Ok(Some(self.profile_outgoing()?))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn profile_outgoing(&self) -> Result<Outgoing, CoreError> {
-        let pid = self.peer_id();
-        let (name, lamport) = self
-            .nicknames
-            .get(&pid)
-            .cloned()
-            .unwrap_or((String::new(), 0));
-        let avatar = self.avatars.get(&pid).cloned().unwrap_or_default();
-        let ev = crate::membership::profile_event(&pid, &name, lamport, &pid, &avatar);
-        let env = self.seal(Gossip { body: Some(Body::Profile(ev)) })?;
-        Ok(self.out_all(env))
-    }
-
-    fn on_profile(&mut self, ev: ProfileEvent) -> Result<(), CoreError> {
-        let wins = match self.nicknames.get(&ev.peer_id) {
-            None => true,
-            Some((_, l)) => ev.lamport > *l,
-        };
-        if wins {
-            self.nicknames
-                .insert(ev.peer_id.clone(), (ev.nickname.clone(), ev.lamport));
-            if ev.avatar.is_empty() {
-                self.avatars.remove(&ev.peer_id);
-            } else {
-                self.avatars.insert(ev.peer_id.clone(), ev.avatar.clone());
-            }
-            let av = if ev.avatar.is_empty() { None } else { Some(ev.avatar.as_slice()) };
-            let _ = self.log.store_profile(&ev.peer_id, &ev.nickname, ev.lamport, av);
-        }
-        Ok(())
-    }
-
-    /// Подписать и упаковать gossip в конверт.
     fn seal(&self, gossip: Gossip) -> Result<Envelope, CoreError> {
         let payload = gossip.encode_to_vec();
         let signature = self.identity.sign(&payload);

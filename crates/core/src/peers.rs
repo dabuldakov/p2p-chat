@@ -17,7 +17,11 @@ pub struct PeerTable {
 
 impl PeerTable {
     pub fn new(local: PeerId) -> Self {
-        Self { local, peers: HashMap::new(), version: 0 }
+        Self {
+            local,
+            peers: HashMap::new(),
+            version: 0,
+        }
     }
 
     pub fn local_id(&self) -> &PeerId {
@@ -26,13 +30,16 @@ impl PeerTable {
 
     /// Добавить/обновить себя и свои адреса.
     pub fn set_local_endpoints(&mut self, endpoints: Vec<Endpoint>) {
-        let entry = self.peers.entry(self.local.clone()).or_insert_with(|| PeerInfo {
-            peer_id: self.local.clone(),
-            endpoints: Vec::new(),
-            last_seen: 0,
-            is_relay: false,
-            hops: 0,
-        });
+        let entry = self
+            .peers
+            .entry(self.local.clone())
+            .or_insert_with(|| PeerInfo {
+                peer_id: self.local.clone(),
+                endpoints: Vec::new(),
+                last_seen: 0,
+                is_relay: false,
+                hops: 0,
+            });
         entry.endpoints = endpoints;
         entry.last_seen = crate::unix_now();
     }
@@ -51,26 +58,21 @@ impl PeerTable {
 
     /// Слить удалённый список. Возвращает число реально обновлённых записей.
     pub fn merge(&mut self, list: &PeerList) -> usize {
-        let before: usize = self
-            .peers
-            .values()
-            .map(|p| p.last_seen as usize)
-            .sum();
+        let before: usize = self.peers.values().map(|p| p.last_seen as usize).sum();
         for p in &list.peers {
             self.upsert(p.clone());
         }
         self.version = self.version.max(list.version);
-        let after: usize = self
-            .peers
-            .values()
-            .map(|p| p.last_seen as usize)
-            .sum();
+        let after: usize = self.peers.values().map(|p| p.last_seen as usize).sum();
         (after > before) as usize
     }
 
     /// Сериализуемый снимок для рассылки.
     pub fn snapshot(&self) -> PeerList {
-        PeerList { peers: self.peers.values().cloned().collect(), version: self.version }
+        PeerList {
+            peers: self.peers.values().cloned().collect(),
+            version: self.version,
+        }
     }
 
     /// Выбрать K соседей для gossip.
@@ -111,7 +113,11 @@ impl PeerTable {
 
 /// Хелпер: собрать endpoint.
 pub fn endpoint(host: &str, port: u16, transport: Transport) -> Endpoint {
-    Endpoint { host: host.to_string(), port: port as u32, transport: transport as i32 }
+    Endpoint {
+        host: host.to_string(),
+        port: port as u32,
+        transport: transport as i32,
+    }
 }
 
 #[cfg(test)]
@@ -166,7 +172,10 @@ mod tests {
         t.upsert(info(b"self", 100, true, 0));
         assert!(t.get(b"self").is_none(), "чужой upsert себя игнорирует");
 
-        let list = PeerList { peers: vec![info(b"a", 10, false, 1)], version: 5 };
+        let list = PeerList {
+            peers: vec![info(b"a", 10, false, 1)],
+            version: 5,
+        };
         assert_eq!(t.merge(&list), 1);
         assert_eq!(t.merge(&list), 0, "повтор не обновляет");
         assert_eq!(t.snapshot().version, 5);
@@ -183,7 +192,10 @@ mod tests {
         let targets = t.gossip_targets(2);
         assert_eq!(targets.len(), 2);
         assert!(targets.contains(&b"fresh2".to_vec()), "relay в приоритете");
-        assert!(!targets.iter().any(|p| p == b"stale"), "старые (last_seen=0) отсеиваются");
+        assert!(
+            !targets.iter().any(|p| p == b"stale"),
+            "старые (last_seen=0) отсеиваются"
+        );
         assert!(!targets.iter().any(|p| p == b"self"));
         assert_eq!(t.gossip_targets(0).len(), 0);
     }

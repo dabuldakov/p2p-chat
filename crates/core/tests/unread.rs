@@ -17,7 +17,11 @@ fn all_messages_unread_without_marker_then_mark_read_clears() {
     let g = e.create_named_group("U").unwrap();
     e.post(g.clone(), "a".into()).unwrap();
     e.post(g.clone(), "b".into()).unwrap();
-    assert_eq!(e.unread_count(&g).unwrap(), 2, "без отметки — все непрочитанные");
+    assert_eq!(
+        e.unread_count(&g).unwrap(),
+        2,
+        "без отметки — все непрочитанные"
+    );
 
     e.mark_read(&g).unwrap();
     assert_eq!(e.unread_count(&g).unwrap(), 0);
@@ -33,7 +37,11 @@ fn mark_read_on_empty_is_noop() {
     e.mark_read(&g).unwrap();
     assert_eq!(e.unread_count(&g).unwrap(), 0);
     e.post(g.clone(), "a".into()).unwrap();
-    assert_eq!(e.unread_count(&g).unwrap(), 1, "отметка не появилась — считаем всё");
+    assert_eq!(
+        e.unread_count(&g).unwrap(),
+        1,
+        "отметка не появилась — считаем всё"
+    );
 }
 
 #[test]

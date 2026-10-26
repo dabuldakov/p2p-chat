@@ -12,7 +12,11 @@ fn create_join_and_membership_converges() {
         assert_eq!(e.members(&g).len(), 2, "оба участника видят полный состав");
         assert_eq!(e.neighbors(&g).len(), 1, "малая группа — full mesh");
     }
-    let a_ids: Vec<_> = engines[0].members(&g).into_iter().map(|m| m.peer_id).collect();
+    let a_ids: Vec<_> = engines[0]
+        .members(&g)
+        .into_iter()
+        .map(|m| m.peer_id)
+        .collect();
     assert!(a_ids.contains(&engines[1].peer_id()));
 }
 

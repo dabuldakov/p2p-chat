@@ -18,7 +18,9 @@ fn identity_group_and_messages_persist() {
     let (peer_id, public_key) = {
         let store = Store::open(&path).unwrap();
         let identity = Identity::generate();
-        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        store
+            .set_meta("identity", &identity.secret_bytes())
+            .unwrap();
         let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
         e.load_state().unwrap();
         e.load_mls(&path).unwrap();
@@ -56,7 +58,9 @@ fn read_marker_persists_and_unread_survives() {
     {
         let store = Store::open(&path).unwrap();
         let identity = Identity::generate();
-        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        store
+            .set_meta("identity", &identity.secret_bytes())
+            .unwrap();
         let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
         e.load_state().unwrap();
         e.create_group(g.clone()).unwrap();
@@ -71,7 +75,11 @@ fn read_marker_persists_and_unread_survives() {
         Identity::from_secret_bytes(&store.get_meta("identity").unwrap().unwrap()).unwrap();
     let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
     e.load_state().unwrap();
-    assert_eq!(e.unread_count(&g).unwrap(), 1, "отметка прочтения сохранилась");
+    assert_eq!(
+        e.unread_count(&g).unwrap(),
+        1,
+        "отметка прочтения сохранилась"
+    );
 
     let _ = std::fs::remove_file(&path);
 }
@@ -82,7 +90,9 @@ fn nickname_persists() {
     {
         let store = Store::open(&path).unwrap();
         let identity = Identity::generate();
-        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        store
+            .set_meta("identity", &identity.secret_bytes())
+            .unwrap();
         let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
         e.load_state().unwrap();
         e.set_nickname("Дмитрий").unwrap();
@@ -102,7 +112,9 @@ fn avatar_persists_across_restart() {
     let (pid, av) = {
         let store = Store::open(&path).unwrap();
         let identity = Identity::generate();
-        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        store
+            .set_meta("identity", &identity.secret_bytes())
+            .unwrap();
         let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
         e.load_state().unwrap();
         let av = vec![5u8, 6, 7, 8];
@@ -110,7 +122,8 @@ fn avatar_persists_across_restart() {
         (e.peer_id(), av)
     };
     let store = Store::open(&path).unwrap();
-    let identity = Identity::from_secret_bytes(&store.get_meta("identity").unwrap().unwrap()).unwrap();
+    let identity =
+        Identity::from_secret_bytes(&store.get_meta("identity").unwrap().unwrap()).unwrap();
     let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
     e.load_state().unwrap();
     assert_eq!(e.avatar_of(&pid), Some(av), "аватар профиля сохранился");

@@ -21,8 +21,7 @@ async fn two_peers_exchange_via_signaling_and_webrtc() {
     let hub = SignalingHub::new();
     let a_sig: Arc<dyn p2pchat_signaling::Signaling> =
         Arc::new(hub.connect(b"alice".to_vec()).await);
-    let b_sig: Arc<dyn p2pchat_signaling::Signaling> =
-        Arc::new(hub.connect(b"bob".to_vec()).await);
+    let b_sig: Arc<dyn p2pchat_signaling::Signaling> = Arc::new(hub.connect(b"bob".to_vec()).await);
 
     let factory = Arc::new(MockFactory::new());
     let alice = WebRtcTransport::new(b"alice".to_vec(), a_sig, factory.clone());

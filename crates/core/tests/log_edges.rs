@@ -11,7 +11,13 @@ fn tmp(name: &str) -> String {
     p.to_str().unwrap().to_string()
 }
 
-fn msg(group: &[u8], author: &[u8], text: &str, lamport: u64, parents: Vec<Vec<u8>>) -> ChatMessage {
+fn msg(
+    group: &[u8],
+    author: &[u8],
+    text: &str,
+    lamport: u64,
+    parents: Vec<Vec<u8>>,
+) -> ChatMessage {
     let mut m = ChatMessage {
         id: Vec::new(),
         group_id: group.to_vec(),
@@ -137,7 +143,8 @@ fn store_wrappers_and_recovery() {
     l.store_group_key(b"g", b"key").unwrap();
     l.set_meta("custom", b"value").unwrap();
     l.set_read(b"g", &m.id).unwrap();
-    l.store_profile(b"alice", "Alice", 2, Some(&[1, 2, 3])).unwrap();
+    l.store_profile(b"alice", "Alice", 2, Some(&[1, 2, 3]))
+        .unwrap();
     l.store_edit(&m.id, "edited", 3, 4).unwrap();
     l.store_delete(&m.id).unwrap();
     l.store_reaction(&m.id, b"alice", "👍", 5).unwrap();

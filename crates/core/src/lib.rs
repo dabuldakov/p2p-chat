@@ -4,25 +4,25 @@
 //! Транспорт передаёт ему сырые байты `Envelope`, а он возвращает, что
 //! и кому переслать.
 
+pub mod clock;
 pub mod error;
+pub mod gossip;
 pub mod invite;
 pub mod log;
 pub mod membership;
 pub mod merkle;
 pub mod mls;
 pub mod peers;
-pub mod gossip;
-pub mod clock;
 
 /// Сгенерированный из protobuf код (общий для всех крейтов).
 pub use p2pchat_proto as proto;
 
+pub use clock::Lamport;
 pub use error::CoreError;
+pub use gossip::GossipEngine;
 pub use log::Log;
 pub use membership::Membership;
 pub use peers::PeerTable;
-pub use gossip::GossipEngine;
-pub use clock::Lamport;
 
 use sha2::{Digest, Sha256};
 

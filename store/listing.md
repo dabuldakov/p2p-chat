@@ -22,6 +22,7 @@ p2pchat is a decentralized messenger: messages go directly between phones, are e
 • GIF search, link previews, avatars, message editing and deletion.
 • Send photos, videos and audio; record voice and video messages.
 • Emoji reactions: up to 100 per participant, grouped with counters.
+• Storage screen: media/cache sizes, cleanup by category and media re-download.
 • Group owner transfer: if the owner disappears or members challenge them, the group can vote a new owner.
 • Seed-phrase backup to restore your identity on a new device.
 • Open source.
@@ -43,6 +44,7 @@ p2pchat — децентрализованный мессенджер: сооб�
 • Поиск гифок, превью ссылок, аватары, редактирование и удаление сообщений.
 • Отправка фото, видео и аудио; запись голосовых и видеосообщений.
 • Реакции на сообщения: до 100 на участника, с группировкой и счётчиками.
+• Экран хранилища: размеры медиа/кэша, очистка по категориям и повторная догрузка файлов.
 • Передача владения группой: если владелец пропал или участники инициировали вызов, группа может выбрать нового владельца.
 • Резервная копия seed-фразой для восстановления на новом устройстве.
 • Открытый исходный код.

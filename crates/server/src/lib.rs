@@ -124,7 +124,10 @@ mod tests {
         SignalEnvelope {
             from: from.to_vec(),
             to: to.to_vec(),
-            body: Some(Body::Offer(Offer { sdp: b"sdp".to_vec(), session_id: "s".into() })),
+            body: Some(Body::Offer(Offer {
+                sdp: b"sdp".to_vec(),
+                session_id: "s".into(),
+            })),
         }
     }
 

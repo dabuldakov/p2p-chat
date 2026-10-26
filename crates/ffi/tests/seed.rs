@@ -36,5 +36,8 @@ fn import_blocked_when_groups_exist() {
 
     let b = ChatCore::new(tmp("d")).unwrap();
     let _ = b.create_named_group("Group".into()).unwrap();
-    assert!(b.import_seed(seed).is_err(), "нельзя затереть непустой профиль");
+    assert!(
+        b.import_seed(seed).is_err(),
+        "нельзя затереть непустой профиль"
+    );
 }

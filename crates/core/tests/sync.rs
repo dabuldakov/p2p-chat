@@ -3,8 +3,8 @@
 mod common;
 
 use common::*;
-use prost::Message as _;
 use p2pchat_core::gossip::Outgoing;
+use prost::Message as _;
 
 #[test]
 fn diverged_replicas_converge_via_merkle() {
@@ -17,11 +17,25 @@ fn diverged_replicas_converge_via_merkle() {
 
     // A инициирует синк (broadcast digest)
     let digest = e[0].sync_digest(&g).unwrap();
-    pump(&mut e, &keys, vec![(0, Outgoing { envelope: digest, targets: vec![] })]);
+    pump(
+        &mut e,
+        &keys,
+        vec![(
+            0,
+            Outgoing {
+                envelope: digest,
+                targets: vec![],
+            },
+        )],
+    );
 
     assert_eq!(e[0].log().len(), 2, "A добрал b1");
     assert_eq!(e[1].log().len(), 2, "B уже имел оба");
-    assert_eq!(e[0].log().ordered(&g), e[1].log().ordered(&g), "порядок совпал");
+    assert_eq!(
+        e[0].log().ordered(&g),
+        e[1].log().ordered(&g),
+        "порядок совпал"
+    );
 }
 
 #[test]

@@ -19,14 +19,18 @@ fn two_party_group_roundtrip() {
     // Alice -> Bob
     let ct1 = encrypt(&mut alice_group, &alice, b"hi bob").expect("enc1");
     assert_eq!(
-        decrypt(&mut bob_group, &bob, &ct1).expect("dec1").as_deref(),
+        decrypt(&mut bob_group, &bob, &ct1)
+            .expect("dec1")
+            .as_deref(),
         Some(&b"hi bob"[..])
     );
 
     // Bob -> Alice
     let ct2 = encrypt(&mut bob_group, &bob, b"hi alice").expect("enc2");
     assert_eq!(
-        decrypt(&mut alice_group, &alice, &ct2).expect("dec2").as_deref(),
+        decrypt(&mut alice_group, &alice, &ct2)
+            .expect("dec2")
+            .as_deref(),
         Some(&b"hi alice"[..])
     );
 }

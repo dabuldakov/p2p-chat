@@ -46,9 +46,7 @@ impl Membership {
     pub fn apply(&mut self, ev: &MembershipEvent) -> bool {
         let wins = match self.entries.get(&ev.peer_id) {
             None => true,
-            Some(cur) => {
-                ev.lamport > cur.lamport || (ev.lamport == cur.lamport && ev.id > cur.id)
-            }
+            Some(cur) => ev.lamport > cur.lamport || (ev.lamport == cur.lamport && ev.id > cur.id),
         };
         if !wins {
             return false;
@@ -75,7 +73,10 @@ impl Membership {
             .entries
             .iter()
             .filter(|(_, e)| e.joined)
-            .map(|(id, e)| Member { peer_id: id.clone(), public_key: e.public_key.clone() })
+            .map(|(id, e)| Member {
+                peer_id: id.clone(),
+                public_key: e.public_key.clone(),
+            })
             .collect();
         v.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
         v
@@ -91,7 +92,10 @@ impl Membership {
     }
 
     pub fn public_key_of(&self, peer_id: &[u8]) -> Option<Vec<u8>> {
-        self.entries.get(peer_id).filter(|e| e.joined).map(|e| e.public_key.clone())
+        self.entries
+            .get(peer_id)
+            .filter(|e| e.joined)
+            .map(|e| e.public_key.clone())
     }
 
     /// Соседи узла `me` в оверлее группы.
@@ -231,7 +235,7 @@ mod tests {
         let nb = m.neighbors(&[0], DEFAULT_FANOUT);
         assert!(nb.len() <= DEFAULT_FANOUT);
         assert!(!nb.contains(&vec![0])); // не сам с собой
-        // связность: соседи уникальны
+                                         // связность: соседи уникальны
         let mut uniq = nb.clone();
         uniq.sort();
         uniq.dedup();

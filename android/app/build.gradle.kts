@@ -113,6 +113,11 @@ android {
         }
     }
 
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = true
+    }
+
     // Нативные библиотеки Rust (.so) кладём в jniLibs/ по ABI:
     //   app/src/main/jniLibs/arm64-v8a/libp2pchat_ffi.so
     //   app/src/main/jniLibs/x86_64/libp2pchat_ffi.so

@@ -26,7 +26,11 @@ use crate::{Inbound, PeerId, Transport, TransportError};
 #[derive(Debug, Clone)]
 pub enum PeerEvent {
     /// Локальный ICE-кандидат — надо отправить собеседнику через signaling.
-    IceCandidate { candidate: String, sdp_mid: String, mline: u32 },
+    IceCandidate {
+        candidate: String,
+        sdp_mid: String,
+        mline: u32,
+    },
     /// Пришли данные из DataChannel.
     Data(Vec<u8>),
     /// Соединение установлено.
@@ -87,7 +91,10 @@ impl WebRtcTransport {
             conns: Mutex::new(HashMap::new()),
             incoming_tx,
         });
-        let transport = Arc::new(Self { inner: inner.clone(), rx: Mutex::new(Some(incoming_rx)) });
+        let transport = Arc::new(Self {
+            inner: inner.clone(),
+            rx: Mutex::new(Some(incoming_rx)),
+        });
 
         // цикл signaling
         tokio::spawn(async move {
@@ -113,12 +120,7 @@ impl WebRtcTransport {
         self.inner.conns.lock().await.insert(peer.clone(), pc);
         self.inner
             .signaling
-            .send(offer(
-                self.inner.me.clone(),
-                peer,
-                sdp,
-                uuid_like(),
-            ))
+            .send(offer(self.inner.me.clone(), peer, sdp, uuid_like()))
             .await
             .map_err(|e| TransportError::WebRtc(e.to_string()))?;
         Ok(())
@@ -129,7 +131,9 @@ impl WebRtcTransport {
 impl Transport for WebRtcTransport {
     async fn send(&self, to: &PeerId, data: &[u8]) -> Result<(), TransportError> {
         let conns = self.inner.conns.lock().await;
-        let pc = conns.get(to).ok_or_else(|| TransportError::Unreachable(to.clone()))?;
+        let pc = conns
+            .get(to)
+            .ok_or_else(|| TransportError::Unreachable(to.clone()))?;
         pc.send_data(data).await
     }
 
@@ -183,16 +187,29 @@ fn spawn_event_pump(inner: Arc<Inner>, from: PeerId, pc: Arc<dyn PeerConnection>
         let mut events = pc.events().await;
         while let Some(ev) = events.recv().await {
             match ev {
-                PeerEvent::IceCandidate { candidate, sdp_mid, mline } => {
+                PeerEvent::IceCandidate {
+                    candidate,
+                    sdp_mid,
+                    mline,
+                } => {
                     let _ = inner
                         .signaling
-                        .send(ice(inner.me.clone(), from.clone(), candidate, sdp_mid, mline))
+                        .send(ice(
+                            inner.me.clone(),
+                            from.clone(),
+                            candidate,
+                            sdp_mid,
+                            mline,
+                        ))
                         .await;
                 }
                 PeerEvent::Data(data) => {
                     let _ = inner
                         .incoming_tx
-                        .send(Inbound { from: from.clone(), data })
+                        .send(Inbound {
+                            from: from.clone(),
+                            data,
+                        })
                         .await;
                 }
                 PeerEvent::Connected => debug!("connected to {:?}", from),
@@ -204,6 +221,9 @@ fn spawn_event_pump(inner: Arc<Inner>, from: PeerId, pc: Arc<dyn PeerConnection>
 
 fn uuid_like() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let n = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let n = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     format!("s{n:x}")
 }

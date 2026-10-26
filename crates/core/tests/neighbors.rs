@@ -20,11 +20,15 @@ fn neighbors_are_group_scoped() {
         uniq.sort();
         uniq.dedup();
         assert_eq!(uniq.len(), ns.len(), "соседи без дублей");
-        assert!(ns.iter().all(|n| ids.contains(n)), "только участники группы");
+        assert!(
+            ns.iter().all(|n| ids.contains(n)),
+            "только участники группы"
+        );
 
         let keys = e.neighbor_keys(&g);
         assert!(
-            keys.iter().all(|k| members.iter().any(|m| &m.public_key == k)),
+            keys.iter()
+                .all(|k| members.iter().any(|m| &m.public_key == k)),
             "ключи соседей — только участники группы"
         );
         assert_eq!(keys.len(), ns.len(), "ключи и соседи совпадают по числу");

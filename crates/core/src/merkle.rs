@@ -29,7 +29,10 @@ impl MerkleTree {
 
         let mut leaves: Vec<Hash> = ids.iter().map(|id| hash_leaf(id)).collect();
         if leaves.is_empty() {
-            return Self { ids, levels: vec![vec![]] };
+            return Self {
+                ids,
+                levels: vec![vec![]],
+            };
         }
 
         let mut levels = vec![leaves.clone()];
@@ -38,7 +41,11 @@ impl MerkleTree {
             let mut i = 0;
             while i < leaves.len() {
                 let left = leaves[i];
-                let right = if i + 1 < leaves.len() { leaves[i + 1] } else { leaves[i] };
+                let right = if i + 1 < leaves.len() {
+                    leaves[i + 1]
+                } else {
+                    leaves[i]
+                };
                 next.push(hash_node(&left, &right));
                 i += 2;
             }

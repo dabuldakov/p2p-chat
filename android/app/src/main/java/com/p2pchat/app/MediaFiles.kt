@@ -77,6 +77,15 @@ fun MediaFiles.categoryOf(file: File): MediaCategory = when {
 fun MediaFiles.files(ctx: Context): List<File> =
     dir(ctx).listFiles()?.filter { it.isFile } ?: emptyList()
 
+fun MediaFiles.stats(ctx: Context): Map<MediaCategory, Pair<Long, Int>> {
+    val out = MediaCategory.entries.associateWith { 0L to 0 }.toMutableMap()
+    for (f in files(ctx)) {
+        val (size, count) = out[categoryOf(f)] ?: (0L to 0)
+        out[categoryOf(f)] = (size + f.length()) to (count + 1)
+    }
+    return out
+}
+
 fun MediaFiles.size(ctx: Context, category: MediaCategory): Long =
     files(ctx).filter { categoryOf(it) == category }.sumOf { it.length() }
 

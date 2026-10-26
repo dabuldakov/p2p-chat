@@ -39,12 +39,17 @@ async fn main() -> Result<()> {
     // Опционально: эндпоинт выдачи временных TURN-кред.
     if let Ok(secret) = std::env::var("TURN_SECRET") {
         let host = std::env::var("TURN_PUBLIC_HOST").unwrap_or_else(|_| "127.0.0.1".into());
-        let ttl: u64 = std::env::var("TURN_TTL").ok().and_then(|v| v.parse().ok()).unwrap_or(3600);
+        let ttl: u64 = std::env::var("TURN_TTL")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(3600);
         let listen = std::env::var("CREDS_LISTEN").unwrap_or_else(|_| "0.0.0.0:8091".into());
         let listener = TcpListener::bind(&listen).await?;
         let secret = Arc::new(secret.into_bytes());
         tokio::spawn(async move {
-            if let Err(e) = p2pchat_signal_server::turn::serve_creds(listener, secret, host, ttl).await {
+            if let Err(e) =
+                p2pchat_signal_server::turn::serve_creds(listener, secret, host, ttl).await
+            {
                 tracing::error!("turn-credentials: {e}");
             }
         });

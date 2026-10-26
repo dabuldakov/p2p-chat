@@ -49,8 +49,7 @@ struct Node {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
@@ -69,7 +68,10 @@ async fn main() -> Result<()> {
     info!("public_key = {}", hex(&engine.public_key()));
 
     let (outbound, _) = broadcast::channel::<Vec<u8>>(1024);
-    let node = Arc::new(Node { engine: Mutex::new(engine), outbound });
+    let node = Arc::new(Node {
+        engine: Mutex::new(engine),
+        outbound,
+    });
 
     // слушаем входящие
     let listener = TcpListener::bind(&args.listen).await?;

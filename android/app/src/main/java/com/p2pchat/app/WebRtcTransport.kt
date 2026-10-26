@@ -165,6 +165,11 @@ class WebRtcTransport(
     }
 
     /** Отправить бинарный media-фрейм (внутри того же DataChannel). */
+    fun mediaBufferedAmount(target: ByteArray): Long {
+        val conn = conns[keyHex(target)] ?: return 0L
+        return runCatching { conn.dc?.bufferedAmount() ?: 0L }.getOrDefault(0L)
+    }
+
     fun sendMedia(targets: List<ByteArray>, frame: ByteArray) {
         val bytes = ByteArray(MEDIA_MAGIC.size + frame.size)
         MEDIA_MAGIC.copyInto(bytes)

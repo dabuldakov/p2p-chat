@@ -48,7 +48,10 @@ fn ten_members_messages_edit_delete() {
         .find(|m| m.text == "m0")
         .unwrap()
         .id;
-    let edit = engines[0].post_edit(&g, &id0, "m0-edited".into()).unwrap().unwrap();
+    let edit = engines[0]
+        .post_edit(&g, &id0, "m0-edited".into())
+        .unwrap()
+        .unwrap();
     pump(&mut engines, &keys, vec![(0, edit)]);
     for e in &engines {
         let (text, edited) = e.effective_text(&id0, "m0");
@@ -57,7 +60,10 @@ fn ten_members_messages_edit_delete() {
     }
 
     // Не-автор не может править/удалять.
-    assert!(engines[1].post_edit(&g, &id0, "hack".into()).unwrap().is_none());
+    assert!(engines[1]
+        .post_edit(&g, &id0, "hack".into())
+        .unwrap()
+        .is_none());
     assert!(engines[2].post_delete(&g, &id0).unwrap().is_none());
 
     // Удаление автором — tombstone у всех.
@@ -88,7 +94,11 @@ fn remove_leave_rejoin() {
     for i in 0..9 {
         assert_eq!(engines[i].members(&g).len(), 9, "у остальных 9 участников");
     }
-    assert_eq!(engines[9].members(&g).len(), 10, "у удалённого — устаревшее состояние");
+    assert_eq!(
+        engines[9].members(&g).len(),
+        10,
+        "у удалённого — устаревшее состояние"
+    );
 
     // Новое сообщение владельца не адресуется удалённому и он не может его прочитать.
     let msg = engines[0].post(g.clone(), "after-remove".into()).unwrap();
@@ -123,7 +133,10 @@ fn remove_leave_rejoin() {
     let out = engines[0].post(g.clone(), "after-rejoin".into()).unwrap();
     pump(&mut engines, &keys, vec![(0, out)]);
     for e in &engines {
-        assert!(texts(e, &g).contains("after-rejoin"), "сообщение после возврата");
+        assert!(
+            texts(e, &g).contains("after-rejoin"),
+            "сообщение после возврата"
+        );
     }
 }
 
@@ -150,7 +163,10 @@ fn security_roles_replay_tamper_isolation() {
     let n = bad.len();
     bad[n - 1] ^= 0xff;
     let outcome = engines[1].handle(&bad);
-    assert!(outcome.is_err() || outcome.unwrap().new_messages.is_empty(), "tamper отклонён");
+    assert!(
+        outcome.is_err() || outcome.unwrap().new_messages.is_empty(),
+        "tamper отклонён"
+    );
 
     // Повтор того же конверта — replay отклоняется.
     let msg2 = engines[0].post(g.clone(), "replay".into()).unwrap();
@@ -165,7 +181,12 @@ fn security_roles_replay_tamper_isolation() {
     let j1 = engine();
     let j2 = engine();
     let j3 = engine();
-    let keys2 = vec![host.public_key(), j1.public_key(), j2.public_key(), j3.public_key()];
+    let keys2 = vec![
+        host.public_key(),
+        j1.public_key(),
+        j2.public_key(),
+        j3.public_key(),
+    ];
     let mut all = vec![host, j1, j2, j3];
     for j in 1..=2 {
         let (_, req) = all[j].join_request(&inv).unwrap();
@@ -211,7 +232,9 @@ fn member_leave_notifies_group() {
     }
 
     // Ушедший не может читать новые сообщения (локального состояния нет).
-    let msg = engines[0].post(g.clone(), "secret-after-leave".into()).unwrap();
+    let msg = engines[0]
+        .post(g.clone(), "secret-after-leave".into())
+        .unwrap();
     let outcome = engines[4].handle(&enc(&msg));
     assert!(outcome.is_err() || outcome.unwrap().new_messages.is_empty());
 }
@@ -227,7 +250,10 @@ fn owner_leave_transfers_ownership() {
         .filter(|p| p != &owner)
         .min()
         .unwrap();
-    let new_owner_idx = engines.iter().position(|e| e.peer_id() == new_owner).unwrap();
+    let new_owner_idx = engines
+        .iter()
+        .position(|e| e.peer_id() == new_owner)
+        .unwrap();
 
     let leave = engines[0].leave_group(&g).unwrap().expect("Leave-конверт");
     pump(&mut engines, &keys, vec![(0, leave)]);
@@ -235,7 +261,10 @@ fn owner_leave_transfers_ownership() {
     for i in 1..4 {
         assert_eq!(engines[i].members(&g).len(), 3, "осталось 3 участника");
     }
-    assert!(engines[new_owner_idx].is_owner(&g).unwrap(), "владение перешло");
+    assert!(
+        engines[new_owner_idx].is_owner(&g).unwrap(),
+        "владение перешло"
+    );
     for i in 1..4 {
         if i != new_owner_idx {
             assert!(!engines[i].is_owner(&g).unwrap());
@@ -253,6 +282,9 @@ fn owner_leave_single_member_transfers() {
     pump(&mut engines, &keys, vec![(0, leave)]);
 
     assert_eq!(engines[1].members(&g).len(), 1, "остался один");
-    assert!(engines[1].is_owner(&g).unwrap(), "единственный стал владельцем");
+    assert!(
+        engines[1].is_owner(&g).unwrap(),
+        "единственный стал владельцем"
+    );
     assert!(engines[1].create_invite(&g, 60, 1).is_ok());
 }

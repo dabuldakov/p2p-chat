@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.p2pchat.app.R
-import com.p2pchat.app.ChatViewModel
+import com.p2pchat.app.GifProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -58,7 +58,7 @@ enum class GifTab(val labelRes: Int) {
  * Тап по гифке отправляет её (в сообщении едет только ссылка kind+id).
  */
 @Composable
-fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
+fun GifPickerDialog(provider: GifProvider, onDismiss: () -> Unit) {
     var tab by remember { mutableStateOf(GifTab.MINE) }
     var query by remember { mutableStateOf("") }
     var gifs by remember { mutableStateOf<List<Gif>>(emptyList()) }
@@ -75,16 +75,16 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
         loading = true
         when (tab) {
             GifTab.MINE -> {
-                gifs = resolveRefs(vm, vm.myGifRefs())
+                gifs = resolveRefs(provider, provider.myGifRefs())
                 endReached = true
             }
             GifTab.GROUP -> {
-                gifs = resolveRefs(vm, vm.groupGifRefs())
+                gifs = resolveRefs(provider, provider.groupGifRefs())
                 endReached = true
             }
             GifTab.SEARCH -> {
                 delay(300) // debounce ввода
-                val res = vm.searchGifs(query, 0)
+                val res = provider.searchGifs(query, 0)
                 gifs = res
                 page = 1
                 endReached = res.size < PAGE_SIZE
@@ -101,7 +101,7 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
             .collect { last ->
                 if (!loading && !endReached && last >= gifs.size - 6) {
                     loading = true
-                    val next = vm.searchGifs(query, page)
+                    val next = provider.searchGifs(query, page)
                     gifs = gifs + next
                     page += 1
                     endReached = next.size < PAGE_SIZE
@@ -150,7 +150,7 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             items(gifs, key = { it.providerId }) { gif ->
-                                GifCell(gif) { vm.sendGif(gif); onDismiss() }
+                                GifCell(gif) { provider.sendGif(gif); onDismiss() }
                             }
                             if (loading) {
                                 item {
@@ -180,8 +180,8 @@ fun GifPickerDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
     )
 }
 
-private suspend fun resolveRefs(vm: ChatViewModel, refs: List<GifRef>): List<Gif> =
-    refs.mapNotNull { vm.cachedGif(it.providerId) ?: vm.resolveGif(it.providerId) }
+private suspend fun resolveRefs(provider: GifProvider, refs: List<GifRef>): List<Gif> =
+    refs.mapNotNull { provider.cachedGif(it.providerId) ?: provider.resolveGif(it.providerId) }
 
 @Composable
 private fun GifCell(gif: Gif, onClick: () -> Unit) {

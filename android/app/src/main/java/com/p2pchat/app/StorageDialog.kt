@@ -23,6 +23,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +35,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.widget.Toast
 
 internal fun formatBytes(bytes: Long): String = when {
@@ -45,13 +50,25 @@ internal fun formatBytes(bytes: Long): String = when {
 @Composable
 fun StorageDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
-    var stats by remember { mutableStateOf(vm.storageStats()) }
+    var stats by remember { mutableStateOf<List<StorageStat>?>(null) }
+    val scope = rememberCoroutineScope()
     var confirmAll by remember { mutableStateOf(false) }
-    val total = stats.sumOf { it.size }
+    val total = stats?.sumOf { it.size } ?: 0L
 
-    fun refreshStats() {
-        stats = vm.storageStats()
-        Toast.makeText(ctx, ctx.getString(R.string.storage_cleared), Toast.LENGTH_SHORT).show()
+    fun loadStats() {
+        scope.launch {
+            stats = withContext(Dispatchers.IO) { vm.storageStats() }
+        }
+    }
+
+    LaunchedEffect(Unit) { loadStats() }
+
+    fun clear(id: String) {
+        vm.clearStorage(id)
+        scope.launch {
+            stats = withContext(Dispatchers.IO) { vm.storageStats() }
+            Toast.makeText(ctx, ctx.getString(R.string.storage_cleared), Toast.LENGTH_SHORT).show()
+        }
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -72,11 +89,10 @@ fun StorageDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                 LazyColumn(
                     Modifier.fillMaxWidth().heightIn(max = 420.dp).padding(vertical = 4.dp),
                 ) {
-                    items(stats.filter { it.size > 0 }) { row ->
+                    items(stats.orEmpty().filter { it.size > 0 }) { row ->
                         Row(
                             Modifier.fillMaxWidth().clickable {
-                                vm.clearStorage(row.id)
-                                refreshStats()
+                                clear(row.id)
                             }.padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -92,14 +108,13 @@ fun StorageDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                             )
                             Spacer(Modifier.width(6.dp))
                             IconButton(onClick = {
-                                vm.clearStorage(row.id)
-                                refreshStats()
+                                clear(row.id)
                             }) {
                                 Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.storage_clear))
                             }
                         }
                     }
-                    if (stats.all { it.size == 0L }) {
+                    if (stats != null && stats!!.all { it.size == 0L }) {
                         item {
                             Text(
                                 stringResource(R.string.storage_cleared),
@@ -137,8 +152,7 @@ fun StorageDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     confirmAll = false
-                    vm.clearStorage("all")
-                    refreshStats()
+                    clear("all")
                 }) { Text(stringResource(R.string.storage_clear), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {

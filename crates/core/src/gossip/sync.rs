@@ -5,7 +5,9 @@
 
 use crate::merkle::MerkleTree;
 use crate::proto::gossip::Body;
-use crate::proto::{ChatMessage, Envelope, Gossip, SyncDigest, SyncFetch, SyncIds, SyncRequest, SyncResponse};
+use crate::proto::{
+    ChatMessage, Envelope, Gossip, SyncDigest, SyncFetch, SyncIds, SyncRequest, SyncResponse,
+};
 use crate::CoreError;
 
 use super::{GossipEngine, Outcome, Outgoing};
@@ -19,7 +21,9 @@ impl GossipEngine {
             root: tree.root().to_vec(),
             count: tree.len() as u64,
         };
-        self.seal(Gossip { body: Some(Body::SyncDigest(d)) })
+        self.seal(Gossip {
+            body: Some(Body::SyncDigest(d)),
+        })
     }
 
     /// Digest группы, адресованный конкретному пиру (для офлайн-догона).
@@ -35,7 +39,9 @@ impl GossipEngine {
             have_heads: self.log.heads(group),
             lamport_watermark: self.log.lamport(),
         };
-        self.seal(Gossip { body: Some(Body::SyncRequest(req)) })
+        self.seal(Gossip {
+            body: Some(Body::SyncRequest(req)),
+        })
     }
 
     /// Ответ на запрос синка: сообщения новее указанного времени.
@@ -68,7 +74,10 @@ impl GossipEngine {
         }
         let ids = self.log.ids_for_group(&d.group_id);
         let env = self.seal(Gossip {
-            body: Some(Body::SyncIds(SyncIds { group_id: d.group_id, ids })),
+            body: Some(Body::SyncIds(SyncIds {
+                group_id: d.group_id,
+                ids,
+            })),
         })?;
         out.outgoing.push(self.out_to(env, origin.to_vec()));
         Ok(())

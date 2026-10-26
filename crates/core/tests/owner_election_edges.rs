@@ -147,12 +147,14 @@ fn make_vote(
 }
 
 fn cid(out: &Outgoing) -> Vec<u8> {
-    match Gossip::decode(out.envelope.payload.as_slice()).unwrap().body {
+    match Gossip::decode(out.envelope.payload.as_slice())
+        .unwrap()
+        .body
+    {
         Some(Body::OwnerClaim(c)) => c.claim_id,
         _ => panic!("not claim"),
     }
 }
-
 
 fn set_meta(e: &mut GossipEngine, key: &str, value: &[u8]) {
     e.log_mut().set_meta(key, value).unwrap();
@@ -224,7 +226,11 @@ fn claim_validation_edges() {
     engines[0].on_owner_claim(trig, &[]).unwrap();
 
     // Cooldown после провала.
-    set_meta(&mut engines[0], &format!("owner_fail:{}", hex(&g)), &t.to_le_bytes());
+    set_meta(
+        &mut engines[0],
+        &format!("owner_fail:{}", hex(&g)),
+        &t.to_le_bytes(),
+    );
     let fail = make_claim(&engines[1], &g, OwnerTrigger::Absent as i32, last, t);
     engines[0].on_owner_claim(fail, &[]).unwrap();
 
@@ -357,7 +363,10 @@ fn vote_window_and_validation_edges() {
         .owner_vote_at(&g, &claim, true, false, t)
         .unwrap()
         .is_none());
-    assert!(engines[1].finalize_owner_election_at(&g, t).unwrap().is_none());
+    assert!(engines[1]
+        .finalize_owner_election_at(&g, t)
+        .unwrap()
+        .is_none());
 
     // on_owner_vote до открытия окна.
     set_now(&mut engines, t);
@@ -371,7 +380,10 @@ fn vote_window_and_validation_edges() {
         .unwrap()
         .is_none());
     // keep только в challenge.
-    assert!(engines[2].owner_vote(&g, &[], true, true).unwrap().is_none());
+    assert!(engines[2]
+        .owner_vote(&g, &[], true, true)
+        .unwrap()
+        .is_none());
     // Нет такой заявки.
     assert!(engines[2]
         .owner_vote(&g, b"nope", true, false)
@@ -383,9 +395,15 @@ fn vote_window_and_validation_edges() {
         .unwrap()
         .is_none());
 
-    let vote = engines[2].owner_vote(&g, &claim, true, false).unwrap().unwrap();
+    let vote = engines[2]
+        .owner_vote(&g, &claim, true, false)
+        .unwrap()
+        .unwrap();
     let voter = engines[2].peer_id();
-    assert!(engines[2].owner_vote(&g, &claim, true, false).unwrap().is_none());
+    assert!(engines[2]
+        .owner_vote(&g, &claim, true, false)
+        .unwrap()
+        .is_none());
 
     // Повторный голос уже после доставки.
     pump(&mut engines, &keys, vec![(2, vote)]);
@@ -481,9 +499,15 @@ fn tie_and_no_quorum() {
     let last = engines[1].owner_last_seen(&g);
     let t = last + 7 * DAY + 60;
     set_now(&mut engines, t);
-    let a = engines[1].create_owner_claim(&g, OwnerTrigger::Absent).unwrap().unwrap();
+    let a = engines[1]
+        .create_owner_claim(&g, OwnerTrigger::Absent)
+        .unwrap()
+        .unwrap();
     pump(&mut engines, &keys, vec![(1, a)]);
-    let b = engines[2].create_owner_claim(&g, OwnerTrigger::Absent).unwrap().unwrap();
+    let b = engines[2]
+        .create_owner_claim(&g, OwnerTrigger::Absent)
+        .unwrap()
+        .unwrap();
     pump(&mut engines, &keys, vec![(2, b)]);
     set_now(&mut engines, t + 2 * DAY + 60);
     let change = engines[3]
@@ -496,7 +520,6 @@ fn tie_and_no_quorum() {
         assert!(e.owner_of(&g).as_deref() == Some(expected.as_slice()));
     }
 }
-
 
 #[test]
 fn on_change_basic_rejections() {
@@ -527,9 +550,7 @@ fn on_change_basic_rejections() {
         new_owner: claim.claimant.clone(),
         ..Default::default()
     };
-    engines[0]
-        .on_owner_change(wrong_group, &member)
-        .unwrap();
+    engines[0].on_owner_change(wrong_group, &member).unwrap();
 
     let fallback = p2pchat_core::proto::OwnerChange {
         group_id: g.clone(),
@@ -538,7 +559,5 @@ fn on_change_basic_rejections() {
         epoch: 0,
         ..Default::default()
     };
-    engines[0]
-        .on_owner_change(fallback, &member)
-        .unwrap();
+    engines[0].on_owner_change(fallback, &member).unwrap();
 }

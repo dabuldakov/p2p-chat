@@ -22,6 +22,7 @@ class MediaTransfer(
     private val ctx: Context,
     private val core: ChatCore,
     private val send: (List<ByteArray>, ByteArray) -> Unit,
+    private val buffered: (ByteArray) -> Long,
     private val onReady: () -> Unit,
 ) {
     companion object {
@@ -114,6 +115,7 @@ class MediaTransfer(
                 raf.readFully(data)
                 send(listOf(to), chunkFrame(group, hash, offset, total, data))
                 offset += n
+                while (buffered(to) > 2L * 1024 * 1024) Thread.sleep(5)
             }
         }
     }

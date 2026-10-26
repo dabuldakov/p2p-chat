@@ -1,8 +1,8 @@
 //! Подписанная жалоба: поля и проверка подписи.
 
 use ed25519_dalek::VerifyingKey;
-use prost::Message as _;
 use p2pchat_ffi::ChatCore;
+use prost::Message as _;
 
 fn tmp(name: &str) -> String {
     let mut p = std::env::temp_dir();

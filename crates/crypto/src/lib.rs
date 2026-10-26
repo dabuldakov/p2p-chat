@@ -35,12 +35,16 @@ pub struct Identity {
 
 impl Identity {
     pub fn generate() -> Self {
-        Self { signing: SigningKey::generate(&mut OsRng) }
+        Self {
+            signing: SigningKey::generate(&mut OsRng),
+        }
     }
 
     pub fn from_secret_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         let arr: [u8; 32] = bytes.try_into().map_err(|_| CryptoError::BadKey)?;
-        Ok(Self { signing: SigningKey::from_bytes(&arr) })
+        Ok(Self {
+            signing: SigningKey::from_bytes(&arr),
+        })
     }
 
     pub fn secret_bytes(&self) -> [u8; 32] {
@@ -97,11 +101,19 @@ impl SenderKey {
     pub fn generate() -> Self {
         let mut key = [0u8; 32];
         rand::RngCore::fill_bytes(&mut OsRng, &mut key);
-        Self { key, epoch: 0, counter: 0 }
+        Self {
+            key,
+            epoch: 0,
+            counter: 0,
+        }
     }
 
     pub fn from_bytes(key: [u8; 32], epoch: u32, counter: u64) -> Self {
-        Self { key, epoch, counter }
+        Self {
+            key,
+            epoch,
+            counter,
+        }
     }
 
     pub fn export(&self) -> ([u8; 32], u32, u64) {
@@ -113,7 +125,13 @@ impl SenderKey {
         let nonce = self.next_nonce();
         let cipher = ChaCha20Poly1305::new((&self.key).into());
         let ct = cipher
-            .encrypt(Nonce::from_slice(&nonce), Payload { msg: plaintext, aad: &[] })
+            .encrypt(
+                Nonce::from_slice(&nonce),
+                Payload {
+                    msg: plaintext,
+                    aad: &[],
+                },
+            )
             .map_err(|_| CryptoError::Encrypt)?;
         Ok((nonce, ct))
     }
@@ -122,7 +140,13 @@ impl SenderKey {
     pub fn decrypt(&self, nonce: &[u8; 12], ciphertext: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let cipher = ChaCha20Poly1305::new((&self.key).into());
         cipher
-            .decrypt(Nonce::from_slice(nonce), Payload { msg: ciphertext, aad: &[] })
+            .decrypt(
+                Nonce::from_slice(nonce),
+                Payload {
+                    msg: ciphertext,
+                    aad: &[],
+                },
+            )
             .map_err(|_| CryptoError::Decrypt)
     }
 
@@ -167,7 +191,13 @@ impl GroupKey {
         rand::RngCore::fill_bytes(&mut OsRng, &mut nonce);
         let cipher = ChaCha20Poly1305::new((&self.key).into());
         let ct = cipher
-            .encrypt(Nonce::from_slice(&nonce), Payload { msg: plaintext, aad: &[] })
+            .encrypt(
+                Nonce::from_slice(&nonce),
+                Payload {
+                    msg: plaintext,
+                    aad: &[],
+                },
+            )
             .map_err(|_| CryptoError::Encrypt)?;
         Ok((nonce, ct))
     }
@@ -175,7 +205,13 @@ impl GroupKey {
     pub fn decrypt(&self, nonce: &[u8; 12], ciphertext: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let cipher = ChaCha20Poly1305::new((&self.key).into());
         cipher
-            .decrypt(Nonce::from_slice(nonce), Payload { msg: ciphertext, aad: &[] })
+            .decrypt(
+                Nonce::from_slice(nonce),
+                Payload {
+                    msg: ciphertext,
+                    aad: &[],
+                },
+            )
             .map_err(|_| CryptoError::Decrypt)
     }
 }
@@ -237,7 +273,13 @@ pub fn pairwise_encrypt(
     rand::RngCore::fill_bytes(&mut OsRng, &mut nonce);
     let cipher = ChaCha20Poly1305::new((&key).into());
     let ct = cipher
-        .encrypt(Nonce::from_slice(&nonce), Payload { msg: plaintext, aad: &[] })
+        .encrypt(
+            Nonce::from_slice(&nonce),
+            Payload {
+                msg: plaintext,
+                aad: &[],
+            },
+        )
         .map_err(|_| CryptoError::Encrypt)?;
     Ok((nonce, ct))
 }
@@ -251,7 +293,13 @@ pub fn pairwise_decrypt(
     let key = pairwise_key(id, peer);
     let cipher = ChaCha20Poly1305::new((&key).into());
     cipher
-        .decrypt(Nonce::from_slice(nonce), Payload { msg: ciphertext, aad: &[] })
+        .decrypt(
+            Nonce::from_slice(nonce),
+            Payload {
+                msg: ciphertext,
+                aad: &[],
+            },
+        )
         .map_err(|_| CryptoError::Decrypt)
 }
 
@@ -274,7 +322,10 @@ mod tests {
 
         let (nonce, ct) = pairwise_encrypt(&a, &b.public_key(), msg).unwrap();
         // B расшифровывает, зная публичный ключ A
-        assert_eq!(pairwise_decrypt(&b, &a.public_key(), &nonce, &ct).unwrap(), msg);
+        assert_eq!(
+            pairwise_decrypt(&b, &a.public_key(), &nonce, &ct).unwrap(),
+            msg
+        );
         // C не может
         assert!(pairwise_decrypt(&c, &a.public_key(), &nonce, &ct).is_err());
     }
@@ -323,13 +374,25 @@ mod tests {
     fn kdf_x25519_and_ids_are_deterministic() {
         let seed = [3u8; 32];
         assert_eq!(x25519_secret_bytes(&seed), x25519_secret_bytes(&seed));
-        assert_eq!(derive_key(b"shared", b"info"), derive_key(b"shared", b"info"));
-        assert_ne!(derive_key(b"shared", b"info"), derive_key(b"shared", b"other"));
+        assert_eq!(
+            derive_key(b"shared", b"info"),
+            derive_key(b"shared", b"info")
+        );
+        assert_ne!(
+            derive_key(b"shared", b"info"),
+            derive_key(b"shared", b"other")
+        );
 
         let a = Identity::from_secret_bytes(&seed).unwrap();
         let b = Identity::generate();
-        assert_eq!(pairwise_key(&a, &b.public_key()), pairwise_key(&b, &a.public_key()));
-        assert_eq!(x25519_public(&a.public_key()), x25519_public(&a.public_key()));
+        assert_eq!(
+            pairwise_key(&a, &b.public_key()),
+            pairwise_key(&b, &a.public_key())
+        );
+        assert_eq!(
+            x25519_public(&a.public_key()),
+            x25519_public(&a.public_key())
+        );
         assert_eq!(a.x25519_secret(), a.x25519_secret());
 
         assert_eq!(content_id(b"x"), content_id(b"x"));

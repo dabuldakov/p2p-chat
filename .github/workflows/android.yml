@@ -39,6 +39,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi
+          components: rustfmt, clippy
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -48,6 +49,12 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+
+      - name: Rust format, lint and tests
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
@@ -81,9 +88,11 @@ jobs:
             echo "have=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Unit tests
+      - name: Unit tests and Android lint
         working-directory: android
-        run: gradle testDebugUnitTest --no-daemon
+        run: |
+          gradle testDebugUnitTest --no-daemon
+          gradle lintDebug --no-daemon
 
       - name: Build APKs
         working-directory: android

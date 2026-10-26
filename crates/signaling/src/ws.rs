@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use prost::Message as _;
 use tokio::sync::{mpsc, Mutex};
-use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::connect_async;
+use tokio_tungstenite::tungstenite::Message;
 
 use p2pchat_proto::SignalEnvelope;
 
@@ -55,7 +55,10 @@ impl WsSignaling {
             }
         });
 
-        Ok(Self { tx, rx: Mutex::new(Some(in_rx)) })
+        Ok(Self {
+            tx,
+            rx: Mutex::new(Some(in_rx)),
+        })
     }
 }
 

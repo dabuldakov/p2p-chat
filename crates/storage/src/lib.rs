@@ -171,7 +171,8 @@ impl Store {
 
         if version < 5 {
             if !self.has_column("profiles", "avatar")? {
-                self.conn.execute_batch("ALTER TABLE profiles ADD COLUMN avatar BLOB;")?;
+                self.conn
+                    .execute_batch("ALTER TABLE profiles ADD COLUMN avatar BLOB;")?;
             }
             self.conn.execute_batch("PRAGMA user_version = 5;")?;
         }
@@ -399,9 +400,23 @@ impl Store {
             for m in messages {
                 let (ak, ai, aw, ah, au, am, asz, ad, an, at) = attachment_cols(m);
                 let n = stmt.execute(params![
-                    m.id, m.group_id, m.author, m.lamport as i64,
-                    m.wall_time as i64, m.text, now as i64,
-                    ak, ai, aw, ah, au, am, asz, ad, an, at
+                    m.id,
+                    m.group_id,
+                    m.author,
+                    m.lamport as i64,
+                    m.wall_time as i64,
+                    m.text,
+                    now as i64,
+                    ak,
+                    ai,
+                    aw,
+                    ah,
+                    au,
+                    am,
+                    asz,
+                    ad,
+                    an,
+                    at
                 ])?;
                 if n > 0 {
                     for p in &m.parents {
@@ -423,7 +438,9 @@ impl Store {
     pub fn has_message(&self, id: &[u8]) -> Result<bool, StorageError> {
         let found: Option<i64> = self
             .conn
-            .query_row("SELECT 1 FROM messages WHERE id = ?1", params![id], |r| r.get(0))
+            .query_row("SELECT 1 FROM messages WHERE id = ?1", params![id], |r| {
+                r.get(0)
+            })
             .optional()?;
         Ok(found.is_some())
     }
@@ -465,6 +482,88 @@ impl Store {
         Ok(out)
     }
 
+    /// Страница истории группы: не более `limit` сообщений до `before_id`
+    /// (или последние, если `before_id = None`). Возвращает по возрастанию.
+    pub fn messages_page(
+        &self,
+        group_id: &[u8],
+        before_id: Option<&[u8]>,
+        limit: i64,
+    ) -> Result<Vec<StoredMessage>, StorageError> {
+        let parents = self.parents_map()?;
+        let (sql, params): (String, Vec<rusqlite::types::Value>) = if let Some(id) = before_id {
+            let row: Option<(i64, Vec<u8>)> = self
+                .conn
+                .query_row(
+                    "SELECT lamport, id FROM messages WHERE id = ?1 AND group_id = ?2",
+                    params![id, group_id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            if let Some((lamport, id)) = row {
+                (
+                    "SELECT id, group_id, author, lamport, wall_time, text,
+                            attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url,
+                            attachment_mime, attachment_size, attachment_duration, attachment_name, attachment_thumb
+                     FROM messages
+                     WHERE group_id = ?1 AND (lamport < ?2 OR (lamport = ?2 AND id < ?3))
+                     ORDER BY lamport DESC, id DESC LIMIT ?4"
+                        .to_string(),
+                    vec![
+                        group_id.to_vec().into(),
+                        lamport.into(),
+                        id.into(),
+                        (limit + 1).into(),
+                    ],
+                )
+            } else {
+                (
+                    "SELECT id, group_id, author, lamport, wall_time, text,
+                            attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url,
+                            attachment_mime, attachment_size, attachment_duration, attachment_name, attachment_thumb
+                     FROM messages WHERE group_id = ?1
+                     ORDER BY lamport DESC, id DESC LIMIT ?2"
+                        .to_string(),
+                    vec![group_id.to_vec().into(), (limit + 1).into()],
+                )
+            }
+        } else {
+            (
+                "SELECT id, group_id, author, lamport, wall_time, text,
+                        attachment_kind, attachment_id, attachment_width, attachment_height, attachment_url,
+                        attachment_mime, attachment_size, attachment_duration, attachment_name, attachment_thumb
+                 FROM messages WHERE group_id = ?1
+                 ORDER BY lamport DESC, id DESC LIMIT ?2"
+                    .to_string(),
+                vec![group_id.to_vec().into(), (limit + 1).into()],
+            )
+        };
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(params), |r| {
+            Ok(StoredMessage {
+                id: r.get(0)?,
+                group_id: r.get(1)?,
+                author: r.get(2)?,
+                lamport: r.get::<_, i64>(3)? as u64,
+                wall_time: r.get::<_, i64>(4)? as u64,
+                text: r.get(5)?,
+                parents: Vec::new(),
+                attachment: read_attachment(r)?,
+            })
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let mut m = row?;
+            if let Some(ps) = parents.get(&m.id) {
+                m.parents = ps.clone();
+            }
+            out.push(m);
+        }
+        out.truncate(limit.max(0) as usize);
+        out.reverse();
+        Ok(out)
+    }
+
     /// Все сообщения (для загрузки лога при старте).
     pub fn all_messages(&self) -> Result<Vec<StoredMessage>, StorageError> {
         let parents = self.parents_map()?;
@@ -501,7 +600,9 @@ impl Store {
     fn parents_map(
         &self,
     ) -> Result<std::collections::HashMap<Vec<u8>, Vec<Vec<u8>>>, StorageError> {
-        let mut stmt = self.conn.prepare("SELECT message_id, parent_id FROM message_parents")?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT message_id, parent_id FROM message_parents")?;
         let rows = stmt.query_map([], |r| {
             Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, Vec<u8>>(1)?))
         })?;
@@ -521,7 +622,12 @@ impl Store {
                 last_seen = excluded.last_seen,
                 is_relay  = excluded.is_relay,
                 hops      = excluded.hops",
-            params![p.peer_id, p.last_seen as i64, p.is_relay as i64, p.hops as i64],
+            params![
+                p.peer_id,
+                p.last_seen as i64,
+                p.is_relay as i64,
+                p.hops as i64
+            ],
         )?;
         Ok(())
     }
@@ -529,7 +635,9 @@ impl Store {
     pub fn get_meta(&self, key: &str) -> Result<Option<Vec<u8>>, StorageError> {
         Ok(self
             .conn
-            .query_row("SELECT value FROM meta WHERE key = ?1", params![key], |r| r.get(0))
+            .query_row("SELECT value FROM meta WHERE key = ?1", params![key], |r| {
+                r.get(0)
+            })
             .optional()?)
     }
 
@@ -571,8 +679,9 @@ impl Store {
 
     /// (peer_id, nickname, lamport, avatar)
     pub fn all_profiles(&self) -> Result<Vec<ProfileRow>, StorageError> {
-        let mut stmt =
-            self.conn.prepare("SELECT peer_id, nickname, lamport, avatar FROM profiles")?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT peer_id, nickname, lamport, avatar FROM profiles")?;
         let rows = stmt.query_map([], |r| {
             Ok((
                 r.get(0)?,
@@ -604,8 +713,9 @@ impl Store {
 
     /// Все правки: (message_id, text, lamport, wall_time).
     pub fn all_edits(&self) -> Result<Vec<EditRow>, StorageError> {
-        let mut stmt =
-            self.conn.prepare("SELECT message_id, text, lamport, wall_time FROM message_edits")?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT message_id, text, lamport, wall_time FROM message_edits")?;
         let rows = stmt.query_map([], |r| {
             Ok((
                 r.get(0)?,
@@ -628,7 +738,9 @@ impl Store {
 
     /// Все удалённые сообщения.
     pub fn all_deletes(&self) -> Result<Vec<Vec<u8>>, StorageError> {
-        let mut stmt = self.conn.prepare("SELECT message_id FROM message_deletes")?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT message_id FROM message_deletes")?;
         let rows = stmt.query_map([], |r| r.get(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
@@ -671,12 +783,7 @@ impl Store {
             .conn
             .prepare("SELECT target_id, peer_id, emoji, lamport FROM message_reactions")?;
         let rows = stmt.query_map([], |r| {
-            Ok((
-                r.get(0)?,
-                r.get(1)?,
-                r.get(2)?,
-                r.get::<_, i64>(3)? as u64,
-            ))
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_, i64>(3)? as u64))
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
@@ -714,7 +821,14 @@ impl Store {
                 joined     = excluded.joined,
                 lamport    = excluded.lamport,
                 event_id   = excluded.event_id",
-            params![group_id, peer_id, public_key, joined as i64, lamport as i64, event_id],
+            params![
+                group_id,
+                peer_id,
+                public_key,
+                joined as i64,
+                lamport as i64,
+                event_id
+            ],
         )?;
         Ok(())
     }
@@ -897,7 +1011,9 @@ mod tests {
     #[test]
     fn batch_insert_counts() {
         let store = Store::open_in_memory().unwrap();
-        let batch: Vec<_> = (0..10).map(|i| msg(format!("m{i}").as_bytes(), i)).collect();
+        let batch: Vec<_> = (0..10)
+            .map(|i| msg(format!("m{i}").as_bytes(), i))
+            .collect();
         let n = store.insert_messages(&batch, 9).unwrap();
         assert_eq!(n, 10);
         // повтор — уже ничего нового
@@ -934,7 +1050,16 @@ mod tests {
             let parents = serde_json::to_vec(&vec![vec![1u8, 2, 3]]).unwrap();
             conn.execute(
                 "INSERT INTO messages VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-                params![b"m1".to_vec(), b"g".to_vec(), b"a".to_vec(), 1i64, 1i64, "hi", parents, 1i64],
+                params![
+                    b"m1".to_vec(),
+                    b"g".to_vec(),
+                    b"a".to_vec(),
+                    1i64,
+                    1i64,
+                    "hi",
+                    parents,
+                    1i64
+                ],
             )
             .unwrap();
         }
@@ -943,9 +1068,19 @@ mod tests {
         let store = Store::open(&path).unwrap();
         let msgs = store.all_messages().unwrap();
         assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0].parents, vec![vec![1u8, 2, 3]], "родители перенесены");
-        assert!(!store.has_column("messages", "parents").unwrap(), "старый столбец убран");
-        let v: i64 = store.conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        assert_eq!(
+            msgs[0].parents,
+            vec![vec![1u8, 2, 3]],
+            "родители перенесены"
+        );
+        assert!(
+            !store.has_column("messages", "parents").unwrap(),
+            "старый столбец убран"
+        );
+        let v: i64 = store
+            .conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(v, 10);
 
         let _ = std::fs::remove_file(&path);
@@ -994,16 +1129,49 @@ mod tests {
     fn gifs_queries_dedup_and_order() {
         let store = Store::open_in_memory().unwrap();
         let mut a = msg(b"a1", 1);
-        a.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g1".into(), width: 1, height: 1, url: String::new(), mime: String::new(), size: 0, duration_ms: 0, file_name: String::new(), thumbnail: Vec::new() });
+        a.attachment = Some(StoredAttachment {
+            kind: "klipy".into(),
+            id: "g1".into(),
+            width: 1,
+            height: 1,
+            url: String::new(),
+            mime: String::new(),
+            size: 0,
+            duration_ms: 0,
+            file_name: String::new(),
+            thumbnail: Vec::new(),
+        });
         a.wall_time = 100;
         let mut a2 = msg(b"a2", 2);
         a2.group_id = b"g2".to_vec();
         a2.author = b"b".to_vec();
-        a2.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g2".into(), width: 1, height: 1, url: String::new(), mime: String::new(), size: 0, duration_ms: 0, file_name: String::new(), thumbnail: Vec::new() });
+        a2.attachment = Some(StoredAttachment {
+            kind: "klipy".into(),
+            id: "g2".into(),
+            width: 1,
+            height: 1,
+            url: String::new(),
+            mime: String::new(),
+            size: 0,
+            duration_ms: 0,
+            file_name: String::new(),
+            thumbnail: Vec::new(),
+        });
         a2.wall_time = 200;
         // дубликат g1 тем же автором позже — не должен дублироваться
         let mut a1dup = msg(b"a1dup", 3);
-        a1dup.attachment = Some(StoredAttachment { kind: "klipy".into(), id: "g1".into(), width: 1, height: 1, url: String::new(), mime: String::new(), size: 0, duration_ms: 0, file_name: String::new(), thumbnail: Vec::new() });
+        a1dup.attachment = Some(StoredAttachment {
+            kind: "klipy".into(),
+            id: "g1".into(),
+            width: 1,
+            height: 1,
+            url: String::new(),
+            mime: String::new(),
+            size: 0,
+            duration_ms: 0,
+            file_name: String::new(),
+            thumbnail: Vec::new(),
+        });
         a1dup.wall_time = 300;
 
         store.insert_message(&a, 1).unwrap();
@@ -1087,8 +1255,10 @@ mod tests {
     #[test]
     fn membership_upsert() {
         let st = Store::open_in_memory().unwrap();
-        st.upsert_membership(b"g", b"p", b"pk", true, 1, b"e1").unwrap();
-        st.upsert_membership(b"g", b"p", b"pk2", false, 2, b"e2").unwrap();
+        st.upsert_membership(b"g", b"p", b"pk", true, 1, b"e1")
+            .unwrap();
+        st.upsert_membership(b"g", b"p", b"pk2", false, 2, b"e2")
+            .unwrap();
         let rows = st.all_membership().unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].2, b"pk2");
@@ -1131,9 +1301,19 @@ mod tests {
     #[test]
     fn peers_upsert() {
         let st = Store::open_in_memory().unwrap();
-        st.upsert_peer(&StoredPeer { peer_id: b"p".to_vec(), last_seen: 1, is_relay: false, hops: 1 })
-            .unwrap();
-        st.upsert_peer(&StoredPeer { peer_id: b"p".to_vec(), last_seen: 2, is_relay: true, hops: 0 })
-            .unwrap();
+        st.upsert_peer(&StoredPeer {
+            peer_id: b"p".to_vec(),
+            last_seen: 1,
+            is_relay: false,
+            hops: 1,
+        })
+        .unwrap();
+        st.upsert_peer(&StoredPeer {
+            peer_id: b"p".to_vec(),
+            last_seen: 2,
+            is_relay: true,
+            hops: 0,
+        })
+        .unwrap();
     }
 }

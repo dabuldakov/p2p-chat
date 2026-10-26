@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 fn main() {
-    let proto = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../proto/p2pchat.proto");
+    let proto = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../proto/p2pchat.proto");
 
     println!("cargo:rerun-if-changed={}", proto.display());
 
@@ -14,6 +13,9 @@ fn main() {
 
     prost_build::Config::new()
         .out_dir(&out_dir)
-        .compile_protos(&[proto], &[PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../proto")])
+        .compile_protos(
+            &[proto],
+            &[PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../proto")],
+        )
         .expect("prost build");
 }

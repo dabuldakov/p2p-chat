@@ -40,17 +40,27 @@ impl MemoryTransport {
     pub fn join(hub: &MemoryHub, me: PeerId) -> Self {
         let (tx, rx) = mpsc::channel(1024);
         hub.register(me.clone(), tx);
-        Self { hub: hub.clone(), me, rx: Mutex::new(Some(rx)) }
+        Self {
+            hub: hub.clone(),
+            me,
+            rx: Mutex::new(Some(rx)),
+        }
     }
 }
 
 #[async_trait]
 impl Transport for MemoryTransport {
     async fn send(&self, to: &PeerId, data: &[u8]) -> Result<(), TransportError> {
-        let tx = self.hub.lookup(to).ok_or_else(|| TransportError::Unreachable(to.clone()))?;
-        tx.send(Inbound { from: self.me.clone(), data: data.to_vec() })
-            .await
-            .map_err(|_| TransportError::Closed)
+        let tx = self
+            .hub
+            .lookup(to)
+            .ok_or_else(|| TransportError::Unreachable(to.clone()))?;
+        tx.send(Inbound {
+            from: self.me.clone(),
+            data: data.to_vec(),
+        })
+        .await
+        .map_err(|_| TransportError::Closed)
     }
 
     async fn incoming(&self) -> mpsc::Receiver<Inbound> {

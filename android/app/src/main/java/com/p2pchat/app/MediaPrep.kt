@@ -17,6 +17,7 @@ import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
+import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -37,6 +38,7 @@ data class PreparedMedia(
     val thumbnail: ByteArray?,
 )
 
+@androidx.annotation.OptIn(UnstableApi::class)
 object MediaPrep {
     private const val MAX_PHOTO = 20L * 1024 * 1024
     private const val MAX_VIDEO = 100L * 1024 * 1024
@@ -124,7 +126,7 @@ object MediaPrep {
                 } else {
                     val id = MediaFiles.sha256(file)
                     val persisted = MediaFiles.persist(file, id, "video/mp4")
-                    val (w, h, dur) = videoMeta(ctx, persisted)
+                    val (w, h, dur) = videoMeta(persisted)
                     PreparedMedia(
                         id = id,
                         file = persisted,
@@ -134,7 +136,7 @@ object MediaPrep {
                         height = h,
                         durationMs = dur,
                         fileName = queryName(ctx, uri) ?: "video.mp4",
-                        thumbnail = videoThumb(ctx, persisted),
+                        thumbnail = videoThumb(persisted),
                     )
                 }
             }
@@ -175,7 +177,7 @@ object MediaPrep {
                 if (!file.isFile || file.length() == 0L) return@runCatching null
                 val id = MediaFiles.sha256(file)
                 val persisted = MediaFiles.persist(file, id, mime)
-                val (w, h, dur) = videoMeta(ctx, persisted)
+                val (w, h, dur) = videoMeta(persisted)
                 PreparedMedia(
                     id = id,
                     file = persisted,
@@ -185,7 +187,7 @@ object MediaPrep {
                     height = h,
                     durationMs = dur,
                     fileName = if (kind == "voice") "voice.m4a" else "video.mp4",
-                    thumbnail = if (kind == "video_note") videoThumb(ctx, persisted) else null,
+                    thumbnail = if (kind == "video_note") videoThumb(persisted) else null,
                 )
             }.getOrNull()
         }
@@ -241,14 +243,14 @@ object MediaPrep {
         }
 
     private fun metadataDuration(ctx: Context, uri: Uri): Long = runCatching {
-        MediaMetadataRetriever().use { r ->
+        withRetriever { r ->
             r.setDataSource(ctx, uri)
             r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
         }
     }.getOrDefault(0L)
 
-    private fun videoMeta(ctx: Context, file: File): Triple<Int, Int, Long> = runCatching {
-        MediaMetadataRetriever().use { r ->
+    private fun videoMeta(file: File): Triple<Int, Int, Long> = runCatching {
+        withRetriever { r ->
             r.setDataSource(file.absolutePath)
             val w = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
             val h = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
@@ -257,8 +259,8 @@ object MediaPrep {
         }
     }.getOrDefault(Triple(0, 0, 0))
 
-    private fun videoThumb(ctx: Context, file: File): ByteArray? = runCatching {
-        MediaMetadataRetriever().use { r ->
+    private fun videoThumb(file: File): ByteArray? = runCatching {
+        withRetriever { r ->
             r.setDataSource(file.absolutePath)
             val frame = r.getFrameAtTime(1_000_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                 ?: return null
@@ -271,6 +273,15 @@ object MediaPrep {
             }
         }
     }.getOrNull()
+
+    private inline fun <T> withRetriever(block: (MediaMetadataRetriever) -> T): T {
+        val r = MediaMetadataRetriever()
+        return try {
+            block(r)
+        } finally {
+            runCatching { r.release() }
+        }
+    }
 
     private fun scaleDown(src: Bitmap, maxEdge: Int): Bitmap {
         val max = maxOf(src.width, src.height)

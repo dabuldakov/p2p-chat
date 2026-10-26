@@ -50,7 +50,11 @@ fn message_id_changes_only_with_attachment() {
     let id_with = message_id(&with);
 
     assert_ne!(id_plain, id_with, "вложение меняет контент-адрес");
-    assert_eq!(id_plain, message_id(&base_msg()), "детерминизм и стабильность");
+    assert_eq!(
+        id_plain,
+        message_id(&base_msg()),
+        "детерминизм и стабильность"
+    );
     // другое вложение — другой id
     let mut other = base_msg();
     other.attachment = Some(att("g2"));
@@ -65,14 +69,24 @@ fn gif_persists_and_is_queryable() {
     let peer_id = {
         let store = Store::open(&path).unwrap();
         let identity = Identity::generate();
-        store.set_meta("identity", &identity.secret_bytes()).unwrap();
+        store
+            .set_meta("identity", &identity.secret_bytes())
+            .unwrap();
         let mut e = GossipEngine::new(identity, Log::with_store(store).unwrap());
         e.load_state().unwrap();
         e.create_group(g.clone()).unwrap();
         e.post_gif(g.clone(), att("g1")).unwrap();
 
-        assert_eq!(e.log().gifs_for_group(&g, 50).unwrap().len(), 1, "выборка по группе");
-        assert_eq!(e.log().gifs_by_author(&e.peer_id(), 50).unwrap().len(), 1, "выборка «Мои»");
+        assert_eq!(
+            e.log().gifs_for_group(&g, 50).unwrap().len(),
+            1,
+            "выборка по группе"
+        );
+        assert_eq!(
+            e.log().gifs_by_author(&e.peer_id(), 50).unwrap().len(),
+            1,
+            "выборка «Мои»"
+        );
         e.peer_id()
     };
 

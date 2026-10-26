@@ -27,7 +27,10 @@ fn large_group_multi_hop_reaches_all() {
 
     // топология не полная: у узла 0 не все прямые соседи
     let direct = engines[0].neighbors(&g).len();
-    assert!(direct < n - 1, "ожидался оверлей, а не полный mesh (соседей {direct})");
+    assert!(
+        direct < n - 1,
+        "ожидался оверлей, а не полный mesh (соседей {direct})"
+    );
 
     let out = engines[0].post(g.clone(), "привет всем".into()).unwrap();
     pump(&mut engines, &keys, vec![(0, out)]);

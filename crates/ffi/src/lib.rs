@@ -892,18 +892,13 @@ impl ChatCore {
         limit: u32,
     ) -> FfiHistoryPage {
         let engine = self.inner.lock().unwrap();
-        let all = engine.log().ordered(&group_id);
-        let end = match &before_id {
-            Some(id) => all.iter().position(|m| &m.id == id).unwrap_or(all.len()),
-            None => all.len(),
-        };
-        let limit = limit as usize;
-        let start = end.saturating_sub(limit);
-        let has_more = start > 0;
-        let messages = all[start..end]
-            .iter()
+        let (page, has_more) = engine
+            .log()
+            .page(&group_id, before_id.as_deref(), limit as usize)
+            .unwrap_or_else(|_| (Vec::new(), false));
+        let messages = page
+            .into_iter()
             .filter(|m| !engine.is_blocked(&m.author))
-            .cloned()
             .map(|m| to_ffi_msg(m, &engine))
             .collect();
         FfiHistoryPage { messages, has_more }

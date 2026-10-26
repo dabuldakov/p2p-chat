@@ -12,12 +12,13 @@ import uniffi.p2pchat_ffi.FfiOwnerElection
  * Тонкая обёртка над [ChatRuntime] для Compose. Вся логика и состояние —
  * в общепроцессном рантайме (чтобы работать и при закрытом экране).
  */
-class ChatViewModel(app: Application) : AndroidViewModel(app) {
+class ChatViewModel(app: Application) : AndroidViewModel(app), GifProvider {
 
     init {
         ChatRuntime.init(app)
     }
 
+    val uiState get() = ChatRuntime.uiState
     val publicKey get() = ChatRuntime.publicKey
     val publicKeyHex get() = ChatRuntime.publicKeyHex
     val peerId get() = ChatRuntime.peerId
@@ -91,7 +92,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- Гифки -----------------------------------------------------------
     val gifEnabled get() = ChatRuntime.gifEnabled
-    fun sendGif(gif: Gif) = ChatRuntime.sendGif(gif)
+    override fun sendGif(gif: Gif) = ChatRuntime.sendGif(gif)
     fun storageStats(): List<StorageStat> = ChatRuntime.storageStats()
     fun clearStorage(id: String) = ChatRuntime.clearStorage(id)
     fun sendMedia(kind: String, prepared: PreparedMedia) {
@@ -101,11 +102,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun sendMediaTo(group: ByteArray, kind: String, prepared: PreparedMedia) =
         ChatRuntime.sendPrepared(group, kind, prepared)
-    suspend fun searchGifs(query: String, page: Int): List<Gif> = ChatRuntime.searchGifs(query, page)
-    suspend fun resolveGif(providerId: String): Gif? = ChatRuntime.resolveGif(providerId)
-    fun cachedGif(providerId: String): Gif? = ChatRuntime.cachedGif(providerId)
-    fun myGifRefs(limit: Int = 60): List<GifRef> = ChatRuntime.myGifRefs(limit)
-    fun groupGifRefs(limit: Int = 60): List<GifRef> = ChatRuntime.groupGifRefs(limit)
+    override suspend fun searchGifs(query: String, page: Int): List<Gif> = ChatRuntime.searchGifs(query, page)
+    override suspend fun resolveGif(providerId: String): Gif? = ChatRuntime.resolveGif(providerId)
+    override fun cachedGif(providerId: String): Gif? = ChatRuntime.cachedGif(providerId)
+    override fun myGifRefs(limit: Int): List<GifRef> = ChatRuntime.myGifRefs(limit)
+    override fun groupGifRefs(limit: Int): List<GifRef> = ChatRuntime.groupGifRefs(limit)
     fun setNickname(name: String) = ChatRuntime.setNickname(name)
     fun setAvatar(b: ByteArray) = ChatRuntime.setAvatar(b)
     fun setGroupAvatar(b: ByteArray) = ChatRuntime.setGroupAvatar(b)
@@ -126,9 +127,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun renameGroup(name: String) = ChatRuntime.renameGroup(name)
     fun deleteMessage(id: ByteArray) = ChatRuntime.deleteMessage(id)
     fun retryMedia(id: String, mime: String) = ChatRuntime.retryMedia(id, mime)
-    fun react(messageId: ByteArray, emoji: String, add: Boolean): Boolean =
-        ChatRuntime.react(messageId, emoji, add)
-    fun regenInvite(maxUses: Int): String? = ChatRuntime.regenInvite(maxUses)
+    fun react(messageId: ByteArray, emoji: String, add: Boolean, onResult: (Boolean) -> Unit = {}) =
+        ChatRuntime.react(messageId, emoji, add, onResult)
+    fun regenInvite(maxUses: Int, onResult: (String?) -> Unit) =
+        ChatRuntime.regenInvite(maxUses, onResult)
 }
 
 internal fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

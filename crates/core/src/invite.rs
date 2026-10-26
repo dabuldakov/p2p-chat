@@ -100,7 +100,8 @@ impl Invite {
 
         let group_id = unhex(&g.ok_or_else(|| CoreError::BadEnvelope("invite: no group".into()))?)?;
         let host = unhex(&h.ok_or_else(|| CoreError::BadEnvelope("invite: no host".into()))?)?;
-        let nonce_bytes = unhex(&n.ok_or_else(|| CoreError::BadEnvelope("invite: no nonce".into()))?)?;
+        let nonce_bytes =
+            unhex(&n.ok_or_else(|| CoreError::BadEnvelope("invite: no nonce".into()))?)?;
         let nonce: [u8; 16] = nonce_bytes
             .as_slice()
             .try_into()
@@ -116,7 +117,15 @@ impl Invite {
         };
         let sig = unhex(&sig.ok_or_else(|| CoreError::BadEnvelope("invite: no sig".into()))?)?;
 
-        Ok(Self { group_id, host, nonce, expiry, max_uses, name, sig })
+        Ok(Self {
+            group_id,
+            host,
+            nonce,
+            expiry,
+            max_uses,
+            name,
+            sig,
+        })
     }
 
     /// Проверить подпись хозяина.
@@ -129,7 +138,14 @@ impl Invite {
         };
         verify(
             &vk,
-            &signing_msg(&self.group_id, &self.host, &self.nonce, self.expiry, self.max_uses, &self.name),
+            &signing_msg(
+                &self.group_id,
+                &self.host,
+                &self.nonce,
+                self.expiry,
+                self.max_uses,
+                &self.name,
+            ),
             &self.sig,
         )
         .is_ok()
@@ -224,7 +240,10 @@ mod tests {
         let p = Invite::parse(&enc).unwrap();
         assert!(p.verify_sig(), "старый формат без имени");
 
-        let tampered = Invite { name: "Evil".into(), ..p.clone() };
+        let tampered = Invite {
+            name: "Evil".into(),
+            ..p.clone()
+        };
         assert!(!tampered.verify_sig(), "имя подписано");
     }
 
@@ -238,9 +257,9 @@ mod tests {
             "p2pchat://join?g=00&h=00&n=00000000000000000000000000000000&e=x&s=00"
         )
         .is_err());
-        assert!(Invite::parse(
-            "p2pchat://join?g=00&h=00&n=00000000000000000000000000000000&e=0"
-        )
-        .is_err());
+        assert!(
+            Invite::parse("p2pchat://join?g=00&h=00&n=00000000000000000000000000000000&e=0")
+                .is_err()
+        );
     }
 }

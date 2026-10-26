@@ -27,11 +27,20 @@ fn profile_group_links_edit_delete() {
     pump(&mut engines, &keys, vec![(0, out)]);
     assert!(engines[1].avatar_of(&p0).is_none());
 
-    let out = engines[0].set_group_name(&g, "New".into()).unwrap().unwrap();
+    let out = engines[0]
+        .set_group_name(&g, "New".into())
+        .unwrap()
+        .unwrap();
     pump(&mut engines, &keys, vec![(0, out)]);
     assert_eq!(engines[1].group_name(&g), "New");
-    assert!(engines[0].set_group_name(&g, "  ".into()).unwrap().is_none());
-    assert!(engines[1].set_group_name(&g, "Hack".into()).unwrap().is_none());
+    assert!(engines[0]
+        .set_group_name(&g, "  ".into())
+        .unwrap()
+        .is_none());
+    assert!(engines[1]
+        .set_group_name(&g, "Hack".into())
+        .unwrap()
+        .is_none());
 
     let out = engines[0]
         .set_group_avatar(&g, vec![7, 8])
@@ -90,7 +99,10 @@ fn profile_group_links_edit_delete() {
         .unwrap();
     pump(&mut engines, &keys, vec![(0, edit)]);
     assert_eq!(engines[1].effective_text(&id, "m"), ("edited".into(), true));
-    assert!(engines[1].post_edit(&g, &id, "hack".into()).unwrap().is_none());
+    assert!(engines[1]
+        .post_edit(&g, &id, "hack".into())
+        .unwrap()
+        .is_none());
     assert!(engines[0]
         .post_edit(&g, b"none", "x".into())
         .unwrap()
@@ -111,7 +123,9 @@ fn profile_group_links_edit_delete() {
     engines[0].unblock_user(&p1);
     assert!(!engines[0].blocked_users().contains(&p1));
 
-    assert!(engines[0].groups_with(&engines[1].public_key()).contains(&g));
+    assert!(engines[0]
+        .groups_with(&engines[1].public_key())
+        .contains(&g));
     assert!(engines[0].announce_peers().is_ok());
     assert!(engines[0].owner_alive(&g).unwrap().is_some());
     assert!(engines[1].owner_alive(&g).unwrap().is_none());
@@ -173,7 +187,9 @@ fn create_named_group_and_replace_identity() {
 
     let out = e.set_nickname("Old").unwrap().unwrap();
     assert!(matches!(
-        Gossip::decode(out.envelope.payload.as_slice()).unwrap().body,
+        Gossip::decode(out.envelope.payload.as_slice())
+            .unwrap()
+            .body,
         Some(p2pchat_core::proto::gossip::Body::Profile(_))
     ));
     let id = p2pchat_crypto::Identity::generate();

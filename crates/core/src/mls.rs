@@ -230,7 +230,9 @@ mod tests {
         assert!(!reloaded.load_group(b"missing").unwrap());
         assert!(!reloaded.remove(b"missing"));
 
-        let rem = reloaded.remove_member(b"team", &b.public_key().to_bytes()).unwrap();
+        let rem = reloaded
+            .remove_member(b"team", &b.public_key().to_bytes())
+            .unwrap();
         assert!(mb.process(b"team", &rem).is_ok());
         assert!(reloaded.remove(b"team"));
         assert!(reloaded.group_ids().is_empty());

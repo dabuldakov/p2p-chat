@@ -11,7 +11,10 @@ fn tmp(name: &str) -> String {
 }
 
 fn unhex(s: &str) -> Vec<u8> {
-    (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+        .collect()
 }
 
 #[test]
@@ -37,7 +40,9 @@ fn ffi_api_smoke() {
     assert_eq!(h.len(), 1);
     let id = h[0].id.clone();
 
-    let _ = a.edit_message(g.clone(), id.clone(), "edited".into()).unwrap();
+    let _ = a
+        .edit_message(g.clone(), id.clone(), "edited".into())
+        .unwrap();
     let h = a.history(g.clone());
     assert_eq!(h[0].text, "edited");
     assert!(h[0].edited);
@@ -72,7 +77,13 @@ fn ffi_api_smoke() {
 
     // Связи
     let _ = a
-        .post_links(g.clone(), vec![FfiPeerLink { peer_id: a_pid.clone(), kind: "direct".into() }])
+        .post_links(
+            g.clone(),
+            vec![FfiPeerLink {
+                peer_id: a_pid.clone(),
+                kind: "direct".into(),
+            }],
+        )
         .unwrap();
     assert_eq!(a.links(g.clone()).len(), 1);
 
@@ -118,7 +129,11 @@ fn ffi_api_smoke() {
     };
     let _ = a.post_attachment(g.clone(), media).unwrap();
     let hist = a.history(g.clone());
-    let msg = hist.iter().rev().find(|m| m.attachment.as_ref().is_some_and(|x| x.kind == "image")).unwrap();
+    let msg = hist
+        .iter()
+        .rev()
+        .find(|m| m.attachment.as_ref().is_some_and(|x| x.kind == "image"))
+        .unwrap();
     let x = msg.attachment.as_ref().unwrap();
     assert_eq!(x.mime, "image/jpeg");
     assert_eq!(x.size, 12345);

@@ -5,6 +5,7 @@ import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import okhttp3.OkHttpClient
@@ -18,6 +19,7 @@ import java.util.concurrent.TimeUnit
  * сообщениях и сессиях, офлайн-воспроизведение и отсутствие лишних загрузок.
  * Источник — OkHttp (переиспользование соединений). Кэш ограничен по размеру LRU.
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 object Media3Cache {
     private const val MAX_BYTES = 256L * 1024 * 1024
 

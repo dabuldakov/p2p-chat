@@ -20,10 +20,16 @@ fn group_avatar_only_owner() {
     let av = vec![9u8, 8, 7, 6];
 
     // не-владелец не может
-    assert!(engines[1].set_group_avatar(&g, vec![0u8]).unwrap().is_none());
+    assert!(engines[1]
+        .set_group_avatar(&g, vec![0u8])
+        .unwrap()
+        .is_none());
 
     // владелец (создатель, индекс 0) может
-    let out = engines[0].set_group_avatar(&g, av.clone()).unwrap().expect("outgoing");
+    let out = engines[0]
+        .set_group_avatar(&g, av.clone())
+        .unwrap()
+        .expect("outgoing");
     pump(&mut engines, &keys, vec![(0, out)]);
     assert_eq!(engines[1].group_avatar(&g), Some(av));
     assert_eq!(engines[0].group_avatar(&g), Some(vec![9u8, 8, 7, 6]));

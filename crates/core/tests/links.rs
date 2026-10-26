@@ -19,12 +19,21 @@ fn links_are_published_and_not_persisted() {
     // B видит связь A→B как direct
     let links = engines[1].links(&g);
     assert!(
-        links.iter().any(|(a, p, k)| *a == engines[0].peer_id() && *p == b_peer && k == "direct"),
+        links
+            .iter()
+            .any(|(a, p, k)| *a == engines[0].peer_id() && *p == b_peer && k == "direct"),
         "связь не доставлена: {links:?}"
     );
     // и своя (A) тоже сохранена
-    assert!(engines[0].links(&g).iter().any(|(a, _, _)| *a == engines[0].peer_id()));
+    assert!(engines[0]
+        .links(&g)
+        .iter()
+        .any(|(a, _, _)| *a == engines[0].peer_id()));
 
     // в лог не попало (эфемерно)
-    assert_eq!(engines[1].log().ordered(&g).len(), len_before, "links не должны писаться в лог");
+    assert_eq!(
+        engines[1].log().ordered(&g).len(),
+        len_before,
+        "links не должны писаться в лог"
+    );
 }

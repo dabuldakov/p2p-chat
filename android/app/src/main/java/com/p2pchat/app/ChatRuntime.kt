@@ -1,23 +1,19 @@
 package com.p2pchat.app
 
 import android.app.Application
-import android.content.Intent
-import android.net.Uri
-import android.util.Base64
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 import com.p2pchat.app.gif.Gif
 import com.p2pchat.app.gif.GifCache
 import com.p2pchat.app.gif.GifMediaCache
@@ -33,6 +29,7 @@ import uniffi.p2pchat_ffi.FfiMember
 import uniffi.p2pchat_ffi.FfiPeerLink
 import uniffi.p2pchat_ffi.FfiMessage
 import uniffi.p2pchat_ffi.FfiOwnerElection
+import uniffi.p2pchat_ffi.FfiOutgoing
 
 /**
  * Общепроцессный рантайм чата: ядро (Rust), signaling и WebRTC-транспорт.
@@ -54,9 +51,7 @@ object ChatRuntime {
     private const val PREFS = "p2pchat"
     private const val KEY_BG = "background_enabled"
     private val SIGNAL_URL = BuildConfig.SIGNAL_URL
-    private val TURN_CREDS_URL = BuildConfig.TURN_CREDS_URL
     private val REPORT_URL = BuildConfig.REPORT_URL
-    private val reportClient = OkHttpClient()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -72,6 +67,9 @@ object ChatRuntime {
     private lateinit var signaling: SignalingClient
     private lateinit var transport: WebRtcTransport
     private lateinit var media: MediaTransfer
+    private lateinit var updates: UpdateController
+    private lateinit var snapshots: SnapshotRepository
+    private lateinit var connections: ConnectionCoordinator
     lateinit var gifs: GifRepository
         private set
 
@@ -83,6 +81,9 @@ object ChatRuntime {
         private set
 
     val version: String get() = BuildConfig.VERSION_NAME
+
+    private val _uiState = MutableStateFlow(ChatUiState())
+    val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     var connected by mutableStateOf(0)
         private set
@@ -118,8 +119,8 @@ object ChatRuntime {
     /** peer_id владельца текущей группы (hex). */
     var ownerId by mutableStateOf<String?>(null)
         private set
-    var update by mutableStateOf<AppUpdate?>(null)
-        private set
+    val update: AppUpdate? get() = updates.update
+    val updateCheckFailed: Boolean get() = updates.checkFailed
     var sharedDraft by mutableStateOf<String?>(null)
         private set
 
@@ -179,7 +180,6 @@ object ChatRuntime {
     private val ownerAutoAt = HashMap<String, Long>()
 
     /** Когда последний раз пересылали OwnerChange (hex группы → ms). */
-    private val ownerReplayAt = HashMap<String, Long>()
     private val mediaSkip = mutableSetOf<String>()
 
     /** Подпись последнего показанного уведомления о выборах (hex группы → sig). */
@@ -197,12 +197,9 @@ object ChatRuntime {
     val directCount: Int get() = peerKinds.values.count { it == "direct" }
     val turnCount: Int get() = peerKinds.values.count { it == "turn" }
 
-    /** Соседи ТЕКУЩЕЙ группы (только её участники). */
-    val groupNeighbors: Int
-        get() {
-            val g = currentGroup ?: return 0
-            return runCatching { core.neighborKeys(g).distinctBy { it.toHex() }.size }.getOrDefault(0)
-        }
+    /** Соседи ТЕКУЩЕЙ группы (только её участники), из последнего снимка. */
+    private var currentGroupNeighbors by mutableStateOf(0)
+    val groupNeighbors: Int get() = currentGroupNeighbors
 
     /** Сколько участников ТЕКУЩЕЙ группы реально подключено. */
     val groupConnected: Int
@@ -221,10 +218,12 @@ object ChatRuntime {
         if (initialized) return
         initialized = true
         app = context
+        updates = UpdateController(context, scope) { version }
         Logs.init(app)
         debugLogsEnabled = Logs.enabled
 
         core = ChatCore(context.filesDir.absolutePath + "/chat.db")
+        snapshots = SnapshotRepository(core, { peerId }, PAGE_SIZE)
         publicKey = core.publicKey()
         publicKeyHex = publicKey.toHex()
         peerId = core.peerIdHex()
@@ -254,20 +253,29 @@ object ChatRuntime {
             app,
             core,
             { targets, frame -> transport.sendMedia(targets, frame) },
+            { key -> transport.mediaBufferedAmount(key) },
             { refresh() },
         )
 
+        connections = ConnectionCoordinator(
+            core = core,
+            transport = transport,
+            scope = scope,
+            turnCredsUrl = BuildConfig.TURN_CREDS_URL,
+            currentGroup = { currentGroup },
+            peerKinds = { peerKinds },
+        )
         signaling.connect()
         scope.launch {
             signaling.incoming.collect { env -> runCatching { transport.onSignal(env) }.onFailure { Logs.w("signal error: $it") } }
         }
         refresh()
-        connectAll()
+        connections.connectAll()
         scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(15_000)
-                connectAll()
-                syncAll()
+                connections.connectAll()
+                connections.syncAll()
                 maybeOwnerHeartbeat()
                 maybeAdvanceOwnerElection()
                 currentGroup?.let { ensureMedia(it) }
@@ -278,13 +286,18 @@ object ChatRuntime {
         scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(60_000)
-                runCatching { publishLinks() }
+                runCatching { connections.publishLinks() }
             }
         }
 
         // восстановить настройку фона
         backgroundEnabled = app.getSharedPreferences(PREFS, 0).getBoolean(KEY_BG, false)
         if (backgroundEnabled) ChatService.start(app)
+
+        _uiState.value = uiSnapshot()
+        scope.launch {
+            snapshotFlow { uiSnapshot() }.collect { _uiState.value = it }
+        }
     }
 
     fun setBackground(enabled: Boolean) {
@@ -299,104 +312,11 @@ object ChatRuntime {
         debugLogsEnabled = enabled
     }
 
-    private var lastUpdateCheck = 0L
+    private fun checkForUpdate(force: Boolean = false) = updates.check(force)
 
-    /** true — последняя попытка проверки обновлений не удалась (для UI/диагностики). */
-    var updateCheckFailed by mutableStateOf(false)
-        private set
+    fun checkNow(onDone: (Boolean) -> Unit) = updates.checkNow(onDone)
 
-    private fun checkForUpdate(force: Boolean = false) {
-        if (BuildConfig.PLAY_BUILD) return // в Play обновления — через Play Store
-        val now = System.currentTimeMillis()
-        // Успешная проверка — не чаще раза в 30 мин, после сбоя — раз в 5 мин.
-        val interval = if (updateCheckFailed) 5 * 60_000L else 30 * 60_000L
-        if (!force && lastUpdateCheck != 0L && now - lastUpdateCheck < interval) return
-        lastUpdateCheck = now
-        Logs.i("update: checking installed=$version")
-        scope.launch {
-            val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
-            if (result.ok) {
-                update = result.update
-                updateCheckFailed = false
-            } else {
-                updateCheckFailed = true
-            }
-            Logs.i("update: installed=$version ok=${result.ok} latest=${result.update?.version}")
-        }
-    }
-
-    fun checkNow(onDone: (Boolean) -> Unit) {
-        if (BuildConfig.PLAY_BUILD) {
-            val id = app.packageName
-            val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$id"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val web = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$id"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            runCatching { app.startActivity(market) }.onFailure { runCatching { app.startActivity(web) } }
-            onDone(true) // диалог не откроется (update == null), просто уводим в Play
-            return
-        }
-        lastUpdateCheck = System.currentTimeMillis()
-        scope.launch {
-            val result = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
-            if (result.ok) {
-                update = result.update
-                updateCheckFailed = false
-            } else {
-                updateCheckFailed = true
-            }
-            Logs.i("update(now): installed=$version ok=${result.ok} latest=${result.update?.version}")
-            onDone(result.update != null)
-        }
-    }
-
-    private fun syncAll() {
-        // заодно напоминаем свой ник
-        runCatching { core.profileEnvelope() }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        val now = System.currentTimeMillis()
-        for (g in core.listGroups()) {
-            for (key in core.neighborKeys(g)) {
-                runCatching { core.syncDigestTo(g, key) }.getOrNull()?.let {
-                    transport.sendTargets(it.envelope, it.targets)
-                }
-            }
-            val gkey = g.toHex()
-            if (now - (ownerReplayAt[gkey] ?: 0L) > 60_000L) {
-                runCatching { core.ownerChangeEnvelope(g) }.getOrNull()?.let {
-                    transport.sendTargets(it.envelope, it.targets)
-                }
-                ownerReplayAt[gkey] = now
-            }
-        }
-    }
-
-    private fun onPeerConnected(peerKey: ByteArray) {
-        runCatching { core.profileEnvelope() }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        for (g in core.groupsWith(peerKey)) {
-            runCatching { core.syncDigestTo(g, peerKey) }.getOrNull()?.let {
-                transport.sendTargets(it.envelope, it.targets)
-            }
-            runCatching { core.ownerChangeEnvelope(g) }.getOrNull()?.let {
-                transport.sendTargets(it.envelope, it.targets)
-            }
-        }
-    }
-
-    /** Опубликовать свои активные связи по группам (эфемерно, не в лог). */
-    fun publishLinks() {
-        for (g in core.listGroups()) {
-            val links = runCatching { core.members(g) }.getOrDefault(emptyList())
-                .mapNotNull { m -> peerKinds[m.publicKey.toHex()]?.let { FfiPeerLink(m.peerId, it) } }
-            if (links.isEmpty()) continue
-            runCatching { core.postLinks(g, links) }.getOrNull()?.let {
-                transport.sendTargets(it.envelope, it.targets)
-            }
-        }
-    }
+    fun publishLinks() = connections.publishLinks()
 
     /** Связи группы для графа (from, to, kind). */
     fun graphLinks(group: ByteArray): List<FfiLink> =
@@ -406,20 +326,12 @@ object ChatRuntime {
      * Рёбра графа: свои связи — по «живому» типу (как в списке участников),
      * чужие — из опубликованных. Дедуп по паре; своё ребро приоритетно.
      */
-    fun graphEdges(group: ByteArray): List<GraphEdge> {
-        val me = peerId
-        val out = LinkedHashMap<String, GraphEdge>()
-        runCatching { core.members(group) }.getOrDefault(emptyList()).forEach { m ->
-            val k = peerKinds[m.publicKey.toHex()] ?: return@forEach
-            out[pairKey(me, m.peerId.toHex())] = GraphEdge(me, m.peerId.toHex(), k)
-        }
-        graphLinks(group).forEach { l ->
-            val a = l.from.toHex(); val b = l.to.toHex()
-            if (a == me || b == me) return@forEach
-            out.putIfAbsent(pairKey(a, b), GraphEdge(a, b, l.kind))
-        }
-        return out.values.toList()
-    }
+    fun graphEdges(group: ByteArray): List<GraphEdge> = buildGroupEdges(
+        me = peerId,
+        members = runCatching { core.members(group) }.getOrDefault(emptyList()),
+        links = graphLinks(group),
+        peerKinds = peerKinds,
+    )
 
     /** Все участники всех групп (уникальные по peer_id) — для общего графа. */
     fun allMembers(): List<FfiMember> {
@@ -435,12 +347,10 @@ object ChatRuntime {
     fun graphEdgesAll(): List<GraphEdge> {
         val out = LinkedHashMap<String, GraphEdge>()
         for (g in core.listGroups()) {
-            graphEdges(g).forEach { out.putIfAbsent(pairKey(it.from, it.to), it) }
+            graphEdges(g).forEach { out.putIfAbsent(graphPairKey(it.from, it.to), it) }
         }
         return out.values.toList()
     }
-
-    private fun pairKey(a: String, b: String) = if (a < b) "$a|$b" else "$b|$a"
 
     // --- Группы ----------------------------------------------------------
 
@@ -453,54 +363,79 @@ object ChatRuntime {
             Toast.makeText(app, msg, Toast.LENGTH_SHORT).show()
             return
         }
-        val g = runCatching { core.createNamedGroup(n) }.getOrNull() ?: return
-        invite = runCatching { core.groupInvite(g, 1u) }.getOrNull()
-        inviteMaxUses = 1
-        inviteAt = System.currentTimeMillis()
-        refresh()
-        selectGroup(g)
-        connectAll()
+        scope.launch {
+            val g = withContext(Dispatchers.IO) {
+                runCatching { core.createNamedGroup(n) }.getOrNull()
+            } ?: return@launch
+            val inv = withContext(Dispatchers.IO) {
+                runCatching { core.groupInvite(g, 1u) }.getOrNull()
+            }
+            invite = inv
+            inviteMaxUses = 1
+            inviteAt = System.currentTimeMillis()
+            refresh()
+            selectGroup(g)
+            connections.connectAll()
+        }
     }
 
     fun joinGroup(inviteStr: String) {
-        runCatching { core.joinFromInvite(inviteStr.trim()) }
-            .onSuccess { join ->
-                val host = join.hostKey
-                if (host.isNotEmpty()) {
-                    runCatching { transport.connectForce(host) }
-                    // отправляем заявку (KeyPackage + билет) хозяину; ждём Welcome
-                    transport.sendTargets(join.request.envelope, join.request.targets)
-                    status = app.getString(R.string.joining)
-                    Toast.makeText(app, R.string.joining, Toast.LENGTH_SHORT).show()
-                }
+        scope.launch {
+            val join = withContext(Dispatchers.IO) {
+                runCatching { core.joinFromInvite(inviteStr.trim()) }.getOrNull()
             }
-            .onFailure {
+            if (join == null) {
                 status = app.getString(R.string.bad_invite)
                 Toast.makeText(app, R.string.bad_invite, Toast.LENGTH_SHORT).show()
+                return@launch
             }
+            val host = join.hostKey
+            if (host.isNotEmpty()) {
+                runCatching { transport.connectForce(host) }
+                transport.sendTargets(join.request.envelope, join.request.targets)
+                status = app.getString(R.string.joining)
+                Toast.makeText(app, R.string.joining, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     /** Пересоздать инвайт (maxUses=1 — одноразовый, 5 — «5 входов») и вернуть его. */
-    fun regenInvite(maxUses: Int): String? {
-        val g = currentGroup ?: return null
-        val t = runCatching { core.groupInvite(g, maxUses.toUInt()) }.getOrNull()
-        invite = t
-        inviteMaxUses = maxUses
-        inviteAt = System.currentTimeMillis()
-        return t
+    fun regenInvite(maxUses: Int, onResult: (String?) -> Unit) {
+        val g = currentGroup ?: return onResult(null)
+        scope.launch {
+            val t = withContext(Dispatchers.IO) {
+                runCatching { core.groupInvite(g, maxUses.toUInt()) }.getOrNull()
+            }
+            if (t != null) {
+                invite = t
+                inviteMaxUses = maxUses
+                inviteAt = System.currentTimeMillis()
+            }
+            onResult(t)
+        }
     }
 
     fun selectGroup(g: ByteArray) {
         ownerChangeNotice = null
         currentGroup = g
         status = ""
-        currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
-        invite = runCatching { core.groupInvite(g, 1u) }.getOrNull()
-        inviteMaxUses = 1
-        inviteAt = System.currentTimeMillis()
-        isOwner = runCatching { core.isOwner(g) }.getOrDefault(false)
-        refresh()
-        updateBadge(silent = true)
+        scope.launch {
+            val data = withContext(Dispatchers.IO) {
+                Triple(
+                    runCatching { core.groupName(g) }.getOrDefault(String(g)),
+                    runCatching { core.groupInvite(g, 1u) }.getOrNull(),
+                    runCatching { core.isOwner(g) }.getOrDefault(false),
+                )
+            }
+            if (!sameGroup(g, currentGroup)) return@launch
+            currentGroupName = data.first
+            invite = data.second
+            inviteMaxUses = 1
+            inviteAt = System.currentTimeMillis()
+            isOwner = data.third
+            refresh()
+            updateBadge(silent = true)
+        }
     }
 
     /** UI показан/скрыт (для бейджа). */
@@ -510,21 +445,21 @@ object ChatRuntime {
 
     fun leaveGroup() {
         val g = currentGroup ?: return
-        runCatching { core.leaveGroup(g) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
         currentGroup = null
         currentGroupName = null
-        refresh()
-        updateBadge(silent = true)
+        scope.launch {
+            val out = withContext(Dispatchers.IO) {
+                runCatching { core.leaveGroup(g) }.getOrNull()
+            }
+            out?.let { transport.sendTargets(it.envelope, it.targets) }
+            refresh()
+            updateBadge(silent = true)
+        }
     }
 
     fun removeMember(peerId: ByteArray) {
         val g = currentGroup ?: return
-        runCatching { core.removeMember(g, peerId) }.getOrDefault(emptyList()).forEach {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        refresh()
+        runCoreOuts { it.removeMember(g, peerId) }
     }
 
     fun backToList() {
@@ -550,35 +485,12 @@ object ChatRuntime {
         return draft
     }
 
-    private fun connectAll() {
-        scope.launch {
-            val ice = withContext(Dispatchers.IO) { TurnCredentials.fetch(TURN_CREDS_URL) }
-            if (ice != null) transport.setIceServers(ice)
-            val turnN = ice?.count { s -> s.urls.any { it.startsWith("turn") } } ?: 0
-            Logs.i("ice: creds=${ice != null} servers=${ice?.size ?: 0} turn=$turnN")
-            val keys = core.listGroups()
-                .flatMap { core.neighborKeys(it) }
-                .distinctBy { it.toHex() }
-            // Для статуса в экране группы показываем соседей ТОЛЬКО текущей группы,
-            // а соединяемся со всеми (объединение по всем группам).
-            val curCount = currentGroup?.let { g ->
-                runCatching { core.neighborKeys(g).distinctBy { it.toHex() }.size }.getOrDefault(0)
-            } ?: keys.size
-            Logs.d("connectAll: groups=${core.listGroups().size} peers=${keys.size} groupNeighbors=$curCount")
-            keys.forEach { pk ->
-                Logs.d("neighbor ${pk.toHex()}")
-                runCatching { transport.connect(pk) }
-            }
-            Logs.d("group neighbors: $curCount")
-        }
-    }
-
     fun onForeground() {
         appVisible = true
         lastSignalingTs = signaling.lastActivityMs
         refresh()
-        connectAll()
-        syncAll()
+        connections.connectAll()
+        connections.syncAll()
         updateBadge(silent = true)
         // Проверяем обновления при входе; при сбое — повтор (не чаще раза в 5 минут).
         checkForUpdate()
@@ -586,13 +498,20 @@ object ChatRuntime {
 
     /** Бейдж/уведомления: по одному на непрочитанную группу + сводное. */
     private fun updateBadge(silent: Boolean) {
-        val items = unreadGroups(groupInfos, unread).map { gi ->
-            val last = runCatching {
-                core.historyWindow(gi.id, null, 1u).messages.lastOrNull()?.text
-            }.getOrNull()
-            gi to notificationText(last, app.getString(R.string.new_messages))
+        val groups = groupInfos
+        val unreadNow = unread
+        val fallback = app.getString(R.string.new_messages)
+        scope.launch {
+            val items = withContext(Dispatchers.IO) {
+                unreadGroups(groups, unreadNow).map { gi ->
+                    val last = runCatching {
+                        core.historyWindow(gi.id, null, 1u).messages.lastOrNull()?.text
+                    }.getOrNull()
+                    gi to notificationText(last, fallback)
+                }
+            }
+            if (items.isEmpty()) Notifier.clearAll(app) else Notifier.showGroups(app, items, silent)
         }
-        if (items.isEmpty()) Notifier.clearAll(app) else Notifier.showGroups(app, items, silent)
     }
 
     // --- Сообщения -------------------------------------------------------
@@ -600,29 +519,31 @@ object ChatRuntime {
     fun send(text: String) {
         val g = currentGroup ?: return
         if (text.isBlank()) return
-        val out = core.post(g, text)
-        Logs.d("send '${text.take(24)}' targets=${out.targets.size}")
-        transport.sendTargets(out.envelope, out.targets)
-        refresh()
+        runCoreOut { it.post(g, text) }
     }
 
     /** Поставить/снять реакцию на сообщение. */
-    fun react(messageId: ByteArray, emoji: String, add: Boolean): Boolean {
-        val g = currentGroup ?: return false
-        val out = runCatching { core.react(g, messageId, emoji, add) }.getOrNull() ?: return false
-        transport.sendTargets(out.envelope, out.targets)
-        refresh()
-        return true
+    fun react(messageId: ByteArray, emoji: String, add: Boolean, onResult: (Boolean) -> Unit = {}) {
+        val g = currentGroup ?: return onResult(false)
+        scope.launch {
+            val out = withContext(Dispatchers.IO) {
+                runCatching { core.react(g, messageId, emoji, add) }.getOrNull()
+            }
+            if (out == null) {
+                onResult(false)
+                return@launch
+            }
+            transport.sendTargets(out.envelope, out.targets)
+            refresh()
+            onResult(true)
+        }
     }
 
     /** Отредактировать своё сообщение (только автор). */
     fun editMessage(id: ByteArray, text: String) {
         val g = currentGroup ?: return
         if (text.isBlank()) return
-        runCatching { core.editMessage(g, id, text) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        refresh()
+        runCoreOut { it.editMessage(g, id, text) }
     }
 
     private fun ensureMedia(group: ByteArray) {
@@ -645,8 +566,8 @@ object ChatRuntime {
 
     /** Отправить подготовленное вложение. */
     fun sendPrepared(group: ByteArray, kind: String, p: PreparedMedia) {
-        val out = runCatching {
-            core.postAttachment(
+        runCoreOut {
+            it.postAttachment(
                 group,
                 FfiAttachment(
                     kind = kind,
@@ -661,84 +582,37 @@ object ChatRuntime {
                     thumbnail = p.thumbnail ?: ByteArray(0),
                 ),
             )
-        }.getOrNull() ?: return
-        transport.sendTargets(out.envelope, out.targets)
-        refresh()
+        }
     }
 
-    fun storageStats(): List<StorageStat> = buildList {
-        add(StorageStat("photos", MediaFiles.size(app, MediaCategory.PHOTOS), MediaFiles.count(app, MediaCategory.PHOTOS)))
-        add(StorageStat("videos", MediaFiles.size(app, MediaCategory.VIDEOS), MediaFiles.count(app, MediaCategory.VIDEOS)))
-        add(StorageStat("audio", MediaFiles.size(app, MediaCategory.AUDIO), MediaFiles.count(app, MediaCategory.AUDIO)))
-        add(StorageStat("temp", MediaFiles.size(app, MediaCategory.TEMP), MediaFiles.count(app, MediaCategory.TEMP)))
-        add(StorageStat("other", MediaFiles.size(app, MediaCategory.OTHER), MediaFiles.count(app, MediaCategory.OTHER)))
-        add(StorageStat("gifs", gifs.mediaCacheSizeBytes() + Media3Cache.sizeBytes(app)))
-        add(StorageStat("links", LinkPreviews.sizeBytes(app)))
-    }
+    fun storageStats(): List<StorageStat> = MediaStorage.stats(app, gifs)
 
     fun clearStorage(id: String) {
-        val skip = when (id) {
-            "photos" -> { "image" }
-            "videos" -> { "video" }
-            "audio" -> { "audio" }
-            else -> null
-        }
-        if (skip != null) {
-            messages.mapNotNull { it.attachment }
-                .filter { it.kind == skip || (skip == "video" && it.kind == "video_note") || (skip == "audio" && it.kind == "voice") }
-                .forEach { mediaSkip.add(it.id) }
-        }
-        if (id == "all") {
-            messages.mapNotNull { it.attachment }
-                .filter { it.kind in setOf("image", "video", "video_note", "audio", "voice") }
-                .forEach { mediaSkip.add(it.id) }
-        }
-        when (id) {
-            "photos" -> { MediaFiles.clear(app, MediaCategory.PHOTOS); CoilSetup.clear(app) }
-            "videos" -> { MediaFiles.clear(app, MediaCategory.VIDEOS); CoilSetup.clear(app) }
-            "audio" -> MediaFiles.clear(app, MediaCategory.AUDIO)
-            "temp" -> MediaFiles.clear(app, MediaCategory.TEMP)
-            "other" -> MediaFiles.clear(app, MediaCategory.OTHER)
-            "gifs" -> {
-                gifs.clearMediaCache()
-                Media3Cache.clear(app)
-                CoilSetup.clear(app)
-            }
-            "links" -> {
-                LinkPreviews.clear(app)
-                CoilSetup.clear(app)
-            }
-            "all" -> {
-                MediaFiles.clearAll(app)
-                gifs.clearMediaCache()
-                Media3Cache.clear(app)
-                LinkPreviews.clear(app)
-                CoilSetup.clear(app)
-            }
-        }
+        MediaStorage.attachmentsToSkip(id, messages.mapNotNull { it.attachment })
+            .forEach { mediaSkip.add(it) }
+        MediaStorage.clear(id, app, gifs)
     }
 
     /** Отправить гифку: между клиентами едет только ссылка (kind+id). */
     fun sendGif(gif: Gif) {
         val g = currentGroup ?: return
-        val out = core.postGif(
-            g,
-            FfiAttachment(
-                kind = "klipy",
-                id = gif.providerId,
-                width = (gif.width ?: 0).toUInt(),
-                height = (gif.height ?: 0).toUInt(),
-                url = "",
-                mime = "",
-                size = 0uL,
-                durationMs = 0uL,
-                fileName = "",
-                thumbnail = ByteArray(0),
-            ),
-        )
-        Logs.d("send gif ${gif.providerId} targets=${out.targets.size}")
-        transport.sendTargets(out.envelope, out.targets)
-        refresh()
+        runCoreOut {
+            it.postGif(
+                g,
+                FfiAttachment(
+                    kind = "klipy",
+                    id = gif.providerId,
+                    width = (gif.width ?: 0).toUInt(),
+                    height = (gif.height ?: 0).toUInt(),
+                    url = "",
+                    mime = "",
+                    size = 0uL,
+                    durationMs = 0uL,
+                    fileName = "",
+                    thumbnail = ByteArray(0),
+                ),
+            )
+        }
     }
 
     // --- Гифки: пикер ----------------------------------------------------
@@ -761,100 +635,129 @@ object ChatRuntime {
         return core.groupGifs(g, limit.toUInt()).map(::toGifRef)
     }
 
-    private fun sameAvatars(a: Map<String, ByteArray>, b: Map<String, ByteArray>): Boolean {
-        if (a.size != b.size) return false
-        for ((k, v) in a) {
-            val w = b[k] ?: return false
-            if (!v.contentEquals(w)) return false
+    private fun runCoreOut(block: (ChatCore) -> FfiOutgoing?) {
+        scope.launch {
+            val out = withContext(Dispatchers.IO) {
+                runCatching { block(core) }.onFailure { Logs.w("core action: $it") }.getOrNull()
+            } ?: return@launch
+            transport.sendTargets(out.envelope, out.targets)
+            refresh()
         }
-        return true
     }
 
-    private fun toGifRef(a: FfiAttachment): GifRef =
-        GifRef(
-            providerId = a.id,
-            width = a.width.toInt().takeIf { it > 0 },
-            height = a.height.toInt().takeIf { it > 0 },
-        )
+    private fun runCoreOuts(block: (ChatCore) -> List<FfiOutgoing>) {
+        scope.launch {
+            val outs = withContext(Dispatchers.IO) {
+                runCatching { block(core) }.onFailure { Logs.w("core action: $it") }.getOrNull()
+            } ?: return@launch
+            outs.forEach { transport.sendTargets(it.envelope, it.targets) }
+            refresh()
+        }
+    }
+
+    private fun onPeerConnected(peerKey: ByteArray) = connections.onPeerConnected(peerKey)
 
     private fun handleIncoming(envelope: ByteArray) {
-        val outs = runCatching { core.receive(envelope) }.getOrElse {
-            Logs.w("receive error: $it")
-            return
+        scope.launch {
+            val outs = withContext(Dispatchers.IO) {
+                runCatching { core.receive(envelope) }.getOrElse {
+                    Logs.w("receive error: $it")
+                    null
+                }
+            } ?: return@launch
+            Logs.d("incoming env -> out=${outs.size}")
+            outs.forEach { out ->
+                runCatching { transport.sendTargets(out.envelope, out.targets) }
+            }
+            refresh()
+            runCatching { updateBadge(silent = appVisible) }
         }
-        Logs.d("incoming env -> out=${outs.size}")
-        outs.forEach { out ->
-            runCatching { transport.sendTargets(out.envelope, out.targets) }
-        }
-        runCatching { refresh() }
-        runCatching { updateBadge(silent = appVisible) }
     }
 
+
+    private var refreshSeq = 0L
+
+    private fun uiSnapshot() = ChatUiState(
+        groupInfos = groupInfos,
+        unread = unread,
+        memberCounts = memberCounts,
+        groupAvatars = groupAvatars,
+        currentGroup = currentGroup,
+        currentGroupName = currentGroupName,
+        myPeerId = peerId,
+        isOwner = isOwner,
+        ownerId = ownerId,
+        members = members,
+        messages = messages,
+        hasMore = hasMore,
+        status = status,
+        nicknames = nicknames,
+        avatars = avatars,
+        groupAvatar = groupAvatarBytes,
+        peerKinds = peerKinds,
+        connected = connected,
+        groupConnected = groupConnected,
+        groupNeighbors = currentGroupNeighbors,
+        ownerLastSeen = ownerLastSeen,
+        ownerElection = ownerElection,
+        ownerChangeNotice = ownerChangeNotice,
+        ownerChallengeAt = ownerChallengeAt,
+        blocked = blocked,
+        inviteMaxUses = inviteMaxUses,
+        inviteAt = inviteAt,
+        gifEnabled = gifEnabled,
+        sharedDraft = sharedDraft,
+    )
+
     fun refresh() {
-        val ids = core.listGroups()
-        blocked = runCatching { core.blockedPeers() }.getOrDefault(emptyList())
-            .map { it.toHex() }.toSet()
-        groupInfos = ids
-            .map { GroupInfo(it, runCatching { core.groupName(it) }.getOrDefault(String(it))) }
-            .sortedBy { it.name.lowercase() }
-        currentGroup?.let { g ->
-            currentGroupName = runCatching { core.groupName(g) }.getOrDefault(String(g))
-            // Владение могло перейти (выход владельца) — обновляем и в UI.
-            isOwner = runCatching { core.isOwner(g) }.getOrDefault(false)
-            ownerId = runCatching { core.ownerId(g)?.toHex() }.getOrNull()
-            members = core.members(g)
-            reloadLatest(g)
-            ensureMedia(g)
-            // Помечаем прочитанным только если экран реально виден.
-            if (shouldMarkRead(appVisible, true)) runCatching { core.markRead(g) }
+        scope.launch {
+            val seq = ++refreshSeq
+            val group = currentGroup
+            val snapshot = withContext(Dispatchers.IO) { snapshots.load(group, appVisible) }
+            if (seq != refreshSeq) return@launch
+            if (!sameGroup(group, currentGroup)) return@launch
+            applySnapshot(snapshot)
         }
-        unread = ids.associate { it.toHex() to core.unreadCount(it) }
-        memberCounts = ids.associate { it.toHex() to core.members(it).size }
-        myNickname = core.myNickname()
-        val nicks = core.allNicknames().associate { it.peerId.toHex() to it.nickname }.toMutableMap()
-        myNickname?.takeIf { it.isNotBlank() }?.let { nicks[peerId] = it }
-        nicknames = nicks
-        val freshAvatars = runCatching { core.avatars() }
-            .getOrDefault(emptyList())
-            .associate { it.peerId.toHex() to it.avatar }
-        if (!sameAvatars(avatars, freshAvatars)) avatars = freshAvatars
-        groupAvatars = ids.mapNotNull { g ->
-            runCatching { core.groupAvatar(g) }.getOrNull()?.let { g.toHex() to it }
-        }.toMap()
-        ownerLastSeen = currentGroup?.let {
-            runCatching { core.ownerLastSeen(it) }.getOrDefault(0uL).toLong() * 1000L
-        } ?: 0L
-        val elections = ids.associateBy(
-            { it.toHex() },
-            { runCatching { core.ownerElection(it) }.getOrNull() },
-        )
-        ownerElection = currentGroup?.let { elections[it.toHex()] }
-        ownerEpoch = currentGroup?.let { runCatching { core.ownerEpoch(it) }.getOrDefault(0uL) } ?: 0uL
-        currentGroup?.let { g ->
+    }
+
+    private fun applySnapshot(s: Snapshot) {
+        blocked = s.blocked
+        groupInfos = s.groupInfos
+        currentGroupName = s.currentGroupName
+        isOwner = s.isOwner
+        ownerId = s.ownerId
+        members = s.members
+        messages = s.messages
+        hasMore = s.hasMore
+        if (!sameAvatars(avatars, s.avatars)) avatars = s.avatars
+        unread = s.unread
+        memberCounts = s.memberCounts
+        myNickname = s.myNickname
+        nicknames = s.nicknames
+        groupAvatars = s.groupAvatars
+        ownerLastSeen = s.ownerLastSeen
+        ownerElection = s.group?.let { s.elections[it.toHex()] }
+        ownerEpoch = s.ownerEpoch
+        ownerChallengeAt = s.ownerChallengeAt
+        currentGroupNeighbors = s.neighborCount
+        s.group?.let { g ->
             val seen = ownerEpochSeen[g.toHex()]
-            if (seen != null && ownerEpoch > seen) ownerChangeNotice = currentGroupName
-            ownerEpochSeen[g.toHex()] = ownerEpoch
+            if (seen != null && s.ownerEpoch > seen) ownerChangeNotice = s.currentGroupName
+            ownerEpochSeen[g.toHex()] = s.ownerEpoch
         }
-        ownerChallengeAt = currentGroup?.let { runCatching { core.ownerChallengeAt(it) }.getOrDefault(0uL) } ?: 0uL
-        groupInfos.forEach { gi -> maybeNotifyOwnerElection(gi, elections[gi.id.toHex()]) }
-        val knownGroups = groupInfos.map { it.id.toHex() }.toSet()
+        s.groupInfos.forEach { gi ->
+            maybeNotifyOwnerElection(gi, s.elections[gi.id.toHex()], s.ownerFlags[gi.id.toHex()] == true)
+        }
+        val knownGroups = s.groupInfos.map { it.id.toHex() }.toSet()
         ownerNotified.keys.filter { it !in knownGroups }.forEach { clearOwnerNotice(it) }
+        if (!sameBytes(groupAvatarBytes, s.groupAvatarBytes)) groupAvatarBytes = s.groupAvatarBytes
+        s.group?.let { ensureMedia(it) }
         maybeOwnerHeartbeat()
-        currentGroup?.let { g ->
-            val fresh = runCatching { core.groupAvatar(g) }.getOrNull()
-            val cur = groupAvatarBytes
-            val same = (cur == null && fresh == null) ||
-                (cur != null && fresh != null && cur.contentEquals(fresh))
-            if (!same) groupAvatarBytes = fresh
-        }
     }
 
     /** Задать свой аватар и разослать профиль. */
     fun setAvatar(bytes: ByteArray) {
-        runCatching { core.setAvatar(bytes) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        refresh()
+        runCoreOut { it.setAvatar(bytes) }
     }
 
     private fun maybeOwnerHeartbeat() {
@@ -864,12 +767,15 @@ object ChatRuntime {
         val now = System.currentTimeMillis()
         if (now - (ownerHeartbeatAt[key] ?: 0L) < 12 * 60 * 60_000L) return
         ownerHeartbeatAt[key] = now
-        runCatching { core.ownerAlive(g) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
+        scope.launch {
+            val out = withContext(Dispatchers.IO) {
+                runCatching { core.ownerAlive(g) }.getOrNull()
+            }
+            out?.let { transport.sendTargets(it.envelope, it.targets) }
         }
     }
 
-    private fun maybeNotifyOwnerElection(group: GroupInfo, election: FfiOwnerElection?) {
+    private fun maybeNotifyOwnerElection(group: GroupInfo, election: FfiOwnerElection?, iAmOwner: Boolean) {
         val key = group.id.toHex()
         if (election == null) {
             clearOwnerNotice(key)
@@ -881,7 +787,6 @@ object ChatRuntime {
         }
         val iAmClaimant = election.claims.any { it.claimant.toHex() == peerId }
         val iVoted = election.votes.any { it.voter.toHex() == peerId }
-        val iAmOwner = runCatching { core.isOwner(group.id) }.getOrDefault(false)
         val ownerNeedsVote = iAmOwner && election.trigger.toInt() == 1
         if (iAmClaimant || iVoted || (iAmOwner && !ownerNeedsVote)) {
             clearOwnerNotice(key)
@@ -905,31 +810,39 @@ object ChatRuntime {
     /** Подать заявку на владение: 0 — отсутствие, 1 — вызов, 2 — авто. */
     fun claimOwner(trigger: Int) {
         val g = currentGroup ?: return
-        val out = runCatching { core.createOwnerClaim(g, trigger.toUInt()) }.getOrNull()
-        if (out == null) {
-            refresh()
-            val msg = when {
-                ownerElection != null -> R.string.owner_election_title
-                members.size <= 2 -> R.string.owner_two_people_hint
-                else -> R.string.owner_claim_unavailable
+        scope.launch {
+            val out = withContext(Dispatchers.IO) {
+                runCatching { core.createOwnerClaim(g, trigger.toUInt()) }.getOrNull()
             }
-            Toast.makeText(app, app.getString(msg), Toast.LENGTH_LONG).show()
-            return
+            if (out == null) {
+                refresh()
+                val msg = when {
+                    ownerElection != null -> R.string.owner_election_title
+                    members.size <= 2 -> R.string.owner_two_people_hint
+                    else -> R.string.owner_claim_unavailable
+                }
+                Toast.makeText(app, app.getString(msg), Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            transport.sendTargets(out.envelope, out.targets)
+            refresh()
         }
-        transport.sendTargets(out.envelope, out.targets)
-        refresh()
     }
 
     /** Голос за заявку или за сохранение владельца. */
     fun voteOwner(claimId: ByteArray, approve: Boolean, keep: Boolean) {
         val g = currentGroup ?: return
-        val out = runCatching { core.ownerVote(g, claimId, approve, keep) }.getOrNull()
-        if (out == null) {
-            Toast.makeText(app, app.getString(R.string.owner_vote_unavailable), Toast.LENGTH_SHORT).show()
-            return
+        scope.launch {
+            val out = withContext(Dispatchers.IO) {
+                runCatching { core.ownerVote(g, claimId, approve, keep) }.getOrNull()
+            }
+            if (out == null) {
+                Toast.makeText(app, app.getString(R.string.owner_vote_unavailable), Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            transport.sendTargets(out.envelope, out.targets)
+            refresh()
         }
-        transport.sendTargets(out.envelope, out.targets)
-        refresh()
     }
 
     /** Оставить текущего владельца (голос keep при вызове). */
@@ -938,35 +851,47 @@ object ChatRuntime {
     private fun maybeAdvanceOwnerElection() {
         val g = currentGroup ?: return
         val now = System.currentTimeMillis()
-        val election = runCatching { core.ownerElection(g) }.getOrNull()
-        if (election != null) {
-            if (now >= election.endsAt.toLong() * 1000L) {
-                runCatching { core.finalizeOwnerElection(g) }.getOrNull()?.let {
-                    transport.sendTargets(it.envelope, it.targets)
-                }
-                refresh()
-            }
-            return
-        }
-        if (isOwner || ownerLastSeen <= 0L) return
-        if (now - ownerLastSeen < 8 * 86_400_000L) return
+        val ownerNow = isOwner
+        val lastSeen = ownerLastSeen
         val key = g.toHex()
-        if (now - (ownerAutoAt[key] ?: 0L) < 10 * 60_000L) return
-        ownerAutoAt[key] = now
-        runCatching { core.createOwnerClaim(g, 2u) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
+        val shouldAuto = !ownerNow && lastSeen > 0L && now - lastSeen >= 8 * 86_400_000L &&
+            now - (ownerAutoAt[key] ?: 0L) >= 10 * 60_000L
+        if (shouldAuto) ownerAutoAt[key] = now
+        scope.launch {
+            val election = withContext(Dispatchers.IO) {
+                runCatching { core.ownerElection(g) }.getOrNull()
+            }
+            if (election != null) {
+                if (now >= election.endsAt.toLong() * 1000L) {
+                    val out = withContext(Dispatchers.IO) {
+                        runCatching { core.finalizeOwnerElection(g) }.getOrNull()
+                    }
+                    out?.let { transport.sendTargets(it.envelope, it.targets) }
+                    refresh()
+                }
+                return@launch
+            }
+            if (!shouldAuto) return@launch
+            val out = withContext(Dispatchers.IO) {
+                runCatching { core.createOwnerClaim(g, 2u) }.getOrNull()
+            }
+            out?.let { transport.sendTargets(it.envelope, it.targets) }
             refresh()
         }
     }
 
     fun blockPeer(peerId: ByteArray) {
-        runCatching { core.blockPeer(peerId) }
-        refresh()
+        scope.launch {
+            withContext(Dispatchers.IO) { runCatching { core.blockPeer(peerId) } }
+            refresh()
+        }
     }
 
     fun unblockPeer(peerId: ByteArray) {
-        runCatching { core.unblockPeer(peerId) }
-        refresh()
+        scope.launch {
+            withContext(Dispatchers.IO) { runCatching { core.unblockPeer(peerId) } }
+            refresh()
+        }
     }
 
     /** Отправить подписанную жалобу на сервер (метаданные + скриншот). */
@@ -979,26 +904,18 @@ object ChatRuntime {
         screenshot: ByteArray?,
         onResult: (Boolean) -> Unit,
     ) {
-        val rep = runCatching {
-            core.createReport(reportedPeer, groupId, messageId, reason, note, screenshot ?: ByteArray(0))
-        }.getOrNull()
-        if (rep == null) {
-            onResult(false)
-            return
-        }
         scope.launch {
-            val ok = withContext(Dispatchers.IO) {
+            val rep = withContext(Dispatchers.IO) {
                 runCatching {
-                    val body = JSONObject()
-                        .put("report", Base64.encodeToString(rep.payload, Base64.NO_WRAP))
-                        .put("signature", Base64.encodeToString(rep.signature, Base64.NO_WRAP))
-                        .toString()
-                    val req = Request.Builder()
-                        .url(REPORT_URL)
-                        .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
-                        .build()
-                    reportClient.newCall(req).execute().use { it.isSuccessful }
-                }.getOrDefault(false)
+                    core.createReport(reportedPeer, groupId, messageId, reason, note, screenshot ?: ByteArray(0))
+                }.getOrNull()
+            }
+            if (rep == null) {
+                onResult(false)
+                return@launch
+            }
+            val ok = withContext(Dispatchers.IO) {
+                ReportSender.send(REPORT_URL, rep.payload, rep.signature)
             }
             onResult(ok)
         }
@@ -1019,36 +936,24 @@ object ChatRuntime {
         val g = currentGroup ?: return
         val n = name.trim()
         if (n.isBlank()) return
-        runCatching { core.renameGroup(g, n) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        refresh()
+        runCoreOut { it.renameGroup(g, n) }
     }
 
     /** Удалить своё сообщение. */
     fun deleteMessage(id: ByteArray) {
         val g = currentGroup ?: return
-        runCatching { core.deleteMessage(g, id) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        refresh()
+        runCoreOut { it.deleteMessage(g, id) }
     }
 
     /** Сменить аватар группы (владелец). */
     fun setGroupAvatar(bytes: ByteArray) {
         val g = currentGroup ?: return
-        runCatching { core.setGroupAvatar(g, bytes) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        refresh()
+        runCoreOut { it.setGroupAvatar(g, bytes) }
     }
 
     /** Задать свой никнейм и разослать его. */
     fun setNickname(name: String) {
-        runCatching { core.setNickname(name.trim()) }.getOrNull()?.let {
-            transport.sendTargets(it.envelope, it.targets)
-        }
-        refresh()
+        runCoreOut { it.setNickname(name.trim()) }
     }
 
     private fun reloadLatest(g: ByteArray) {
@@ -1060,11 +965,14 @@ object ChatRuntime {
     fun loadOlder() {
         val g = currentGroup ?: return
         val oldest = messages.firstOrNull() ?: return
-        val page = core.historyWindow(g, oldest.id, PAGE_SIZE.toUInt())
-        if (page.messages.isNotEmpty()) {
-            messages = page.messages + messages
+        scope.launch {
+            val page = withContext(Dispatchers.IO) {
+                runCatching { core.historyWindow(g, oldest.id, PAGE_SIZE.toUInt()) }.getOrNull()
+            } ?: return@launch
+            if (!sameGroup(g, currentGroup)) return@launch
+            if (page.messages.isNotEmpty()) messages = page.messages + messages
+            ensureMedia(g)
+            hasMore = page.hasMore
         }
-        ensureMedia(g)
-        hasMore = page.hasMore
     }
 }

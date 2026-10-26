@@ -72,12 +72,7 @@ pub fn validate(payload: &[u8], signature: &[u8], now: u64) -> Result<Report, St
     Ok(r)
 }
 
-fn allow(
-    map: &KeyRate,
-    key: &[u8],
-    max: usize,
-    window: Duration,
-) -> bool {
+fn allow(map: &KeyRate, key: &[u8], max: usize, window: Duration) -> bool {
     let mut m = map.lock().unwrap();
     let v = m.entry(key.to_vec()).or_default();
     v.retain(|t| t.elapsed() < window);
@@ -99,10 +94,7 @@ fn allow_ip(map: &IpRate, key: &str) -> bool {
     true
 }
 
-fn fresh_dedup(
-    map: &Dedup,
-    key: (Vec<u8>, Vec<u8>, Vec<u8>),
-) -> bool {
+fn fresh_dedup(map: &Dedup, key: (Vec<u8>, Vec<u8>, Vec<u8>)) -> bool {
     let mut m = map.lock().unwrap();
     m.retain(|_, t| t.elapsed() < Duration::from_secs(24 * 3600));
     if m.contains_key(&key) {
@@ -146,10 +138,11 @@ async fn handle_report(
         .trim()
         .to_string();
 
-    if !allow(&st.per_key, &report.reporter_key, PER_KEY, WINDOW)
-        || !allow_ip(&st.per_ip, &ip)
-    {
-        return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error":"rate limit"})));
+    if !allow(&st.per_key, &report.reporter_key, PER_KEY, WINDOW) || !allow_ip(&st.per_ip, &ip) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error":"rate limit"})),
+        );
     }
 
     let dedup = (
@@ -204,7 +197,11 @@ pub async fn serve(addr: &str, dir: PathBuf) -> anyhow::Result<()> {
         .route("/report", post(handle_report))
         .layer(DefaultBodyLimit::max(MAX_BODY))
         .with_state(st);
-    info!("report endpoint on {} (dir {})", listener.local_addr()?, dir.display());
+    info!(
+        "report endpoint on {} (dir {})",
+        listener.local_addr()?,
+        dir.display()
+    );
     axum::serve(listener, app).await?;
     Ok(())
 }

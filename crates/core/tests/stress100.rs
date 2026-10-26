@@ -45,7 +45,11 @@ struct Post {
     action: Action,
 }
 
-fn snapshot(e: &GossipEngine, ids: &[Vec<u8>], texts: &[String]) -> Vec<(Vec<u8>, String, bool, bool)> {
+fn snapshot(
+    e: &GossipEngine,
+    ids: &[Vec<u8>],
+    texts: &[String],
+) -> Vec<(Vec<u8>, String, bool, bool)> {
     ids.iter()
         .zip(texts)
         .map(|(id, base)| {
@@ -74,7 +78,9 @@ fn stress_100_groups_30_users() {
             }
         }
         let owner = members[0];
-        let gid = engines[owner].create_named_group(&format!("group-{gi}")).unwrap();
+        let gid = engines[owner]
+            .create_named_group(&format!("group-{gi}"))
+            .unwrap();
 
         for &m in &members[1..] {
             let inv = engines[owner].create_invite(&gid, 3600, 1).unwrap();
@@ -108,7 +114,13 @@ fn stress_100_groups_30_users() {
             } else {
                 Action::Keep
             };
-            posts.push(Post { author: u, gid, id, text, action });
+            posts.push(Post {
+                author: u,
+                gid,
+                id,
+                text,
+                action,
+            });
             seed.push((u, out));
         }
     }
@@ -144,7 +156,10 @@ fn stress_100_groups_30_users() {
             .post_edit(&sample.gid, &sample.id, "hack".into())
             .unwrap()
             .is_none());
-        assert!(engines[other].post_delete(&sample.gid, &sample.id).unwrap().is_none());
+        assert!(engines[other]
+            .post_delete(&sample.gid, &sample.id)
+            .unwrap()
+            .is_none());
     }
 
     // --- консистентность по каждой группе ---
@@ -155,12 +170,20 @@ fn stress_100_groups_30_users() {
         let texts: Vec<String> = ordered.iter().map(|m| m.text.clone()).collect();
         let expected = posts.iter().filter(|p| &p.gid == gid).count();
         assert_eq!(ids.len(), expected, "все посты группы доехали");
-        assert_eq!(ids.iter().collect::<HashSet<_>>().len(), ids.len(), "без дублей");
+        assert_eq!(
+            ids.iter().collect::<HashSet<_>>().len(),
+            ids.len(),
+            "без дублей"
+        );
 
         let owner_snap = snapshot(&engines[owner], &ids, &texts);
         for &u in members {
             assert!(engines[u].has_group(gid), "участник {u} в группе");
-            assert_eq!(engines[u].members(gid).len(), members.len(), "состав группы {u}");
+            assert_eq!(
+                engines[u].members(gid).len(),
+                members.len(),
+                "состав группы {u}"
+            );
             let member_ids: Vec<Vec<u8>> = engines[u]
                 .log()
                 .ordered(gid)
@@ -168,7 +191,11 @@ fn stress_100_groups_30_users() {
                 .map(|m| m.id.clone())
                 .collect();
             assert_eq!(member_ids, ids, "у {u} тот же набор и порядок");
-            assert_eq!(snapshot(&engines[u], &ids, &texts), owner_snap, "у {u} те же тексты/удаления");
+            assert_eq!(
+                snapshot(&engines[u], &ids, &texts),
+                owner_snap,
+                "у {u} те же тексты/удаления"
+            );
         }
 
         // Посторонний не состоит в группе и не видит её.
@@ -180,11 +207,18 @@ fn stress_100_groups_30_users() {
     // --- выход и повторный вход в первой группе ---
     let (gid, members) = groups[0].clone();
     let leaver = members[1];
-    let leave = engines[leaver].leave_group(&gid).unwrap().expect("Leave-конверт");
+    let leave = engines[leaver]
+        .leave_group(&gid)
+        .unwrap()
+        .expect("Leave-конверт");
     pump(&mut engines, &keys, vec![(leaver, leave)]);
     for &u in &members {
         if u != leaver {
-            assert_eq!(engines[u].members(&gid).len(), members.len() - 1, "ушедшего удалили");
+            assert_eq!(
+                engines[u].members(&gid).len(),
+                members.len() - 1,
+                "ушедшего удалили"
+            );
         }
     }
 

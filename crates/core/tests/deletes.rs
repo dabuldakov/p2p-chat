@@ -37,17 +37,30 @@ fn rename_propagates_and_only_owner() {
     assert_eq!(joiner.group_name(&g), "Old name");
 
     // не-владелец переименовать не может
-    assert!(joiner.set_group_name(&g, "Hacked".into()).unwrap().is_none());
+    assert!(joiner
+        .set_group_name(&g, "Hacked".into())
+        .unwrap()
+        .is_none());
 
     // владелец меняет имя; аватар при этом не теряется
-    let av = host.set_group_avatar(&g, vec![1, 2, 3]).unwrap().expect("avatar");
+    let av = host
+        .set_group_avatar(&g, vec![1, 2, 3])
+        .unwrap()
+        .expect("avatar");
     let _ = joiner.handle(&enc(&av));
     assert_eq!(joiner.group_avatar(&g), Some(vec![1, 2, 3]));
 
-    let out = host.set_group_name(&g, "New name".into()).unwrap().expect("rename");
+    let out = host
+        .set_group_name(&g, "New name".into())
+        .unwrap()
+        .expect("rename");
     let _ = joiner.handle(&enc(&out));
 
     assert_eq!(host.group_name(&g), "New name");
     assert_eq!(joiner.group_name(&g), "New name");
-    assert_eq!(joiner.group_avatar(&g), Some(vec![1, 2, 3]), "имя не стирает аватар");
+    assert_eq!(
+        joiner.group_avatar(&g),
+        Some(vec![1, 2, 3]),
+        "имя не стирает аватар"
+    );
 }
